@@ -1,0 +1,134 @@
+<script setup lang="ts">
+definePageMeta({
+     layout: 'admin',
+     middleware: ['permission'],
+     permissions: 'departments'
+     
+    });
+
+const { $axios } = useNuxtApp();
+
+import { on } from 'events';
+import {ref,onMounted} from 'vue';
+
+import  {useProductsManufacture } from '~/data/ProductsManufacture';
+
+const { getManufactures } = useProductsManufacture();
+
+interface Manufacture {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+}
+const manufactures = ref<Manufacture[]>([]);
+
+const name = ref<string>('');
+
+const submit = async () => {
+    try {
+        const response = await $axios.post('/api/productmanufacture', { name: name.value });
+        console.log('Manufacture created:', response.data);
+        // Optionally, you can reset the form or redirect
+        name.value = '';
+    } catch (error) {
+        console.error('Error creating manufacture:', error);
+    }
+};
+
+
+onMounted(async () => {
+    try {
+        const response = await getManufactures();
+        console.log('Manufactures:', response);
+    } catch (error) {
+        console.error('Error fetching manufactures:', error);
+    }
+});
+
+</script>
+<template>
+
+      <div class="dashboard-main-body">
+
+
+         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Create Manufacture</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Create Manufacture</li>
+        </ul>
+    </div>
+
+
+    <div class="card h-100 p-0 radius-12 overflow-hidden">
+        <div class="card-body p-40">
+            <form @submit.prevent="submit()"  class="row g-4">
+                <div class="row">
+
+                    <div class="col-sm-12">
+
+
+                         
+
+                        <div class="mb-20">
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Name <span class="text-danger-600">*</span> {{ name }}</label>
+                            <input type="text" class="form-control radius-8" id="address" v-model="name" placeholder="Enter Your Name">
+                        </div>
+
+
+                        <div class="mb-20">
+
+                            <div class="card h-100 p-0">
+                                <div class="card-header border-bottom bg-base py-16 px-24">
+                                    <h6 class="text-lg fw-semibold mb-0">Upload With image preview</h6>
+                                </div>
+                                <div class="card-body p-24">
+
+                                    <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
+                                        <div class="uploaded-imgs-container d-flex gap-3 flex-wrap"></div>
+
+                                        <label class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1" for="upload-file-multiple">
+                                            <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
+                                            <span class="fw-semibold text-secondary-light">Upload</span>
+                                            <input id="upload-file-multiple" type="file" hidden multiple>
+                                        </label>
+                                    </div>
+
+                                </div>
+                            </div>
+
+
+
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
+                        <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
+                            Reset
+                        </button>
+                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
+                            Save Change
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+
+
+
+     </div>
+
+   
+    
+</template>

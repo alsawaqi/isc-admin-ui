@@ -5,11 +5,12 @@ services:
     working_dir: /app
     volumes:
       - ./nuxt-app:/app
-    command: sh -c "npm run dev"
+    command: sh -c "npm install && npx nuxt dev"
+
     ports:
       - "3000:3000" # Port exposed directly to your host
     networks:
-      - nuxt-net
+      - proxy_network
     environment:
       - HOST=0.0.0.0
       - CHOKIDAR_USEPOLLING=true
@@ -24,7 +25,7 @@ services:
     depends_on:
       - nuxt
     networks:
-      - nuxt-net
+      - proxy_network
 
 networks:
-  nuxt-net:
+  proxy_network:

@@ -4,60 +4,56 @@ definePageMeta({
      middleware: ['permission'],
      permissions: 'departments'
      
-    })
-import {ref} from 'vue';
-import { useProductType } from '~/data/producttype'
+    });
 
-const {getProductType} = useProductType();
 const { $axios } = useNuxtApp();
 
+import {ref,onMounted} from 'vue';
+import { useProductsBrands } from '~/data/ProductsBrands';
 
 
-interface ProductType {
-  id: number | string;
-  name: string;
-    created_at?: string;
-    updated_at?: string;
-  }
+const { getProductBrands } = useProductsBrands();
 
- const name = ref<string>('');
-const productTypes = ref<ProductType[]>([]);
+interface ProductBrand {
+    id: number;
+    name: string;
+    created_at: string;
+    updated_at: string;
+}
 
- const submitForm = async () => {
-    
-     try{
-        // Add validation logic here if needed
-      await $axios.post('/api/producttype', { name: name.value });
-        name.value = '';
-        alert('Product Type created successfully');
-     } catch (error) {
-        alert('Failed to create product type: ' + error);
+const productBrands = ref<ProductBrand[]>([]);
 
-     }finally {
-        name.value = '';
-        productTypes.value = await getProductType();
-    } 
+const name = ref<string>('');
 
-  };
-
-
-  onMounted(async () => {
+const submit = async () => {
     try {
-        productTypes.value = await getProductType();
+        const response = await $axios.post('/api/productbrands', { name: name.value });
+       
+        name.value = ''; // Clear the input after submission
     } catch (error) {
-        console.error('Failed to load product types:', error);
+      
+    }finally {
+        // Optionally, you can refresh the list of product brands after submission
+        productBrands.value = await getProductBrands();
     }
-  });
+};
 
+onMounted(async () => {
+    try {
+        productBrands.value = await getProductBrands();
+    } catch (error) {
+        console.error('Error fetching product brands:', error);
+    }
+});
 
 </script>
 <template>
 
-     <div class="dashboard-main-body">
+    <div class="dashboard-main-body">
 
 
          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Create Product Types</h6>
+        <h6 class="fw-semibold mb-0">Create Brands</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -66,14 +62,14 @@ const productTypes = ref<ProductType[]>([]);
                 </a>
             </li>
             <li>-</li>
-            <li class="fw-medium">Create Product Type</li>
+            <li class="fw-medium">Create Brands</li>
         </ul>
     </div>
 
 
     <div class="card h-100 p-0 radius-12 overflow-hidden">
         <div class="card-body p-40">
-            <form @submit.prevent="submitForm()"  class="row g-4">
+            <form @submit.prevent="submit()"  class="row g-4">
                 <div class="row">
 
                     <div class="col-sm-12">
@@ -133,8 +129,7 @@ const productTypes = ref<ProductType[]>([]);
      </div>
 
 
-
-     <div class="dashboard-main-body">
+      <div class="dashboard-main-body">
 
 
 
@@ -192,11 +187,11 @@ const productTypes = ref<ProductType[]>([]);
                         </tr>
                     </thead>
                      <tbody>
-  <tr v-for="(producttype, index) in productTypes" :key="producttype.id">
+  <tr v-for="(productBrand, index) in productBrands" :key="productBrand.id">
     <td>
       <div class="form-check style-check d-flex align-items-center">
-        <input class="form-check-input" type="checkbox" :id="'check-' + producttype.id" />
-        <label class="form-check-label" :for="'check-' + producttype.id">
+        <input class="form-check-input" type="checkbox" :id="'check-' + productBrand.id" />
+        <label class="form-check-label" :for="'check-' + productBrand.id">
           {{ index + 1 }}
         </label>
       </div>
@@ -206,7 +201,7 @@ const productTypes = ref<ProductType[]>([]);
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
         <img src="/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
-        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ producttype.name }}</h6>
+        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ productBrand.name }}</h6>
       </div>
     </td>
 
@@ -255,6 +250,5 @@ const productTypes = ref<ProductType[]>([]);
 
 
     </div>
- 
-
+    
 </template>
