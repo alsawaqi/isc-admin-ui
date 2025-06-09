@@ -27,11 +27,11 @@ const productTypes = ref<ProductType[]>([]);
     
      try{
         // Add validation logic here if needed
-      await $axios.post('/api/producttype', { name: name.value });
+        await $axios.post('/api/producttype', { name: name.value });
         name.value = '';
         alert('Product Type created successfully');
-     } catch (error) {
-        alert('Failed to create product type: ' + error);
+     } catch (error: any) {
+        alert('Failed to create product type: ' + (error?.response?.data?.message || error?.message));
 
      }finally {
         name.value = '';

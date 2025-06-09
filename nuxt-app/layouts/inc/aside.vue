@@ -64,7 +64,7 @@ onMounted(() => {
         <li v-if="hasPermission('product brands')"><NuxtLink to="/admin/product/brands">Product Brands</NuxtLink></li>
         <li v-if="hasPermission('product manufacture')"><NuxtLink to="/admin/product/manufacture">Product Manufacture</NuxtLink></li>
         <li v-if="hasPermission('product master')"><NuxtLink to="/admin/product">Product Master</NuxtLink></li>
-        <li v-if="hasPermission('product activation')"><a href="/viewproducts">Product Activation</a></li>
+        <li v-if="hasPermission('product activation')"><NuxtLink to="/admin/product/viewproducts">Product Activation</NuxtLink></li>
         <li v-if="hasPermission('product reports')"><a href="/productreports">Product Reports</a></li>
       </ul>
     </li>

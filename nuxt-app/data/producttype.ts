@@ -1,10 +1,7 @@
 export const useProductType = () => {
   const { $axios } = useNuxtApp();
     
-  
-  
-  
-  const getProductType = async () => {
+   const getProductType = async () => {
         try {
         const response = await $axios.get('/api/producttype');
         return response.data.data;
