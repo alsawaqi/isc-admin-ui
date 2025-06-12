@@ -81,8 +81,13 @@ const getsubDepartments = async () => {
   }
 };
 
+const showProductCategory = ref(false)
+const showDepartments = ref(false)
+const showSubDepartments = ref(false)
+const showSubSubDepartments = ref(false)
 
 
+const arrowDepartments = computed(() => showDepartments.value ? '▾' : '▸')
 
 onMounted(async () => {
     
@@ -215,7 +220,22 @@ onMounted(async () => {
                 
             </div>
             <div class="card-body">
-                <table class="table bordered-table mb-0">
+
+                <div class="ml-4">
+    <!-- Top Level -->
+    <p class="font-bold text-gray-700">View Categories</p>
+
+    <!-- Product Category -->
+   
+
+    <!-- Nested: Department Tree -->
+    <div  class="ml-6">
+      <p class="cursor-pointer text-cyan-600 hover:underline" @click="showDepartments = !showDepartments">
+       {{ arrowDepartments }} Departments
+      </p>
+      <div v-if="showDepartments" class="ml-6">
+        <!-- Replace with your department table -->
+         <table class="table bordered-table mb-0">
                     <thead>
                         <tr>
                             <th scope="col">
@@ -278,6 +298,74 @@ onMounted(async () => {
 
                     </tbody>
                 </table>
+      </div>
+
+   
+    </div>
+  </div>
+                <!-- <table class="table bordered-table mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                <div class="form-check style-check d-flex align-items-center">
+                                    <input class="form-check-input" type="checkbox" value="" id="checkAll">
+                                    <label class="form-check-label" for="checkAll">
+                                        S.L
+                                    </label>
+                                </div>
+                            </th>
+
+                            <th scope="col">Department</th>
+
+                            <th scope="col">Name</th>
+
+
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr v-for="(subDept, index) in subDepartments" :key="subDept.id">
+                            <td>
+                                <div class="form-check style-check d-flex align-items-center">
+                                    <input class="form-check-input" type="checkbox" value="" id="check2">
+                                    <label class="form-check-label" for="check2">
+                                        {{ index + 1 }}
+                                    </label>
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="/public/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
+                                    <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ subDept.product_department?.Product_Department_Name }}</h6>
+                                </div>
+                            </td>
+
+
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="/public/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
+                                    <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ subDept.name }}</h6>
+                                </div>
+                            </td>
+
+
+                            <td>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
+                                </a>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <iconify-icon icon="lucide:edit"></iconify-icon>
+                                </a>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                                </a>
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table> -->
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
                     <span>Showing 1 to 10 of 12 entries</span>

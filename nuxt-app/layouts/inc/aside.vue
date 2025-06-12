@@ -43,7 +43,7 @@ onMounted(() => {
             Dashboard
           </a>
           <ul class="open" style="display: block;">
-            <li><NuxtLink  :to="'/admin'">eCommerce</NuxtLink></li>
+            <li><NuxtLink  to="'/admin'">eCommerce</NuxtLink></li>
           </ul>
         </li>
 
@@ -65,7 +65,7 @@ onMounted(() => {
         <li v-if="hasPermission('product manufacture')"><NuxtLink to="/admin/product/manufacture">Product Manufacture</NuxtLink></li>
         <li v-if="hasPermission('product master')"><NuxtLink to="/admin/product">Product Master</NuxtLink></li>
         <li v-if="hasPermission('product activation')"><NuxtLink to="/admin/product/viewproducts">Product Activation</NuxtLink></li>
-        <li v-if="hasPermission('product reports')"><a href="/productreports">Product Reports</a></li>
+        <li v-if="hasPermission('product reports')"><a href="#">Product Reports</a></li>
       </ul>
     </li>
 
@@ -86,9 +86,9 @@ onMounted(() => {
     <li v-if="hasPermission('invoice')" class="has-child">
       <a href="javascript:void(0)">Invoice</a>
       <ul class="open" style="display: block;">
-        <li v-if="hasPermission('invoice list')"><a href="/invoicelist">List</a></li>
-        <li v-if="hasPermission('invoice preview')"><a href="/invoice-preview">Preview</a></li>
-        <li v-if="hasPermission('invoice add new')"><a href="/invoice-add">Add new</a></li>
+        <li v-if="hasPermission('invoice list')"><a href="#">List</a></li>
+        <li v-if="hasPermission('invoice preview')"><a href="#">Preview</a></li>
+        <li v-if="hasPermission('invoice add new')"><a href="#">Add new</a></li>
       </ul>
     </li>
 
@@ -96,8 +96,8 @@ onMounted(() => {
     <li v-if="hasPermission('other services')" class="has-child">
       <a href="javascript:void(0)">Other Services</a>
       <ul class="open" style="display: block;">
-        <li v-if="hasPermission('free lancers')"><a href="/freelancers">Free Lancers</a></li>
-        <li v-if="hasPermission('collaborations')"><a href="/collab">Collaborations</a></li>
+        <li v-if="hasPermission('free lancers')"><a href="#">Free Lancers</a></li>
+        <li v-if="hasPermission('collaborations')"><a href="#">Collaborations</a></li>
       </ul>
     </li>
 
@@ -117,8 +117,8 @@ onMounted(() => {
           </ul>
         </li>
         <li v-if="hasPermission('system parameters')"><a href="#">System Parameters</a></li>
-        <li v-if="hasPermission('companies')"><a href="/company">Companies</a></li>
-        <li v-if="hasPermission('currencies')"><a href="/currency">Currencies</a></li>
+        <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
+        <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>
         <li v-if="hasPermission('merchant')"><a href="#">Merchant</a></li>
         <li v-if="hasPermission('couriers')"><a href="#">Couriers</a></li>
         <li v-if="hasPermission('admin report')"><a href="#">Admin Report</a></li>

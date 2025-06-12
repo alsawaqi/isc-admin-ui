@@ -5,7 +5,6 @@ import Footer from './inc/footer.vue'
 
 if (process.client) {
   const scripts = [
-     
     '/isc-assets/js/lib/apexcharts.min.js',
     '/isc-assets/js/lib/dataTables.min.js',
     '/isc-assets/js/lib/iconify-icon.min.js',
