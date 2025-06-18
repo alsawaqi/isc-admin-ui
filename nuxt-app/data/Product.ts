@@ -9,6 +9,7 @@ export interface Product {
   name: string;
   name_ar: string;
   description: string;
+  inhouse_barcode: string;
   price: number;
   stock: number;
  

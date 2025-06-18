@@ -8,30 +8,28 @@ import { ref, onMounted } from 'vue'
 const { $axios } = useNuxtApp();
 
 
-interface Department {
-  id: number;
-  Product_Department_Code: string;
-  Product_Department_Name: string;
- 
+interface SubSubDepartment {
+  id: number
+  name: string
 }
 
 interface SubDepartment {
-  id: number;
-  name: string;
-  
+  id: number
+  name: string
+  sub_sub_departments: SubSubDepartment[]
 }
 
-interface SubSubDepartment {
-  id: number;
-  name: string;
-  product_sub_department: {
-    name: string;
-    product_department: {
-      Product_Department_Name: string;
-    };
-  };
+interface Department {
+  id: number
+  Product_Department_Code: string
+  Product_Department_Name: string
+  sub_departments: SubDepartment[]
 }
 
+
+const departments = ref<Department[]>([])
+const expandedDepartments = ref<{ [key: number]: boolean }>({})
+const expandedSubDepartments = ref<{ [key: number]: boolean }>({})
 const subSubDepartments = ref<SubSubDepartment[]>([]);
 
 const selectedDepartmentId = ref<number | null>(null);
@@ -39,7 +37,7 @@ const selectedSubDepartmentId = ref<number | null>(null);
 
 
 const subDepartments = ref<SubDepartment[]>([]);
-const departments = ref<Department[]>([]);
+ 
 const name = ref<string>('');
 
 
@@ -60,7 +58,7 @@ const getDepartments = async () => {
 
 const fetchSubSubDepartments = async () => {
   try {
-    const res = await $axios.get('/api/sub-sub-departments');
+    const res = await $axios.get('/api/full-product-department-tree');
     subSubDepartments.value = res.data;
     console.log('Fetched:', res.data);
   } catch (error) {
@@ -84,8 +82,32 @@ const fetchSubDepartments = async () => {
 
 
 
+const fetchFullTree = async () => {
+  try {
+    const res = await $axios.get('/api/full-product-department-tree')
+    departments.value = res.data
+  } catch (err) {
+    console.error('Failed to fetch department tree:', err)
+  }
+}
+
+
+const toggleDepartment = (id: number) => {
+  expandedDepartments.value[id] = !expandedDepartments.value[id]
+}
+
+const toggleSubDepartment = (id: number) => {
+  expandedSubDepartments.value[id] = !expandedSubDepartments.value[id]
+}
+
+
 const handleSubmit = async () => {
   try {
+    if (!selectedSubDepartmentId.value || !name.value) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     const payload = {
       product_sub_department_id: selectedSubDepartmentId.value,
       name: name.value
@@ -93,9 +115,14 @@ const handleSubmit = async () => {
 
     await $axios.post('/api/sub-sub-departments', payload);
     alert('Saved successfully!');
-  await fetchSubSubDepartments();
-    name.value = ''; // Clear the input field after saving
-    selectedSubDepartmentId.value = null; 
+    
+    // ✅ Reload full tree so the UI updates
+    await fetchFullTree();
+
+    // Reset form
+    name.value = '';
+    selectedSubDepartmentId.value = null;
+
   } catch (error: any) {
     alert('Failed to save: ' + (error?.response?.data?.message || 'Unknown error'));
     console.error(error.response?.data || error);
@@ -106,8 +133,10 @@ const handleSubmit = async () => {
 
 
 onMounted(async () => {
-    await fetchSubSubDepartments();
+   
     await getDepartments();
+
+    await fetchFullTree();
    
 
 });
@@ -119,7 +148,7 @@ onMounted(async () => {
 
     <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Sub Sub Department</h6>
+        <h6 class="fw-semibold mb-0" style="color: #41a5e3">Sub Sub Department</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -253,7 +282,35 @@ onMounted(async () => {
                 </div>
             </div>
             <div class="card-body">
-                <table class="table bordered-table mb-0">
+
+               <h5 class="fw-semibold mb-3">Department → Sub → Sub-Sub Tree</h5>
+
+<div class="tree-view ml-4">
+  <div v-for="dept in departments" :key="dept.id" class="relative pl-4 border-l-2 border-gray-300">
+    <div class="mb-2 cursor-pointer text-primary font-medium hover:underline" @click="toggleDepartment(dept.id)">
+      {{ expandedDepartments[dept.id] ? '▾' : '▸' }} {{ dept.Product_Department_Name }} - ({{ dept.sub_departments.length }})
+    </div>
+
+    <!-- Sub Departments -->
+    <div
+      v-if="expandedDepartments[dept.id]"
+      class="ml-4 border-l-2 border-gray-200 pl-4"
+    >
+      <div
+        v-for="sub in dept.sub_departments"
+        :key="sub.id"
+        class="relative"
+      >
+        <div
+          class="mb-2 cursor-pointer text-indigo-600 hover:underline"
+          @click="toggleSubDepartment(sub.id)"
+        >
+          {{ expandedSubDepartments[sub.id] ? '▾' : '▸' }} {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
+        </div>
+
+        <!-- Sub Sub Departments Table -->
+        <div v-if="expandedSubDepartments[sub.id]" class="ml-4 border-l-2 border-gray-100 pl-4">
+           <table class="table bordered-table mb-0">
                     <thead>
                         <tr>
                             <th scope="col">
@@ -265,9 +322,7 @@ onMounted(async () => {
                                 </div>
                             </th>
 
-                            <th scope="col">Department</th>
-
-                            <th scope="col">Sub Sub Department</th>
+                         
 
 
                             <th scope="col">Name</th>
@@ -277,43 +332,46 @@ onMounted(async () => {
                         </tr>
                     </thead>
                     <tbody>
-  <tr v-for="(item, index) in subSubDepartments" :key="item.id">
-    <td>
-      <div class="form-check style-check d-flex align-items-center">
-        <input class="form-check-input" type="checkbox" :id="'check' + index">
-        <label class="form-check-label" :for="'check' + index">
-          {{ index + 1 }}
-        </label>
-      </div>
-    </td>
+                      <tr v-for="(subsub,index) in sub.sub_sub_departments" :key="subsub.id">
+                        <td>
+                          <div class="form-check style-check d-flex align-items-center">
+                            <input class="form-check-input" type="checkbox" :id="'check' + index">
+                            <label class="form-check-label" :for="'check' + index">
+                              {{ index + 1 }}
+                            </label>
+                          </div>
+                        </td>
 
-    <td>
-      <h6 class="text-md mb-0 fw-medium">{{ item.product_sub_department.product_department.Product_Department_Name }}</h6>
-    </td>
+                        
 
-    <td>
-      <h6 class="text-md mb-0 fw-medium">{{ item.product_sub_department.name }}</h6>
-    </td>
+                        <td>
+                          <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
+                        </td>
 
-    <td>
-      <h6 class="text-md mb-0 fw-medium">{{ item.name }}</h6>
-    </td>
-
-    <td>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-      </a>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="lucide:edit"></iconify-icon>
-      </a>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-      </a>
-    </td>
-  </tr>
-</tbody>
+                        <td>
+                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                            <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
+                          </a>
+                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                            <iconify-icon icon="lucide:edit"></iconify-icon>
+                          </a>
+                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                            <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                          </a>
+                        </td>
+                      </tr>
+                    </tbody>
 
                 </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+ 
+                
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
                     <span>Showing 1 to 10 of 12 entries</span>

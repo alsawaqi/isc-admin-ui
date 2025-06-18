@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+ 
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
@@ -6,7 +8,7 @@ definePageMeta({
 })
 
 
-import { ref, onMounted } from 'vue'
+
 const { $axios } = useNuxtApp()
 
 interface Role {
@@ -68,7 +70,7 @@ onMounted(async () => {
 <template>
     <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Role & Access</h6>
+        <h6 class="fw-semibold mb-0" style="color: #22c55e">Role & Access</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">

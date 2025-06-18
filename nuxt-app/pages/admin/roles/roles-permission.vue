@@ -145,7 +145,7 @@ onMounted(() => {
 <template>
 <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Department</h6>
+        <h6 class="fw-semibold mb-0" style="color: #f43f5e">Permission</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <NuxtLink :to="'/admin'" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -154,7 +154,7 @@ onMounted(() => {
                 </NuxtLink>
             </li>
             <li>-</li>
-            <li class="fw-medium">Department</li>
+            <li class="fw-medium">Permission</li>
         </ul>
     </div>
 

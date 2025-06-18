@@ -13,12 +13,14 @@ import {ref,onMounted} from 'vue';
 interface Manufacture {
     id: number;
     name: string;
+    Department: string;
     created_at?: string;
     updated_at?: string;
 }
 
 const ProductManufactures = ref<Manufacture[]>([]);
 const name = ref<string>('');
+const department = ref<string>('');
 const loading = ref<boolean>(false);
 
 const getManufactures = async () => {
@@ -38,7 +40,7 @@ loading.value = true;
 
 const submit = async () => {
     try {
-        const response = await $axios.post('/api/productmanufacture', { name: name.value });
+        const response = await $axios.post('/api/productmanufacture', { name: name.value, department: department.value });
         console.log('Manufacture created:', response.data);
         // Optionally, you can reset the form or redirect
         name.value = '';
@@ -66,7 +68,7 @@ onMounted(async () => {
 
 
          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Create Manufacture</h6>
+        <h6 class="fw-semibold mb-0" style="color: #10b981">Create Manufacture</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -91,8 +93,14 @@ onMounted(async () => {
                          
 
                         <div class="mb-20">
-                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Name <span class="text-danger-600">*</span> {{ name }}</label>
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Name <span class="text-danger-600">*</span> </label>
                             <input type="text" class="form-control radius-8" id="address" v-model="name" placeholder="Enter Your Name">
+                        </div>
+
+
+                        <div class="mb-20">
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Department <span class="text-danger-600">*</span></label>
+                            <input type="text" class="form-control radius-8" id="address" v-model="department" placeholder="Enter Department Name">
                         </div>
 
 
@@ -197,6 +205,7 @@ onMounted(async () => {
                             </th>
 
                             <th scope="col">Name</th>
+                            <th scope="col">Department</th>
 
 
                             <th scope="col">Action</th>
@@ -220,6 +229,15 @@ onMounted(async () => {
         <!-- Optional static image -->
         <img src="/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
         <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.name }}</h6>
+      </div>
+    </td>
+
+
+    <td>
+      <div class="d-flex align-items-center">
+        <!-- Optional static image -->
+      
+        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.Department }}</h6>
       </div>
     </td>
 

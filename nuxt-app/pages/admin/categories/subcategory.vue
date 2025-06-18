@@ -19,18 +19,29 @@ interface SubDepartment {
   id: number;
   Product_Department_Code: string;
   product_department_id : number;
-  product_department : {
-     id: number;
-     Product_Department_Name: string;
-  },
   name: string;
  
 }
-const departments = ref<Department[]>([]);
-const subDepartments = ref<SubDepartment[]>([]);
+
+
+ 
+
+interface DepartmentWithSubs extends Department {
+  sub_departments: SubDepartment[];
+}
+
+
+const departments = ref<DepartmentWithSubs[]>([]);
+ 
 
 const selectedDepartmentId = ref<string>('');
 const name = ref<string>('');
+
+
+const expandedDepartments = ref<{ [key: number]: boolean }>({});
+const toggleDepartment = (id: number) => {
+  expandedDepartments.value[id] = !expandedDepartments.value[id];
+};
 
 
 const createSubDepartment = async (e: Event) => {
@@ -61,7 +72,7 @@ const getDepartments = async () => {
   try {
     const res = await $axios.get('/api/productdepartment');
     departments.value = res.data;
-    console.log('Departments:', res.data);
+   
   } catch (error) {
     console.error('Failed to load departments:', error);
   }
@@ -73,9 +84,8 @@ const getDepartments = async () => {
 
 const getsubDepartments = async () => {
   try {
-    const res = await $axios.get('/api/productsubdepartment');
-    subDepartments.value = res.data;
-
+    const res = await $axios.get('/api/product-departments-with-sub');
+     departments.value = res.data;
   } catch (error) {
     console.error('Failed to load sub departments:', error);
   }
@@ -101,7 +111,7 @@ onMounted(async () => {
 
 <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Sub Department</h6>
+        <h6 class="fw-semibold mb-0" style="color: #73da1b">Sub Department</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -229,11 +239,15 @@ onMounted(async () => {
    
 
     <!-- Nested: Department Tree -->
-    <div  class="ml-6">
-      <p class="cursor-pointer text-cyan-600 hover:underline" @click="showDepartments = !showDepartments">
-       {{ arrowDepartments }} Departments
-      </p>
-      <div v-if="showDepartments" class="ml-6">
+    <div  class="ml-6" v-for="dept in departments" :key="dept.id">
+      <p
+            class="cursor-pointer text-cyan-600 hover:underline"
+            @click="toggleDepartment(dept.id)"
+            >
+            {{ expandedDepartments[dept.id] ? '▾' : '▸' }} {{ dept.Product_Department_Name }}
+            </p>
+
+      <div v-if="expandedDepartments[dept.id]" class="ml-6">
         <!-- Replace with your department table -->
          <table class="table bordered-table mb-0">
                     <thead>
@@ -247,7 +261,7 @@ onMounted(async () => {
                                 </div>
                             </th>
 
-                            <th scope="col">Department</th>
+                          
 
                             <th scope="col">Name</th>
 
@@ -257,7 +271,7 @@ onMounted(async () => {
                     </thead>
                     <tbody>
 
-                        <tr v-for="(subDept, index) in subDepartments" :key="subDept.id">
+                        <tr v-for="(subDept, index) in dept.sub_departments" :key="subDept.id">
                             <td>
                                 <div class="form-check style-check d-flex align-items-center">
                                     <input class="form-check-input" type="checkbox" value="" id="check2">
@@ -267,12 +281,7 @@ onMounted(async () => {
                                 </div>
                             </td>
 
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img src="/public/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
-                                    <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ subDept.product_department?.Product_Department_Name }}</h6>
-                                </div>
-                            </td>
+                           
 
 
                             <td>
@@ -302,71 +311,11 @@ onMounted(async () => {
 
    
     </div>
+
+
+    
   </div>
-                <!-- <table class="table bordered-table mb-0">
-                    <thead>
-                        <tr>
-                            <th scope="col">
-                                <div class="form-check style-check d-flex align-items-center">
-                                    <input class="form-check-input" type="checkbox" value="" id="checkAll">
-                                    <label class="form-check-label" for="checkAll">
-                                        S.L
-                                    </label>
-                                </div>
-                            </th>
-
-                            <th scope="col">Department</th>
-
-                            <th scope="col">Name</th>
-
-
-                            <th scope="col">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-
-                        <tr v-for="(subDept, index) in subDepartments" :key="subDept.id">
-                            <td>
-                                <div class="form-check style-check d-flex align-items-center">
-                                    <input class="form-check-input" type="checkbox" value="" id="check2">
-                                    <label class="form-check-label" for="check2">
-                                        {{ index + 1 }}
-                                    </label>
-                                </div>
-                            </td>
-
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img src="/public/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
-                                    <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ subDept.product_department?.Product_Department_Name }}</h6>
-                                </div>
-                            </td>
-
-
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img src="/public/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
-                                    <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ subDept.name }}</h6>
-                                </div>
-                            </td>
-
-
-                            <td>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-                                    <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                                </a>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                                    <iconify-icon icon="lucide:edit"></iconify-icon>
-                                </a>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                                    <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-                                </a>
-                            </td>
-                        </tr>
-
-                    </tbody>
-                </table> -->
-
+           
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
                     <span>Showing 1 to 10 of 12 entries</span>
                     <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">

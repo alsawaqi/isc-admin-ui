@@ -60,16 +60,16 @@ onMounted(async () => {
 
     <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <h6 class="fw-semibold mb-0">Add User</h6>
+        <h6 class="fw-semibold mb-0" style="color: #6366f1">Add User</h6>
         <ul class="d-flex align-items-center gap-2">
             <li class="fw-medium">
                 <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
                     <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
                     Dashboard
-                </a>
+                </a> 
             </li>
             <li>-</li>
-            <li class="fw-medium">Add User</li>
+            <li class="fw-medium" >Add User</li>
         </ul>
     </div>
 
@@ -79,7 +79,7 @@ onMounted(async () => {
                 <div class="col-xxl-6 col-xl-8 col-lg-10">
                     <div class="card border">
                         <div class="card-body">
-                            <h6 class="text-md text-primary-light mb-16">Create Admin User</h6>
+                            <h6 class="text-md text-primary-light mb-16" >Create Admin User</h6>
 
                             
                         
