@@ -12,11 +12,11 @@ export default defineNuxtConfig({
     autoImport: true,
   },
  
-   css: [],
+  css: [],
   plugins: ['~/plugins/bootstrap.client.ts'],
    runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'https://api.abdallahweb.com' // your Laravel base URL
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:81' // your Laravel base URL
     }
   },
   compatibilityDate: '2025-03-25'
