@@ -12,7 +12,7 @@ const selectedPermissions = ref<string[]>([])
 
 const allPermissions = [
   // Products
-  'products', 'product category', 'departments', 'sub departments', 'sub sub departments',
+  'products', 'product category', 'departments', 'sub departments', 'sub sub departments', 'addproductsdescription',
   'product brands', 'product types','product manufacture', 'product master', 'product activation', 'product reports',
 
   // Orders
@@ -41,7 +41,7 @@ const permissionTree: Record<string, string[]> = {
     'product activation',
     'product reports',
   ],
-  'product category': ['departments', 'sub departments', 'sub sub departments'],
+  'product category': ['departments', 'sub departments', 'sub sub departments','addproductsdescription',],
   orders: [
     'orders placed',
     'order packaging',
@@ -192,8 +192,11 @@ onMounted(() => {
                                                       <li><label><input type="checkbox" v-model="selectedPermissions" value="departments"> Departments</label></li>
                                                       <li><label><input type="checkbox" v-model="selectedPermissions" value="sub departments"> Sub Departments</label></li>
                                                       <li><label><input type="checkbox" v-model="selectedPermissions" value="sub sub departments"> Sub Sub Departments</label></li>
+                                                      <li><label><input type="checkbox" v-model="selectedPermissions" value="addproductsdescription"> Products Features</label></li>
+                                                   
+                                             
                                                     </ul>
-                                                  </li>
+                                                  </li> 
 
                                                   
 

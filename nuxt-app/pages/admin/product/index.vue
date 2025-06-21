@@ -194,7 +194,7 @@ onMounted(async () => {
                                               <option disabled value="">Select Category</option>
                                               <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.Product_Department_Name }}</option>
                                             </select>
-                                          </div>
+                                      </div>
 
                                           <div class="col-md-12">
                                             <label class="form-label">Sub Category</label>

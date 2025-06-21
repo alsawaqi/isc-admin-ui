@@ -240,169 +240,169 @@ onMounted(async () => {
 
 
 
-</div>
-
-
-<div class="dashboard-main-body">
-
-
-
-    <div class="col-lg-12">
-        <div class="card">
-            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <div class="d-flex align-items-center gap-2">
-                        <span>Show</span>
-                        <select class="form-select form-select-sm w-auto">
-                            <option>10</option>
-                            <option>15</option>
-                            <option>20</option>
-                        </select>
-
-                        <select class="form-select form-select-sm w-auto">
-                            <option>status</option>
-                            <option>Paid</option>
-                            <option>Pending</option>
-                        </select>
-                    </div>
-                    <div class="icon-field">
-                        <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
-                        <span class="icon">
-                            <iconify-icon icon="ion:search-outline"></iconify-icon>
-                        </span>
-                    </div>
-                </div>
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <select class="form-select form-select-sm w-auto">
-                        <option>status</option>
-                        <option>Paid</option>
-                        <option>Pending</option>
-                    </select>
-
-                </div>
-            </div>
-            <div class="card-body">
-
-               <h5 class="fw-semibold mb-3">Department → Sub → Sub-Sub Tree</h5>
-
-<div class="tree-view ml-4">
-  <div v-for="dept in departments" :key="dept.id" class="relative pl-4 border-l-2 border-gray-300">
-    <div class="mb-2 cursor-pointer text-primary font-medium hover:underline" @click="toggleDepartment(dept.id)">
-      {{ expandedDepartments[dept.id] ? '▾' : '▸' }} {{ dept.Product_Department_Name }} - ({{ dept.sub_departments.length }})
     </div>
 
-    <!-- Sub Departments -->
-    <div
-      v-if="expandedDepartments[dept.id]"
-      class="ml-4 border-l-2 border-gray-200 pl-4"
-    >
-      <div
-        v-for="sub in dept.sub_departments"
-        :key="sub.id"
-        class="relative"
-      >
-        <div
-          class="mb-2 cursor-pointer text-indigo-600 hover:underline"
-          @click="toggleSubDepartment(sub.id)"
-        >
-          {{ expandedSubDepartments[sub.id] ? '▾' : '▸' }} {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
-        </div>
 
-        <!-- Sub Sub Departments Table -->
-        <div v-if="expandedSubDepartments[sub.id]" class="ml-4 border-l-2 border-gray-100 pl-4">
-           <table class="table bordered-table mb-0">
-                    <thead>
-                        <tr>
-                            <th scope="col">
-                                <div class="form-check style-check d-flex align-items-center">
-                                    <input class="form-check-input" type="checkbox" value="" id="checkAll">
-                                    <label class="form-check-label" for="checkAll">
-                                        S.L
-                                    </label>
-                                </div>
-                            </th>
-
-                         
+      <div class="dashboard-main-body">
 
 
-                            <th scope="col">Name</th>
 
+          <div class="col-lg-12">
+              <div class="card">
+                  <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+                      <div class="d-flex flex-wrap align-items-center gap-3">
+                          <div class="d-flex align-items-center gap-2">
+                              <span>Show</span>
+                              <select class="form-select form-select-sm w-auto">
+                                  <option>10</option>
+                                  <option>15</option>
+                                  <option>20</option>
+                              </select>
 
-                            <th scope="col">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(subsub,index) in sub.sub_sub_departments" :key="subsub.id">
-                        <td>
-                          <div class="form-check style-check d-flex align-items-center">
-                            <input class="form-check-input" type="checkbox" :id="'check' + index">
-                            <label class="form-check-label" :for="'check' + index">
-                              {{ index + 1 }}
-                            </label>
+                              <select class="form-select form-select-sm w-auto">
+                                  <option>status</option>
+                                  <option>Paid</option>
+                                  <option>Pending</option>
+                              </select>
                           </div>
-                        </td>
+                          <div class="icon-field">
+                              <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
+                              <span class="icon">
+                                  <iconify-icon icon="ion:search-outline"></iconify-icon>
+                              </span>
+                          </div>
+                      </div>
+                      <div class="d-flex flex-wrap align-items-center gap-3">
+                          <select class="form-select form-select-sm w-auto">
+                              <option>status</option>
+                              <option>Paid</option>
+                              <option>Pending</option>
+                          </select>
 
-                        
+                      </div>
+                  </div>
+                  <div class="card-body">
 
-                        <td>
-                          <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
-                        </td>
+                    <h5 class="fw-semibold mb-3">Department → Sub → Sub-Sub Tree</h5>
 
-                        <td>
-                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-                            <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                          </a>
-                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                            <iconify-icon icon="lucide:edit"></iconify-icon>
-                          </a>
-                          <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                            <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-                          </a>
-                        </td>
-                      </tr>
-                    </tbody>
+      <div class="tree-view ml-4">
+        <div v-for="dept in departments" :key="dept.id" class="relative pl-4 border-l-2 border-gray-300">
+          <div class="mb-2 cursor-pointer text-primary font-medium hover:underline" @click="toggleDepartment(dept.id)">
+            {{ expandedDepartments[dept.id] ? '▾' : '▸' }} {{ dept.Product_Department_Name }} - ({{ dept.sub_departments.length }})
+          </div>
 
-                </table>
+          <!-- Sub Departments -->
+          <div
+            v-if="expandedDepartments[dept.id]"
+            class="ml-4 border-l-2 border-gray-200 pl-4"
+          >
+            <div
+              v-for="sub in dept.sub_departments"
+              :key="sub.id"
+              class="relative"
+            >
+              <div
+                class="mb-2 cursor-pointer text-indigo-600 hover:underline"
+                @click="toggleSubDepartment(sub.id)"
+              >
+                {{ expandedSubDepartments[sub.id] ? '▾' : '▸' }} {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
+              </div>
+
+              <!-- Sub Sub Departments Table -->
+              <div v-if="expandedSubDepartments[sub.id]" class="ml-4 border-l-2 border-gray-100 pl-4">
+                <table class="table bordered-table mb-0">
+                          <thead>
+                              <tr>
+                                  <th scope="col">
+                                      <div class="form-check style-check d-flex align-items-center">
+                                          <input class="form-check-input" type="checkbox" value="" id="checkAll">
+                                          <label class="form-check-label" for="checkAll">
+                                              S.L
+                                          </label>
+                                      </div>
+                                  </th>
+
+                              
+
+
+                                  <th scope="col">Name</th>
+
+
+                                  <th scope="col">Action</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(subsub,index) in sub.sub_sub_departments" :key="subsub.id">
+                              <td>
+                                <div class="form-check style-check d-flex align-items-center">
+                                  <input class="form-check-input" type="checkbox" :id="'check' + index">
+                                  <label class="form-check-label" :for="'check' + index">
+                                    {{ index + 1 }}
+                                  </label>
+                                </div>
+                              </td>
+
+                              
+
+                              <td>
+                                <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
+                              </td>
+
+                              <td>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                                  <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
+                                </a>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                  <iconify-icon icon="lucide:edit"></iconify-icon>
+                                </a>
+                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                  <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                                </a>
+                              </td>
+                            </tr>
+                          </tbody>
+
+                      </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
 
- 
-                
+      
+                      
 
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-                    <span>Showing 1 to 10 of 12 entries</span>
-                    <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                        <li class="page-item">
-                            <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">1</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">2</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">3</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
+                      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+                          <span>Showing 1 to 10 of 12 entries</span>
+                          <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+                              <li class="page-item">
+                                  <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
+                                      <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                                  </a>
+                              </li>
+                              <li class="page-item">
+                                  <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">1</a>
+                              </li>
+                              <li class="page-item">
+                                  <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">2</a>
+                              </li>
+                              <li class="page-item">
+                                  <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">3</a>
+                              </li>
+                              <li class="page-item">
+                                  <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
+                                      <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                                  </a>
+                              </li>
+                          </ul>
+                      </div>
+                  </div>
+              </div>
+          </div>
 
 
-</div>
+      </div>
 
    
 </template>

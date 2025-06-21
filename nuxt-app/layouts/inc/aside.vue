@@ -29,6 +29,7 @@ const getActiveColor = (path: string): string => {
     '/admin/categories': 'color: #6b8629;',
     '/admin/categories/subcategory': 'color: #73da1b;',
     '/admin/categories/subsubcategory': 'color: #41a5e3;',
+    '/admin/categories/addproductsdescription': 'color: #4345e3;',
     '/admin/product/producttype': 'color: #f97316;',
     '/admin/product/brands': 'color: #eab308;',
     '/admin/product/manufacture': 'color: #10b981;',
@@ -120,7 +121,23 @@ onMounted(() => {
       >
         Sub Sub Departments
       </NuxtLink>
-</li>
+  </li>
+
+
+
+  <li
+  v-if="hasPermission('addproductsdescription')"
+ >
+  <NuxtLink
+        to="/admin/categories/addproductsdescription"
+        :style="isActive('/admin/categories/addproductsdescription') ? getActiveColor('/admin/categories/addproductsdescription') : 'color: #17a2b8;'"
+      >
+        Products Features
+      </NuxtLink>
+  </li>
+
+
+  
           </ul>
         </li>
 
