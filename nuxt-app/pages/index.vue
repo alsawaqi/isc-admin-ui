@@ -87,7 +87,7 @@ const login = async () => {
                     <button class="btn btn-primary text-sm btn-sm px-12 py-16 w-100 radius-12 mt-32d" :disabled="loading || !password || !email">  
                       
                         <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                         Sign In s
+                         Sign In
                     
                      </button>
 
