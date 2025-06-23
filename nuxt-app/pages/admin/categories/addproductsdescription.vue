@@ -86,11 +86,16 @@ const isSubmitDisabled = computed(() => {
 const submitSpecs = async () => {
   try {
     await $axios.post('/api/product-specifications', {
-      sub_sub_category_id: form.value.product_sub_sub_department_id,
-      headers: headers.value
-    })
+       specifications: headers.value, // this is your array of strings
+       sub_sub_category_id: form.value.product_sub_sub_department_id
+    });
+  
     alert('Specifications submitted successfully')
-    headers.value = []
+    headers.value = [];
+    form.value.product_department_id = 0;
+    form.value.product_sub_department_id = 0;
+    form.value.product_sub_sub_department_id = 0;
+
   } catch (error) {
     console.error('Submission error:', error)
     alert('Failed to submit specifications')

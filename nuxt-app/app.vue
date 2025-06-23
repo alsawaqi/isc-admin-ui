@@ -56,3 +56,18 @@ useHead({
   </NuxtLayout>
   
 </template>
+<style>
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-secondary-light);
+  font-family: "Inter", sans-serif;
+  font-size: 1rem;
+  padding: 0;
+  margin: 0;
+  font-weight: 400;
+  position: relative;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+</style>
