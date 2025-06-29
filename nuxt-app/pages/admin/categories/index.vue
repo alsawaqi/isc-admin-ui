@@ -7,38 +7,89 @@ definePageMeta({
     })
 import { ref, onMounted  } from 'vue'
 import { useDepartment } from '~/data/useDepartment'
-const { createDepartment,getDepartments } = useDepartment()
+
+const { $r2Url } = useNuxtApp()
+ 
+const { createDepartment,getDepartments,DeleteDepartment } = useDepartment()
 
  
 const departments = ref<any[]>([])
 const departmentName = ref<string>('')
+const uploadedImage = ref<File | null>(null);
+const previewUrl = ref<string | null>(null);
+ 
+const isSubmit = ref<Boolean>(false);
+const isLoading = ref<Boolean>(false);
 
+const handleFileChange = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  uploadedImage.value = file;
+  previewUrl.value = URL.createObjectURL(file);
+};
+
+const removeImage = () => {
+  uploadedImage.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = null;
+};
+
+
+const getdepartment = async () => {
+  isLoading.value = true;
+  try {
+    departments.value = await getDepartments();
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 const handleSubmit = async (e: Event) => {
-  e.preventDefault()
+  isSubmit.value = true;
+  e.preventDefault();
+
   try {
-    await createDepartment(departmentName.value)
-     departmentName.value = '';
-      departments.value = await getDepartments();
+   
+    await createDepartment(departmentName.value, uploadedImage.value);
+    departmentName.value = '';
+    uploadedImage.value = null;
+    previewUrl.value = null;
+    await getdepartment();
   } catch (err) {
     alert('Failed to create department')
+  }finally {
+    isSubmit.value = false;
   }
 }
 
 
 
-onMounted(async () => {
-  try {
-    departments.value = await getDepartments()
-  } catch (error) {
-    console.error('Error loading departments:', error)
+const deleteDepartmentHandler = async (id: number) => {
+  if (!confirm('Are you sure you want to delete this department?')) {
+    return;
   }
+  try {
+    await DeleteDepartment(id);
+     
+  } catch (err) {
+    alert('Failed to delete department');
+  }finally {
+    await getdepartment();
+  }
+}
+
+
+onMounted(async () => {
+  await getdepartment();
 })
 
 
 
 </script>
- <template>
+<template>
  <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <h6 class="fw-semibold mb-0" style="color: #6b8629">Department</h6>
@@ -56,7 +107,7 @@ onMounted(async () => {
 
     <div class="card h-100 p-0 radius-12 overflow-hidden">
         <div class="card-body p-40">
-            <form @submit="handleSubmit">
+            <form @submit.prevent="handleSubmit">
                 <div class="row">
 
                     <div class="col-sm-12">
@@ -75,14 +126,42 @@ onMounted(async () => {
                                 <div class="card-body p-24">
 
                                     <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="uploaded-imgs-container d-flex gap-3 flex-wrap"></div>
+                                            <!-- Single preview with remove button -->
+                                            <div
+                                              v-if="previewUrl"
+                                              class="position-relative"
+                                              style="width: 100px; height: 100px;"
+                                            >
+                                              <img :src="previewUrl" class="img-fluid radius-8 w-100 h-100 object-fit-cover" />
+                                              <button
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                                                @click="removeImage"
+                                                style="transform: translate(50%, -50%);"
+                                              >
+                                                ×
+                                              </button>
+                                            </div>
 
-                                        <label class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1" for="upload-file-multiple">
+                                        <!-- Upload Button (hide if image already exists) -->
+                                        <label
+                                            v-if="!previewUrl"
+                                            class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1"
+                                            for="upload-file"
+                                        >
                                             <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
                                             <span class="fw-semibold text-secondary-light">Upload</span>
-                                            <input id="upload-file-multiple" type="file" hidden multiple>
+                                            <input
+                                            id="upload-file"
+                                            type="file"
+                                            hidden
+                                            accept="image/*"
+                                            @change="handleFileChange"
+                                            />
                                         </label>
-                                    </div>
+                                   </div>
+
+
+       
 
                                 </div>
                             </div>
@@ -95,8 +174,9 @@ onMounted(async () => {
                         <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
                             Reset
                         </button>
-                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
-                            Save Change
+                        <button type="submit"  class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" :disable="isSubmit">
+                            <span v-if="isSubmit" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            Save Change 
                         </button>
                     </div>
                 </div>
@@ -112,9 +192,11 @@ onMounted(async () => {
 </div>
 
 
+ 
+
 <div class="dashboard-main-body">
 
-
+     
 
     <div class="col-lg-12">
         <div class="card">
@@ -152,9 +234,15 @@ onMounted(async () => {
             </div>
             <div class="card-body">
  
+    
+
+
+       <div class="spinner-border" role="status" v-if="isLoading">
+          <span class="sr-only">Loading...</span>
+        </div>
                   
                 
-                <table class="table bordered-table mb-0">
+                <table class="table bordered-table mb-0" v-else>
                     <thead>
                         <tr>
                             <th scope="col">
@@ -186,19 +274,17 @@ onMounted(async () => {
     <td>
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
-        <img src="/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
+        <img :src="`${$r2Url}/`+ dept.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
         <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ dept.Product_Department_Name }}</h6>
       </div>
     </td>
 
     <td>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-      </a>
+      
       <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
         <iconify-icon icon="lucide:edit"></iconify-icon>
       </a>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+      <a @click.prevent="deleteDepartmentHandler(dept.id)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
         <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
       </a>
     </td>

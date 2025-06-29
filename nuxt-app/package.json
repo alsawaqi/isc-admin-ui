@@ -12,6 +12,7 @@
   "dependencies": {
     "@casl/ability": "^6.7.3",
     "@casl/vue": "^2.2.2",
+    "@headlessui/vue": "^1.7.23",
     "@iconify/vue": "^5.0.0",
     "@nuxt/devtools": "latest",
     "@nuxtjs/eslint-config-typescript": "^12.1.0",

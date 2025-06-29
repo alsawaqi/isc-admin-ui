@@ -5,17 +5,19 @@
      });
 
 import { ref, onMounted } from 'vue'
-const { $axios } = useNuxtApp();
+const { $axios,$r2Url } = useNuxtApp();
 
 
 interface SubSubDepartment {
   id: number
   name: string
+  image_path: string
 }
 
 interface SubDepartment {
   id: number
   name: string
+  
   sub_sub_departments: SubSubDepartment[]
 }
 
@@ -34,22 +36,47 @@ const subSubDepartments = ref<SubSubDepartment[]>([]);
 
 const selectedDepartmentId = ref<number | null>(null);
 const selectedSubDepartmentId = ref<number | null>(null);
-
+const uploadedImage = ref<File | null>(null);
+const previewUrl = ref<string | null>(null);
 
 const subDepartments = ref<SubDepartment[]>([]);
+
+const isSubmit = ref<Boolean>(false);
+const isLoading = ref<Boolean>(false);
+
  
 const name = ref<string>('');
 
 
 
+const handleFileChange = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  uploadedImage.value = file;
+  previewUrl.value = URL.createObjectURL(file);
+};
+
+const removeImage = () => {
+  uploadedImage.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = null;
+};
+
+
+
+
 
 const getDepartments = async () => {
+  isLoading.value = true;
   try {
     const res = await $axios.get('/api/productdepartment');
     departments.value = res.data;
     console.log('Departments:', res.data);
   } catch (error) {
     console.error('Failed to load departments:', error);
+  }finally {
+    isLoading.value = false;
   }
 
 
@@ -102,32 +129,53 @@ const toggleSubDepartment = (id: number) => {
 
 
 const handleSubmit = async () => {
+  isSubmit.value = true;
   try {
     if (!selectedSubDepartmentId.value || !name.value) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const payload = {
-      product_sub_department_id: selectedSubDepartmentId.value,
-      name: name.value
-    };
 
-    await $axios.post('/api/sub-sub-departments', payload);
-    alert('Saved successfully!');
+    const formData = new FormData();
+    formData.append('name', name.value);
+    formData.append('product_sub_department_id', String(selectedSubDepartmentId.value));
+    if (uploadedImage.value) {
+      formData.append('file', uploadedImage.value);
+    }
+
+
+  
+    await $axios.post('/api/sub-sub-departments', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+   
     
-    // ✅ Reload full tree so the UI updates
+ 
     await fetchFullTree();
 
     // Reset form
     name.value = '';
     selectedSubDepartmentId.value = null;
+    uploadedImage.value = null;
+    previewUrl.value = null;
+     alert('Saved successfully!');
 
   } catch (error: any) {
     alert('Failed to save: ' + (error?.response?.data?.message || 'Unknown error'));
     console.error(error.response?.data || error);
+  }finally {
+    await fetchFullTree();
+
+    isSubmit.value = false;
+    
   }
 };
+
+
+
 
 
 
@@ -206,14 +254,39 @@ onMounted(async () => {
                                 <div class="card-body p-24">
 
                                     <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="uploaded-imgs-container d-flex gap-3 flex-wrap"></div>
+                                            <!-- Single preview with remove button -->
+                                            <div
+                                              v-if="previewUrl"
+                                              class="position-relative"
+                                              style="width: 100px; height: 100px;"
+                                            >
+                                              <img :src="previewUrl" class="img-fluid radius-8 w-100 h-100 object-fit-cover" />
+                                              <button
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                                                @click="removeImage"
+                                                style="transform: translate(50%, -50%);"
+                                              >
+                                                ×
+                                              </button>
+                                            </div>
 
-                                        <label class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1" for="upload-file-multiple">
+                                        <!-- Upload Button (hide if image already exists) -->
+                                        <label
+                                            v-if="!previewUrl"
+                                            class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1"
+                                            for="upload-file"
+                                        >
                                             <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
                                             <span class="fw-semibold text-secondary-light">Upload</span>
-                                            <input id="upload-file-multiple" type="file" hidden multiple>
+                                            <input
+                                            id="upload-file"
+                                            type="file"
+                                            hidden
+                                            accept="image/*"
+                                            @change="handleFileChange"
+                                            />
                                         </label>
-                                    </div>
+                                   </div>
 
                                 </div>
                             </div>
@@ -226,7 +299,12 @@ onMounted(async () => {
                         <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
                             Reset
                         </button>
-                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
+                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" 
+                                :disable="isSubmit"
+                                :class="{ 'opacity-50 cursor-not-allowed': isSubmit }">
+
+                                 <span v-if="isSubmit" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+
                             Save Change
                         </button>
                     </div>
@@ -285,89 +363,78 @@ onMounted(async () => {
 
                     <h5 class="fw-semibold mb-3">Department → Sub → Sub-Sub Tree</h5>
 
-      <div class="tree-view ml-4">
-        <div v-for="dept in departments" :key="dept.id" class="relative pl-4 border-l-2 border-gray-300">
-          <div class="mb-2 cursor-pointer text-primary font-medium hover:underline" @click="toggleDepartment(dept.id)">
-            {{ expandedDepartments[dept.id] ? '▾' : '▸' }} {{ dept.Product_Department_Name }} - ({{ dept.sub_departments.length }})
-          </div>
-
-          <!-- Sub Departments -->
-          <div
-            v-if="expandedDepartments[dept.id]"
-            class="ml-4 border-l-2 border-gray-200 pl-4"
-          >
-            <div
-              v-for="sub in dept.sub_departments"
-              :key="sub.id"
-              class="relative"
-            >
-              <div
-                class="mb-2 cursor-pointer text-indigo-600 hover:underline"
-                @click="toggleSubDepartment(sub.id)"
-              >
-                {{ expandedSubDepartments[sub.id] ? '▾' : '▸' }} {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
-              </div>
-
-              <!-- Sub Sub Departments Table -->
-              <div v-if="expandedSubDepartments[sub.id]" class="ml-4 border-l-2 border-gray-100 pl-4">
-                <table class="table bordered-table mb-0">
-                          <thead>
-                              <tr>
-                                  <th scope="col">
-                                      <div class="form-check style-check d-flex align-items-center">
-                                          <input class="form-check-input" type="checkbox" value="" id="checkAll">
-                                          <label class="form-check-label" for="checkAll">
-                                              S.L
-                                          </label>
-                                      </div>
-                                  </th>
-
-                              
 
 
-                                  <th scope="col">Name</th>
+                    <ul class="category-tree ml-4">
+  <li
+    v-for="dept in departments"
+    :key="dept.id"
+    :class="{ 'has-child': dept.sub_departments.length > 0, open: expandedDepartments[dept.id] }"
+  >
+    <p class="cursor-pointer text-primary font-medium hover:underline" @click="toggleDepartment(dept.id)">
+      {{ dept.Product_Department_Name }} - ({{ dept.sub_departments.length }})
+    </p>
+
+    <ul>
+      <li
+        v-for="sub in dept.sub_departments"
+        :key="sub.id"
+        :class="{ 'has-child': sub.sub_sub_departments?.length, open: expandedSubDepartments[sub.id] }"
+      >
+        <p class="cursor-pointer text-indigo-600 hover:underline" @click="toggleSubDepartment(sub.id)">
+          {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
+        </p>
+
+        <ul>
+          <li>
+            <table class="table bordered-table mb-0 ml-4" v-if="expandedSubDepartments[sub.id]">
+              <thead>
+                <tr>
+                  <th>
+                    <div class="form-check style-check d-flex align-items-center">
+                      <input class="form-check-input" type="checkbox" value="" id="checkAll">
+                      <label class="form-check-label" for="checkAll">S.L</label>
+                    </div>
+                  </th>
+                  <th>Name</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(subsub, index) in sub.sub_sub_departments" :key="subsub.id">
+                  <td>
+                    <div class="form-check style-check d-flex align-items-center">
+                      <input class="form-check-input" type="checkbox" :id="'check' + index">
+                      <label class="form-check-label" :for="'check' + index">{{ index + 1 }}</label>
+                    </div>
+                  </td>
+                  <td>
+                    <img :src="`${$r2Url}/` + subsub.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
+                    <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
+                  </td>
+                  <td>
+                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                      <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
+                    </a>
+                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                      <iconify-icon icon="lucide:edit"></iconify-icon>
+                    </a>
+                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                      <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                    </a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
 
 
-                                  <th scope="col">Action</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="(subsub,index) in sub.sub_sub_departments" :key="subsub.id">
-                              <td>
-                                <div class="form-check style-check d-flex align-items-center">
-                                  <input class="form-check-input" type="checkbox" :id="'check' + index">
-                                  <label class="form-check-label" :for="'check' + index">
-                                    {{ index + 1 }}
-                                  </label>
-                                </div>
-                              </td>
-
-                              
-
-                              <td>
-                                <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
-                              </td>
-
-                              <td>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-                                  <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                                </a>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                                  <iconify-icon icon="lucide:edit"></iconify-icon>
-                                </a>
-                                <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
-                                  <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-                                </a>
-                              </td>
-                            </tr>
-                          </tbody>
-
-                      </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+       
 
 
       
@@ -406,3 +473,67 @@ onMounted(async () => {
 
    
 </template>
+<style scoped>
+
+.category-tree,
+.category-tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.category-tree li {
+  position: relative;
+  padding-left: 0.8rem;
+}
+.category-tree a,
+.category-tree p {
+  text-decoration: none;
+  font: 14px/1.4 "Inter", sans-serif;
+  display: inline-block;
+}
+
+/* lines */
+.category-tree li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #d0d0d0;
+}
+.category-tree li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.9em;
+  width: 0.8rem;
+  height: 1px;
+  background: #d0d0d0;
+}
+.category-tree li:last-child::before {
+  height: 0.9em;
+}
+
+/* caret */
+.category-tree li.has-child > p::before {
+  content: "▸";
+  margin-right: 4px;
+  transition: 0.2s transform;
+}
+.category-tree li.open > p::before {
+  transform: rotate(90deg);
+}
+
+/* hide children unless open */
+.category-tree ul {
+  display: none;
+}
+.category-tree li.open > ul {
+  display: block;
+}
+
+
+
+
+</style>
