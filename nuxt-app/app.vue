@@ -1,5 +1,5 @@
 <script setup lang="ts">
-
+import '@/assets/css/nprogress-custom.css'
 useHead({
   link: [
           {

@@ -23,6 +23,7 @@
     "bootstrap": "^5.3.6",
     "eslint": "^8.55.0",
     "highlight.js": "^11.9.0",
+    "nprogress": "^0.2.0",
     "nuxt": "^3.17.4",
     "pinia": "^3.0.2",
     "vite-tsconfig-paths": "^5.1.4",
@@ -31,6 +32,7 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
-    "@types/node": "^22.15.32"
+    "@types/node": "^22.15.32",
+    "@types/nprogress": "^0.2.3"
   }
 }

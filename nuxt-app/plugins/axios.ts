@@ -1,4 +1,6 @@
 import axios from 'axios'
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
@@ -14,8 +16,10 @@ export default defineNuxtPlugin((nuxtApp) => {
     return match ? match[2] : null
   }
 
-  // Auto-add Bearer token + CSRF token (if available)
+  // 🔹 Add progress start on request
   instance.interceptors.request.use((config) => {
+    NProgress.start()
+
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -31,16 +35,22 @@ export default defineNuxtPlugin((nuxtApp) => {
     return config
   })
 
-  // Global error handling
+  // 🔹 Stop progress on response or error
   instance.interceptors.response.use(
-    response => response,
+    response => {
+      NProgress.done()
+      return response
+    },
     error => {
+      NProgress.done()
+
       if (error.response?.status === 401 || error.response?.status === 419) {
         localStorage.clear()
         window.location.href = '/'
       } else if (error.response?.status === 403) {
         window.location.href = '/admin'
       }
+
       return Promise.reject(error)
     }
   )
