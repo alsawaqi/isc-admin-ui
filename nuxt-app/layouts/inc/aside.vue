@@ -76,7 +76,7 @@ onMounted(() => {
                     Dashboard
                   </a>
                   <ul class="open" style="display: block;">
-                    <li><NuxtLink  to="/admin">eCommerce</NuxtLink></li>
+                    <li><NuxtLink  to="/admin">Status</NuxtLink></li>
                   </ul>
                 </li>
 
