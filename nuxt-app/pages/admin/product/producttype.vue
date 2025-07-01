@@ -87,30 +87,7 @@ const productTypes = ref<ProductType[]>([]);
                         </div>
 
 
-                        <div class="mb-20">
-
-                            <div class="card h-100 p-0">
-                                <div class="card-header border-bottom bg-base py-16 px-24">
-                                    <h6 class="text-lg fw-semibold mb-0">Upload With image preview</h6>
-                                </div>
-                                <div class="card-body p-24">
-
-                                    <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="uploaded-imgs-container d-flex gap-3 flex-wrap"></div>
-
-                                        <label class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1" for="upload-file-multiple">
-                                            <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
-                                            <span class="fw-semibold text-secondary-light">Upload</span>
-                                            <input id="upload-file-multiple" type="file" hidden multiple>
-                                        </label>
-                                    </div>
-
-                                </div>
-                            </div>
-
-
-
-                        </div>
+                         
                     </div>
                     <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
                         <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
@@ -163,14 +140,7 @@ const productTypes = ref<ProductType[]>([]);
                         </span>
                     </div>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <select class="form-select form-select-sm w-auto">
-                        <option>status</option>
-                        <option>Paid</option>
-                        <option>Pending</option>
-                    </select>
-
-                </div>
+               
             </div>
             <div class="card-body">
                 <table class="table bordered-table mb-0">
@@ -205,7 +175,7 @@ const productTypes = ref<ProductType[]>([]);
     <td>
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
-        <img src="/isc-assets/images/user-list/user-list2.png" alt="" class="flex-shrink-0 me-12 radius-8">
+       
         <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ producttype.name }}</h6>
       </div>
     </td>

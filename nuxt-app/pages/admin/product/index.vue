@@ -19,7 +19,29 @@ const { getProductBrands } = useProductsBrands();
 
 const steps = ref(1);
 
+
+const uploadedImages = ref<File[]>([])
+const previewUrls = ref<string[]>([])
+
 const barcodes = ref<string[]>([]);
+
+
+
+const handleFileChange = (event: Event) => {
+  const files = (event.target as HTMLInputElement).files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    uploadedImages.value.push(file)
+    previewUrls.value.push(URL.createObjectURL(file))
+  }
+}
+
+const removeImage = (index: number) => {
+  uploadedImages.value.splice(index, 1)
+  URL.revokeObjectURL(previewUrls.value[index])
+  previewUrls.value.splice(index, 1)
+}
 
 const addBarcode = () => {
    barcodes.value.push('');
@@ -58,6 +80,7 @@ interface ProductSpecificationDescription {
 
 interface ProductSpecificationProduct{
   product_specification_description_id: number;
+  name: string;
   value: string;
   
 }
@@ -78,10 +101,7 @@ const form = ref<Product>({
   stock: 0   
 });
 
-const productSpecificationProduct = ref<ProductSpecificationProduct>({
-  product_specification_description_id: 0,
-  value: ''
-});
+ 
 
 const productTypes = ref<SelectOption[]>([]);
 const productBrands = ref<SelectOption[]>([]);
@@ -185,53 +205,81 @@ watch(() => form.value.product_sub_sub_department_id, async () => {
 
   
 const submitForm = async () => {
-  loading.value = true;
-    try {
+  loading.value = true
 
-        const payload = {
-              ...form.value,
-              barcodes: barcodes.value,
-              specifications: productSpecificationProducts.value.filter(p => p.value.trim() !== '')
-            };
+  try {
+    const formData = new FormData()
 
+    // Append regular fields
+    formData.append('product_department_id', form.value.product_department_id.toString())
+    formData.append('product_sub_department_id', form.value.product_sub_department_id.toString())
+    formData.append('product_sub_sub_department_id', form.value.product_sub_sub_department_id.toString())
+    formData.append('product_type_id', form.value.product_type_id.toString())
+    formData.append('product_brand_id', form.value.product_brand_id.toString())
+    formData.append('product_manufacture_id', form.value.product_manufacture_id.toString())
+    formData.append('name', form.value.name)
+    formData.append('name_ar', form.value.name_ar)
+    formData.append('description', form.value.description)
+    formData.append('inhouse_barcode', form.value.inhouse_barcode)
+    formData.append('price', form.value.price.toString())
+    formData.append('stock', form.value.stock.toString())
 
-        const response = await $axios.post('/api/productmaster', payload);
+    // Append barcodes as JSON string
+    formData.append('barcodes', JSON.stringify(barcodes.value))
 
-        console.log('Product created successfully:', response.data);
-        
-        // Optionally, reset the form or redirect
-        form.value = {
-            product_department_id: 0,
-            product_sub_department_id: 0,
-            product_sub_sub_department_id: 0,
-            product_type_id: 0,
-            product_brand_id: 0,
-            product_manufacture_id: 0,
-            name: '',
-            name_ar: '',
-            description: '',
-            inhouse_barcode: '',
-            price: 0,
-            stock: 0   
-        };
+    // Append specifications as JSON
+    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '')
+    formData.append('specifications', JSON.stringify(filteredSpecs))
 
-          barcodes.value = [];
-          productSpecificationProducts.value = [];
-          steps.value = 1;
-            
+    // Append multiple images
+    uploadedImages.value.forEach((file, index) => {
+      formData.append(`file[]`, file)
+    })
+
+    // Send FormData via Axios
+    const response = await $axios.post('/api/productmaster', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    console.log('Product created successfully:', response.data)
+
+    // Reset form
+    form.value = {
+      product_department_id: 0,
+      product_sub_department_id: 0,
+      product_sub_sub_department_id: 0,
+      product_type_id: 0,
+      product_brand_id: 0,
+      product_manufacture_id: 0,
+      name: '',
+      name_ar: '',
+      description: '',
+      inhouse_barcode: '',
+      price: 0,
+      stock: 0
+    }
+
+    barcodes.value = []
+    productSpecificationProducts.value = []
+    uploadedImages.value = []
+    previewUrls.value.forEach(url => URL.revokeObjectURL(url))
+    previewUrls.value = []
+    steps.value = 1
+
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
       // @ts-ignore
-      console.error('Submission failed:', error.response.data);
+      console.error('Submission failed:', error.response.data)
     } else if (error instanceof Error) {
-      console.error('Submission failed:', error.message);
+      console.error('Submission failed:', error.message)
     } else {
-      console.error('Submission failed:', error);
+      console.error('Submission failed:', error)
     }
-  }finally {
-    loading.value = false;
+  } finally {
+    loading.value = false
   }
 }
+
 
  
 onMounted(async () => {
@@ -537,14 +585,48 @@ onMounted(async () => {
 
 
                         <div class="card-body" v-show="steps === 4">
-                            <h5 class="mb-3">Review Your Product</h5>
+                            <h5 class="mb-3">Upload Image</h5>
+
+
+                            <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
+
+  <!-- Multiple previews with remove buttons -->
+  <div
+    v-for="(url, index) in previewUrls"
+    :key="index"
+    class="position-relative"
+    style="width: 100px; height: 100px;"
+  >
+    <img :src="url" class="img-fluid radius-8 w-100 h-100 object-fit-cover" />
+    <button
+      class="btn btn-sm btn-danger position-absolute top-0 end-0"
+      @click="removeImage(index)"
+      style="transform: translate(50%, -50%);"
+    >
+      ×
+    </button>
+  </div>
+
+  <!-- Upload Button (always visible to add more) -->
+  <label
+    class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1"
+    for="upload-file"
+  >
+    <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
+    <span class="fw-semibold text-secondary-light">Upload</span>
+    <input
+      id="upload-file"
+      type="file"
+      hidden
+      multiple
+      accept="image/*"
+      @change="handleFileChange"
+    />
+  </label>
+</div>
+
  
-                            <p><strong>In House Barcode:</strong> {{ form.inhouse_barcode }}</p>
-                            <p><strong>Name:</strong> {{ form.name }}</p>
-                            <p><strong>Name (Arabic):</strong> {{ form.name_ar }}</p>
-                            <p><strong>Description:</strong> {{ form.description }}</p>
-                            <p><strong>Price:</strong> {{ form.price }}</p>
-                            <p><strong>Stock:</strong> {{ form.stock }}</p>
+                            
 
 
                         </div>

@@ -8,6 +8,10 @@ definePageMeta({
 import { ref, onMounted } from 'vue'
 const { $axios,$r2Url } = useNuxtApp();
 
+
+
+
+
 interface Department {
   id: number;
   Product_Department_Code: string;
