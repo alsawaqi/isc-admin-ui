@@ -30,6 +30,20 @@ const fetchProducts = async () => {
 };
 
 
+const deleteProduct = async (id: number) => {
+  alert('Are you sure you want to delete this product?');
+    if (!confirm('Are you sure you want to delete this product?')) {
+        return; // Exit if the user cancels the deletion
+    }
+    try {
+         await $axios.delete(`/api/productmaster/${id}`);
+         await fetchProducts(); // Refresh the product list after deletion
+    } catch (error) {
+        console.error('Error deleting product:', error);
+    }
+};
+
+
 onMounted(async() => {
     await fetchProducts();
 });
@@ -166,7 +180,7 @@ onMounted(async() => {
                             <a href="javascript:void(0)" class="w-8 h-8 bg-success-100 dark:bg-success-600/25 text-success-600 dark:text-success-400 rounded-full inline-flex items-center justify-center">
                               <iconify-icon icon="lucide:edit"></iconify-icon>
                             </a>
-                            <a href="javascript:void(0)" class="w-8 h-8 bg-danger-100 dark:bg-danger-600/25 text-danger-600 dark:text-danger-400 rounded-full inline-flex items-center justify-center">
+                            <a @click.prevent="deleteProduct(product.id)" class="w-8 h-8 bg-danger-100 dark:bg-danger-600/25 text-danger-600 dark:text-danger-400 rounded-full inline-flex items-center justify-center">
                               <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                             </a>
                           </td>

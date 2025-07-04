@@ -6,35 +6,78 @@ definePageMeta({
      
     });
 
-const { $axios } = useNuxtApp();
+const { $axios,$r2Url } = useNuxtApp();
 
 import {ref,onMounted} from 'vue';
 import { useProductsBrands } from '~/data/ProductsBrands';
 
 
 const { getProductBrands } = useProductsBrands();
+const uploadedImage = ref<File | null>(null);
+const previewUrl = ref<string | null>(null);
+
+
+const isSubmit = ref<Boolean>(false);
+const isLoading = ref<Boolean>(false);
+
 
 interface ProductBrand {
     id: number;
     name: string;
+    image_path: string;
     created_at: string;
     updated_at: string;
 }
+
+
+
+const handleFileChange = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  uploadedImage.value = file;
+  previewUrl.value = URL.createObjectURL(file);
+};
+
+const removeImage = () => {
+  uploadedImage.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = null;
+};
 
 const productBrands = ref<ProductBrand[]>([]);
 
 const name = ref<string>('');
 
-const submit = async () => {
+const submit = async (e: Event) => {
+
+ 
+
+    if (!name.value) {
+        alert('Please enter a brand name.');
+        return;
+    }
+    isSubmit.value = true;
     try {
-        const response = await $axios.post('/api/productbrands', { name: name.value });
+       await $axios.post('/api/productbrands', { name: name.value, file: uploadedImage.value },
+
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        }
+       );
        
         name.value = ''; // Clear the input after submission
+        
+
+
     } catch (error) {
       
     }finally {
         // Optionally, you can refresh the list of product brands after submission
         productBrands.value = await getProductBrands();
+        isSubmit.value = false; // Reset the submit state
     }
 };
 
@@ -69,7 +112,7 @@ onMounted(async () => {
 
     <div class="card h-100 p-0 radius-12 overflow-hidden">
         <div class="card-body p-40">
-            <form @submit.prevent="submit()"  class="row g-4">
+            <form @submit.prevent="submit"  class="row g-4">
                 <div class="row">
 
                     <div class="col-sm-12">
@@ -83,13 +126,70 @@ onMounted(async () => {
                         </div>
 
 
+                         <div class="mb-20">
+
+                            <div class="card h-100 p-0">
+                                <div class="card-header border-bottom bg-base py-16 px-24">
+                                    <h6 class="text-lg fw-semibold mb-0">Upload With image preview</h6>
+                                </div>
+                                <div class="card-body p-24">
+
+                                    <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
+                                            <!-- Single preview with remove button -->
+                                            <div
+                                              v-if="previewUrl"
+                                              class="position-relative"
+                                              style="width: 100px; height: 100px;"
+                                            >
+                                              <img :src="previewUrl" class="img-fluid radius-8 w-100 h-100 object-fit-cover" />
+                                              <button
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                                                @click="removeImage"
+                                                style="transform: translate(50%, -50%);"
+                                              >
+                                                ×
+                                              </button>
+                                            </div>
+
+                                        <!-- Upload Button (hide if image already exists) -->
+                                        <label
+                                            v-if="!previewUrl"
+                                            class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden border-dashed bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1"
+                                            for="upload-file"
+                                        >
+                                            <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
+                                            <span class="fw-semibold text-secondary-light">Upload</span>
+                                            <input
+                                            id="upload-file"
+                                            type="file"
+                                            hidden
+                                            accept="image/*"
+                                            @change="handleFileChange"
+                                            />
+                                        </label>
+                                   </div>
+
+
+       
+
+                                </div>
+                            </div>
+
+
+
+                        </div>
+
+
                         
                     </div>
                     <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
                         <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
                             Reset
                         </button>
-                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
+                        <button type="submit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" :disable="isSubmit">
+                            
+                            <span v-if="isSubmit" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span v-else>+</span>
                             Save Change
                         </button>
                     </div>
@@ -157,37 +257,36 @@ onMounted(async () => {
                         </tr>
                     </thead>
                      <tbody>
-  <tr v-for="(productBrand, index) in productBrands" :key="productBrand.id">
-    <td>
-      <div class="form-check style-check d-flex align-items-center">
-        <input class="form-check-input" type="checkbox" :id="'check-' + productBrand.id" />
-        <label class="form-check-label" :for="'check-' + productBrand.id">
-          {{ index + 1 }}
-        </label>
-      </div>
-    </td>
+                        <tr v-for="(productBrand, index) in productBrands" :key="productBrand.id">
+                            <td>
+                            <div class="form-check style-check d-flex align-items-center">
+                                <input class="form-check-input" type="checkbox" :id="'check-' + productBrand.id" />
+                                <label class="form-check-label" :for="'check-' + productBrand.id">
+                                {{ index + 1 }}
+                                </label>
+                            </div>
+                            </td>
 
-    <td>
-      <div class="d-flex align-items-center">
-        <!-- Optional static image -->
-        
-        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ productBrand.name }}</h6>
-      </div>
-    </td>
+                            <td>
+                            <div class="d-flex align-items-center">
+                                <!-- Optional static image -->
+                                   <img :src="`${$r2Url}/` + productBrand.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
+                 
+                                <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ productBrand.name }}</h6>
+                            </div>
+                            </td>
 
-    <td>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-      </a>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="lucide:edit"></iconify-icon>
-      </a>
-      <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
-        <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-      </a>
-    </td>
-  </tr>
-</tbody>
+                            <td>
+                            
+                            <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                <iconify-icon icon="lucide:edit"></iconify-icon>
+                            </a>
+                            <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                            </a>
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">

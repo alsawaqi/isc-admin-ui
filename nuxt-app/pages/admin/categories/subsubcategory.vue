@@ -175,7 +175,18 @@ const handleSubmit = async () => {
 };
 
 
+const deleteSubSubDepartment = async (id: number) => {
+  if (!confirm('Are you sure you want to delete this sub-sub department?')) return;
 
+  try {
+    await $axios.delete(`/api/sub-sub-departments/${id}`);
+    alert('Deleted successfully!');
+    await fetchFullTree();
+  } catch (error: any) {
+    alert('Failed to delete: ' + (error?.response?.data?.message || 'Unknown error'));
+    console.error(error.response?.data || error);
+  }
+};
 
 
 
@@ -413,13 +424,11 @@ onMounted(async () => {
                     <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
                   </td>
                   <td>
-                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
-                      <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                    </a>
+                  
                     <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
                       <iconify-icon icon="lucide:edit"></iconify-icon>
                     </a>
-                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                    <a @click.prevent="deleteSubSubDepartment(subsub.id)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
                       <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                     </a>
                   </td>
