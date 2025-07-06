@@ -228,7 +228,8 @@ const submitForm = async () => {
     formData.append('barcodes', JSON.stringify(barcodes.value))
 
     // Append specifications as JSON
-    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '')
+    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '');
+
     formData.append('specifications', JSON.stringify(filteredSpecs))
 
     // Append multiple images
