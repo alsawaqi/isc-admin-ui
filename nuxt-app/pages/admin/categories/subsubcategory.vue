@@ -11,7 +11,9 @@ const { $axios,$r2Url } = useNuxtApp();
 interface SubSubDepartment {
   id: number
   name: string
+  description:string 
   image_path: string
+
 }
 
 interface SubDepartment {
@@ -46,6 +48,7 @@ const isLoading = ref<Boolean>(false);
 
  
 const name = ref<string>('');
+const description = ref<string>('');
 
 
 
@@ -139,6 +142,8 @@ const handleSubmit = async () => {
 
     const formData = new FormData();
     formData.append('name', name.value);
+    formData.append('description', description.value);
+
     formData.append('product_sub_department_id', String(selectedSubDepartmentId.value));
     if (uploadedImage.value) {
       formData.append('file', uploadedImage.value);
@@ -158,6 +163,7 @@ const handleSubmit = async () => {
 
     // Reset form
     name.value = '';
+    description.value = '';
     selectedSubDepartmentId.value = null;
     uploadedImage.value = null;
     previewUrl.value = null;
@@ -255,6 +261,10 @@ onMounted(async () => {
                             <input type="text" class="form-control radius-8" id="address" v-model="name" placeholder="Enter Your Name">
                         </div>
 
+                        <div class="mb-20">
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Descriptions* <span class="text-danger-600">*</span></label>
+                            <input type="text" class="form-control radius-8" id="address" v-model="description" placeholder="Enter Descriptions">
+                        </div>
 
                         <div class="mb-20">
 
