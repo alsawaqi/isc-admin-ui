@@ -16,12 +16,12 @@ const { $axios } = useNuxtApp()
                        }
 
  
-        interface SelectOption {
+   interface SelectOption {
         id: number;
         name: string;
         }
 
-        interface Categories{
+   interface Categories{
             product_department_id : number;
             product_sub_department_id : number;
             product_sub_sub_department_id : number;
