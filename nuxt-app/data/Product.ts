@@ -3,9 +3,9 @@ export interface Product {
   product_department_id: number;
   product_sub_department_id: number;
   product_sub_sub_department_id: number;
-  product_type_id: number;
-  product_brand_id: number;
-  product_manufacture_id: number;
+  product_type_id: any;
+  product_brand_id: any;
+  product_manufacture_id: any;
   name: string;
   name_ar: string;
   description: string;

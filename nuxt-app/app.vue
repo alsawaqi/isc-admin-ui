@@ -23,7 +23,7 @@ useHead({
   ]
 })
  
- if (process.client) {
+ if (import.meta.client) {
     const scripts = [
       '/isc-assets/js/lib/jquery-3.7.1.min.js',
       '/isc-assets/js/lib/bootstrap.bundle.min.js',

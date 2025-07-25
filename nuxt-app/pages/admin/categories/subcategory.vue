@@ -9,9 +9,6 @@ import { ref, onMounted } from 'vue'
 const { $axios,$r2Url } = useNuxtApp();
 
 
-
-
-
 interface Department {
   id: number;
   Product_Department_Code: string;
@@ -21,16 +18,14 @@ interface Department {
 
 interface SubDepartment {
   id: number;
-  Product_Department_Code: string;
-  product_department_id : number;
-  name: string;
-  image_path: string;
+  Products_Department_Code: string;
+  Products_Department_Id : number;
+  Sub_Department_Name: string;
+  Image_path: string;
   created_at: string;
  
 }
 
-
- 
 
 interface DepartmentWithSubs extends Department {
   sub_departments: SubDepartment[];
@@ -357,13 +352,13 @@ onMounted(async () => {
               <td>
                 <div class="d-flex align-items-center">
                   <img
-                    :src="`${$r2Url}/` + subDept.image_path"
+                    :src="`${$r2Url}/` + subDept.Image_path"
                     alt=""
                     class="flex-shrink-0 me-12 radius-8"
                     style="width: 50px; height: 50px; object-fit: cover"
                   />
                   <h6 class="text-md mb-0 fw-medium flex-grow-1">
-                    {{ subDept.name }}
+                    {{ subDept.Sub_Department_Name }}
                   </h6>
                 </div>
               </td>

@@ -15,7 +15,7 @@ const { $axios } = useNuxtApp();
 
 interface ProductType {
   id: number | string;
-  name: string;
+  Product_Types_Name: string;
     created_at?: string;
     updated_at?: string;
   }
@@ -176,7 +176,7 @@ const productTypes = ref<ProductType[]>([]);
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
        
-        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ producttype.name }}</h6>
+        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ producttype.Product_Types_Name }}</h6>
       </div>
     </td>
 

@@ -10,15 +10,15 @@ const { $axios,$r2Url } = useNuxtApp();
 
 interface SubSubDepartment {
   id: number
-  name: string
-  description:string 
-  image_path: string
+  Product_Sub_Sub_Department_Name: string
+ 
+  Image_Path: string
 
 }
 
 interface SubDepartment {
   id: number
-  name: string
+   Sub_Department_Name: string
   
   sub_sub_departments: SubSubDepartment[]
 }
@@ -141,10 +141,10 @@ const handleSubmit = async () => {
 
 
     const formData = new FormData();
-    formData.append('name', name.value);
+    formData.append('Product_Sub_Sub_Department_Name', name.value);
     formData.append('description', description.value);
 
-    formData.append('product_sub_department_id', String(selectedSubDepartmentId.value));
+    formData.append('Product_Sub_Department_Id', String(selectedSubDepartmentId.value));
     if (uploadedImage.value) {
       formData.append('file', uploadedImage.value);
     }
@@ -251,7 +251,7 @@ onMounted(async () => {
                             <label class="form-label">Sub Department </label>
                            <select class="form-control" v-model="selectedSubDepartmentId">
                         <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">
-                            {{ sub.name }}
+                            {{ sub.Sub_Department_Name}}
                         </option>
                         </select>
                         </div>
@@ -403,7 +403,7 @@ onMounted(async () => {
         :class="{ 'has-child': sub.sub_sub_departments?.length, open: expandedSubDepartments[sub.id] }"
       >
         <p class="cursor-pointer text-indigo-600 hover:underline" @click="toggleSubDepartment(sub.id)">
-          {{ sub.name }} - ({{ sub.sub_sub_departments.length }})
+          {{ sub.Sub_Department_Name }} - ({{ sub.sub_sub_departments.length }})
         </p>
 
         <ul>
@@ -430,8 +430,8 @@ onMounted(async () => {
                     </div>
                   </td>
                   <td>
-                    <img :src="`${$r2Url}/` + subsub.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
-                    <h6 class="text-md mb-0 fw-medium">{{ subsub.name }}</h6>
+                    <img :src="`${$r2Url}/` + subsub.Image_Path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
+                    <h6 class="text-md mb-0 fw-medium">{{ subsub.Product_Sub_Sub_Department_Name }}</h6>
                   </td>
                   <td>
                   

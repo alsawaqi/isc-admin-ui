@@ -10,18 +10,41 @@ const { $axios } = useNuxtApp();
 
 import {ref,onMounted} from 'vue';
 
+interface ProductDepartments {
+    id: number;
+    Product_Department_Name: string;
+  }
+
+  interface department {
+    id: number;
+    Product_Department_Name: string;
+  }
+
 interface Manufacture {
     id: number;
-    name: string;
-    Department: string;
+    Products_Manufacture_Name: string;
+    department: department;
     created_at?: string;
     updated_at?: string;
 }
 
+const ProductDepartments = ref<ProductDepartments[]>([]);
 const ProductManufactures = ref<Manufacture[]>([]);
 const name = ref<string>('');
-const department = ref<string>('');
+const Product_Department_Id = ref<string>('');
 const loading = ref<boolean>(false);
+
+
+const getProductDepartment = async () => {
+    try {
+        const response = await $axios.get('/api/productdepartment');
+        
+        ProductDepartments.value = response.data;
+    } catch (error) {
+        console.error('Failed to fetch product departments:', error);
+        throw error;
+    }
+};
 
 const getManufactures = async () => {
 loading.value = true;
@@ -40,7 +63,9 @@ loading.value = true;
 
 const submit = async () => {
     try {
-        const response = await $axios.post('/api/productmanufacture', { name: name.value, department: department.value });
+        const response = await $axios.post('/api/productmanufacture', { name: name.value, 
+                                                                        product_department_id: Product_Department_Id.value
+                                                                      });
         console.log('Manufacture created:', response.data);
         // Optionally, you can reset the form or redirect
         name.value = '';
@@ -58,6 +83,7 @@ const submit = async () => {
 onMounted(async () => {
 
      await getManufactures();
+     await getProductDepartment();
   
 });
 
@@ -90,6 +116,17 @@ onMounted(async () => {
                     <div class="col-sm-12">
 
 
+                        <div class="mb-20">
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Department </label>
+                            <select class="form-control radius-8" id="address" v-model="Product_Department_Id">
+                                <option value="" disabled selected>Select Department</option>
+                                <option v-for="department in ProductDepartments" :key="department.id" :value="department.id">
+                                    {{ department.Product_Department_Name }}
+                                </option>
+                            
+                                </select>
+                        </div>
+
                          
 
                         <div class="mb-20">
@@ -98,10 +135,7 @@ onMounted(async () => {
                         </div>
 
 
-                        <div class="mb-20">
-                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Department <span class="text-danger-600">*</span></label>
-                            <input type="text" class="form-control radius-8" id="address" v-model="department" placeholder="Enter Department Name">
-                        </div>
+                        
 
 
                         
@@ -173,9 +207,9 @@ onMounted(async () => {
                                     </label>
                                 </div>
                             </th>
+                            <th scope="col">Department</th>
 
                             <th scope="col">Name</th>
-                            <th scope="col">Department</th>
 
 
                             <th scope="col">Action</th>
@@ -197,8 +231,8 @@ onMounted(async () => {
     <td>
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
+        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.department?.Product_Department_Name }}</h6>
       
-        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.name }}</h6>
       </div>
     </td>
 
@@ -206,8 +240,8 @@ onMounted(async () => {
     <td>
       <div class="d-flex align-items-center">
         <!-- Optional static image -->
+        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.Products_Manufacture_Name }}</h6>
       
-        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ manufacture.Department }}</h6>
       </div>
     </td>
 

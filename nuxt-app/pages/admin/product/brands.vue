@@ -23,8 +23,8 @@ const isLoading = ref<Boolean>(false);
 
 interface ProductBrand {
     id: number;
-    name: string;
-    image_path: string;
+    Products_Brands_Name: string;
+    Brands_Image_Path: string;
     created_at: string;
     updated_at: string;
 }
@@ -69,7 +69,10 @@ const submit = async (e: Event) => {
        );
        
         name.value = ''; // Clear the input after submission
-        
+        uploadedImage.value = null; // Clear the uploaded image
+        previewUrl.value = null; // Clear the preview URL
+        alert('Product Brand created successfully');
+
 
 
     } catch (error) {
@@ -270,9 +273,9 @@ onMounted(async () => {
                             <td>
                             <div class="d-flex align-items-center">
                                 <!-- Optional static image -->
-                                   <img :src="`${$r2Url}/` + productBrand.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
+                                   <img :src="`${$r2Url}/` + productBrand.Brands_Image_Path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
                  
-                                <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ productBrand.name }}</h6>
+                                <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ productBrand.Products_Brands_Name }}</h6>
                             </div>
                             </td>
 

@@ -91,7 +91,7 @@ onMounted(() => {
                       ? getActiveColor(route.path)
                       : ''">
                   
-                  Product Category</a>
+                  Product Departments</a>
                   <ul>
                     <li v-if="hasPermission('departments')" class="text-blue-600">
                 <NuxtLink to="/admin/categories"

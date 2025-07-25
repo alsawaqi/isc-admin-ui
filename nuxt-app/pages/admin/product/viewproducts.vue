@@ -6,24 +6,176 @@ definePageMeta({
      
     });
  
-import { ref, onMounted } from 'vue'
-const { $axios } = useNuxtApp();
+import { ref, onMounted ,defineEmits, defineProps, watch} from 'vue'
+const { $axios, $r2Url } = useNuxtApp();
 
 
 interface Products{
     id: number;
-    name: string;
+    Product_Name: string;
     created_at: string;
-    price: number;
+    Product_Price: number;
 }
 
+interface ProductSpec {
+  id?: number; 
+  product_specification_description_id: number;
+  Product_Specification_Description_Name: string;
+  value: string;
+}
+
+
+
+
 const products = ref<Products[]>([]);
+
+const showSpecModal = ref(false)
+const productSpecs = ref<any[]>([])
+let currentProductId = 0;
+
+const showBarcodeModal = ref(false)
+const productBarcodes = ref<string[]>([])
+const currentBarcodeProductId = ref<number | null>(null)
+
+const showImagesModal = ref(false)
+const currentImageProductId = ref<number | null>(null)
+const productImages = ref<{ id: number; path: string; is_default: boolean }[]>([])
+
+const openImagesModal = async (productId: number) => {
+  currentImageProductId.value = productId
+  try {
+    const res = await $axios.get(`/api/productmaster/${productId}/images`)
+    productImages.value = res.data
+    showImagesModal.value = true
+  } catch (err) {
+    console.error('Failed to fetch product images', err)
+  }
+}
+
+const emit = defineEmits(['close', 'uploaded'])
+
+const props = defineProps<{
+  productId: number
+  show: boolean
+  existingImages: string[]
+}>()
+
+ 
+
+const files = ref<File[]>([])
+const previews = ref<string[]>([])
+
+watch(() => props.show, (val) => {
+  if (!val) {
+    files.value = []
+    previews.value = []
+  }
+})
+
+const handleFiles = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  files.value = Array.from(input.files)
+  previews.value = files.value.map(file => URL.createObjectURL(file))
+}
+
+const submit = async () => {
+  const formData = new FormData()
+  files.value.forEach(file => formData.append('file[]', file))
+
+  try {
+    await $axios.post(`/api/product-images/${props.productId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    emit('uploaded')
+    emit('close')
+  } catch (err) {
+    console.error('Upload failed:', err)
+  }
+}
+
+const openBarcodeModal = async (productId: number) => {
+  currentBarcodeProductId.value = productId
+  try {
+    const res = await $axios.get(`/api/productmaster/${productId}/barcodes`)
+    productBarcodes.value = res.data.length ? res.data : ['']
+    showBarcodeModal.value = true
+  } catch (err) {
+    console.error('Failed to fetch barcodes:', err)
+    alert('Failed to load barcodes')
+  }
+}
+
+const addBarcode = () => {
+  productBarcodes.value.push('')
+}
+
+const removeBarcode = (index: number) => {
+  productBarcodes.value.splice(index, 1)
+}
+
+const saveBarcodes = async () => {
+  try {
+    const formData = new FormData()
+    formData.append('barcodes', JSON.stringify(productBarcodes.value.filter(b => b.trim() !== '')))
+
+    await $axios.post(`/api/productmaster/${currentBarcodeProductId.value}/barcodes`, formData)
+
+    alert('Barcodes saved successfully!')
+    showBarcodeModal.value = false
+  } catch (err: any) {
+    // Handle 422 response from Laravel
+    if (err?.response?.status === 422 && err?.response?.data?.message) {
+      alert(err.response.data.message)
+    } else {
+      alert('An error occurred while saving barcodes.')
+    }
+    console.error('Barcode saving error:', err)
+  }
+}
+
+
+const openSpecModal = async (productId: number) => {
+  currentProductId = productId;
+  try {
+    const res = await $axios.get(`/api/product-specifications/${productId}`);
+    productSpecs.value = res.data;
+    showSpecModal.value = true;
+  } catch (err) {
+    console.error('Failed to fetch product specs', err);
+  }
+}
+
+
+const removeSpec = (index: number) => {
+  productSpecs.value.splice(index, 1);
+}
+
+const saveSpecifications = async () => {
+  const payload = {
+  product_id: currentProductId,
+  specifications: productSpecs.value.map(s => ({
+    id: s.id ?? null,
+    product_specification_description_id: s.product_specification_description_id,
+    value: s.value
+  }))
+};
+
+  try {
+    await $axios.post('/api/product-specifications-update', payload);
+    showSpecModal.value = false;
+  } catch (err) {
+    console.error('Failed to save specs', err);
+  }
+}
 
 
 const fetchProducts = async () => {
     try {
         const response = await $axios.get('/api/productmaster');
         products.value = response.data;
+        console.log('Products fetched successfully:', response.data);
     } catch (error) {
         console.error('Error fetching products:', error);
     }
@@ -96,14 +248,7 @@ onMounted(async() => {
                         </span>
                     </div>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <select class="form-select form-select-sm w-auto">
-                        <option>status</option>
-                        <option>Paid</option>
-                        <option>Pending</option>
-                    </select>
-
-                </div>
+               
             </div>
             <div class="card-body">
                 <table class="table bordered-table mb-0">
@@ -142,6 +287,26 @@ onMounted(async() => {
                               </svg>
                             </div>
                           </th>
+
+                          <th scope="col" class="text-neutral-800 dark:text-white">
+                            <div class="flex items">
+                                Edit Specifications
+                            </div>
+                            </th>
+
+                            <th scope="col" class="text-neutral-800 dark:text-white">
+                            <div class="flex items">
+                                Edit Barcodes
+                            </div>
+                            </th>
+
+                            <th scope="col" class="text-neutral-800 dark:text-white">
+                            <div class="flex items">
+                                Edit Image
+                            </div>
+                            </th>
+
+                        
                            
                           <th scope="col" class="text-neutral-800 dark:text-white">
                             <div class="flex items-center gap-2">
@@ -165,14 +330,29 @@ onMounted(async() => {
                           <td>
                             <div class="flex items-center">
                               <img src="/public/isc-assets/images/user-list/user-list1.png" alt="" class="shrink-0 me-3 rounded-lg">
-                            {{ product.name }}
+                            {{ product.Product_Name }}
                             </div>
 
                          
 
                           </td>
                           <td> {{ product.created_at }}</td>
-                          <td>OMR {{ product.price }}</td>
+                          <td>OMR {{ product.Product_Price }}</td>
+                           <td>
+                            <a @click.prevent="openSpecModal(product.id)" class="w-8 h-8 bg-warning-100 text-warning-600 rounded-full inline-flex items-center justify-center">
+                              <iconify-icon icon="mdi:format-list-bulleted-type"></iconify-icon>
+                            </a>
+                          </td>
+                          <td>
+                            <a @click.prevent="openBarcodeModal(product.id)" class="w-8 h-8 bg-info-100 text-info-600 rounded-full inline-flex items-center justify-center">
+                              <iconify-icon icon="mdi:barcode-scan"></iconify-icon>
+                            </a>
+                          </td>
+                              <td>
+  <button class="btn btn-sm btn-outline-primary" @click="openImagesModal(product.id)">
+    View Images
+  </button>
+</td>
                            <td>
                             <a href="javascript:void(0)" class="w-8 h-8 bg-primary-50 dark:bg-primary-600/10 text-primary-600 dark:text-primary-400 rounded-full inline-flex items-center justify-center">
                               <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
@@ -219,6 +399,104 @@ onMounted(async() => {
     </div>
 
 
-</div>
+   </div>
+
+
+   <teleport to="body">
+  <div v-if="showSpecModal">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Specifications</h5>
+            <button type="button" class="btn-close" @click="showSpecModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div v-for="(spec, index) in productSpecs" :key="index" class="d-flex align-items-center mb-3 gap-3">
+            <label class="form-label mb-0 col-3">{{ spec.Product_Specification_Description_Name }}</label>
+           <input v-model="spec.value" type="text" class="form-control col" />
+            
+          </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showSpecModal = false">Close</button>
+            <button class="btn btn-primary" @click="saveSpecifications">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</teleport>
+
+
+<teleport to="body">
+  <div v-if="showBarcodeModal">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Manage Barcodes</h5>
+            <button type="button" class="btn-close" @click="showBarcodeModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div v-for="(barcode, index) in productBarcodes" :key="index" class="d-flex align-items-center gap-2 mb-2">
+              <input v-model="productBarcodes[index]" type="text" class="form-control" placeholder="Enter Barcode" />
+              <button class="btn btn-sm btn-danger" @click="removeBarcode(index)">×</button>
+            </div>
+            <button class="btn btn-outline-primary" @click="addBarcode">Add Barcode</button>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showBarcodeModal = false">Close</button>
+            <button class="btn btn-primary" @click="saveBarcodes">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</teleport>
+
+
+<teleport to="body">
+    <div v-if="show" class="modal-backdrop fade show"></div>
+    <div v-if="show" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Upload Product Images</h5>
+            <button type="button" class="btn-close" @click="emit('close')"></button>
+          </div>
+          <div class="modal-body">
+            <input type="file" multiple @change="handleFiles" class="form-control" />
+
+            <div class="d-flex flex-wrap mt-3 gap-3">
+              <div
+                v-for="(image, index) in existingImages"
+                :key="'existing-' + index"
+                class="border p-2"
+              >
+                <img :src="`${$r2Url}/` + image" class="img-thumbnail" width="100" height="100" />
+              </div>
+
+              <div
+                v-for="(preview, index) in previews"
+                :key="'preview-' + index"
+                class="border p-2"
+              >
+                <img :src="preview" class="img-thumbnail" width="100" height="100" />
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="emit('close')">Cancel</button>
+            <button class="btn btn-primary" @click="submit">Upload</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </teleport>
+
+
 
 </template>

@@ -26,6 +26,7 @@
     "nprogress": "^0.2.0",
     "nuxt": "^3.17.4",
     "pinia": "^3.0.2",
+    "tinymce": "^8.0.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vue": "^3.5.14",
     "vue-markdown-render": "^2.1.1",

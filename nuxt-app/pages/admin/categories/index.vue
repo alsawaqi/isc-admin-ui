@@ -276,7 +276,7 @@ onMounted(async () => {
 
         
         <!-- Optional static image -->
-        <img :src="`${$r2Url}/`+ dept.image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
+        <img :src="`${$r2Url}/`+ dept.Image_path" alt="" class="flex-shrink-0 me-12 radius-8" style="width: 50px; height: 50px; object-fit: cover;">
         <h6 class="text-md mb-0 fw-medium flex-grow-1">{{ dept.Product_Department_Name }}</h6>
       </div>
     </td>

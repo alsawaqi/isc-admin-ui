@@ -8,10 +8,11 @@ definePageMeta({
 import { type Product } from '@/data/Product'
 import { useProductType } from '~/data/producttype'
 import { useProductsBrands } from '~/data/ProductsBrands';
-
+ 
 
 
 import { ref, onMounted, watch } from 'vue'
+ 
 const { $axios } = useNuxtApp()
 
 const {getProductType} = useProductType();
@@ -25,7 +26,7 @@ const previewUrls = ref<string[]>([])
 
 const barcodes = ref<string[]>([]);
 
-
+const showBarcodeModal = ref(false);
 
 const handleFileChange = (event: Event) => {
   const files = (event.target as HTMLInputElement).files
@@ -58,20 +59,73 @@ const prevStep = () => {
   }
 };
 
+
+const restart = async () => {
+
+  steps.value = 1;
+
+  form.value = {
+    product_department_id: 0,
+    product_sub_department_id: 0,
+    product_sub_sub_department_id: 0,
+    product_type_id: '',
+    product_brand_id: '',
+    product_manufacture_id: '',
+    name: '',
+    name_ar: '',
+    description: '',
+    inhouse_barcode: '',
+    price: 0,
+    stock: 0   
+  };
+  barcodes.value = [];
+  uploadedImages.value = [];
+  previewUrls.value.forEach(url => URL.revokeObjectURL(url));
+  previewUrls.value = [];
+
+  await getLatestProducts();
+};
+
+
+interface Product_id{
+  id: number;
+}
+
 interface Department {
   id: number
   Product_Department_Name: string
 }
 
  
-interface SelectOption {
+interface SubDepartment {
   id: number;
-  name: string;
+  Sub_Department_Name: string;
+}
+
+interface SubSubDepartment {
+  id: number;
+  Product_Sub_Sub_Department_Name: string;
+}
+
+interface ProductType {
+  id: number;
+  Product_Types_Name: string;
+}
+
+interface ProductBrand {
+  id: number;
+  Products_Brands_Name: string;
+}
+
+interface ProductManufacture {
+  id: number;
+  Products_Manufacture_Name: string;
+ 
 }
 
 interface ProductSpecificationDescription {
   id: number;
-  name: string;
+  Product_Specification_Description_Name: string;
   product_sub_sub_department_id: number;
   created_at: string;
   updated_at: string;
@@ -80,7 +134,7 @@ interface ProductSpecificationDescription {
 
 interface ProductSpecificationProduct{
   product_specification_description_id: number;
-  name: string;
+  Product_Specification_Description_Name: string;
   value: string;
   
 }
@@ -90,9 +144,9 @@ const form = ref<Product>({
   product_department_id: 0,
   product_sub_department_id: 0,
   product_sub_sub_department_id: 0,
-  product_type_id: 0,
-  product_brand_id: 0,
-  product_manufacture_id: 0,
+  product_type_id: '',
+  product_brand_id: '',
+  product_manufacture_id: '',
   name: '',
   name_ar: '',
   description: '',
@@ -101,17 +155,18 @@ const form = ref<Product>({
   stock: 0   
 });
 
- 
 
-const productTypes = ref<SelectOption[]>([]);
-const productBrands = ref<SelectOption[]>([]);
-const ProductManufactures = ref<SelectOption[]>([]);
+const product_id = ref<Number>(0);
+const productTypes = ref<ProductType[]>([]);
+const productBrands = ref<ProductBrand[]>([]);
+const ProductManufactures = ref<ProductManufacture[]>([]);
 const departments = ref<Department[]>([]);
-const subDepartments = ref<SelectOption[]>([]);
-const subSubDepartments = ref<SelectOption[]>([]);
+const subDepartments = ref<SubDepartment[]>([]);
+const subSubDepartments = ref<SubSubDepartment[]>([]);
 const productSpecificationProducts = ref<ProductSpecificationProduct[]>([]);
 const loading = ref<boolean>(false);
-
+const loadingProducts = ref<boolean>(false);
+const randomDigits = ref<Number>(0);
 
 
 const isStep1Valid = computed(() => {
@@ -120,8 +175,6 @@ const isStep1Valid = computed(() => {
     form.value.product_sub_department_id &&
     form.value.product_sub_sub_department_id &&
     form.value.product_type_id &&
-    form.value.product_brand_id &&
-    form.value.product_manufacture_id &&
     form.value.inhouse_barcode.trim() !== '' &&
     form.value.name.trim() !== '' &&
     form.value.name_ar.trim() !== '' &&
@@ -149,26 +202,29 @@ const fetchSubSubDepartments = async () => {
   subSubDepartments.value = res.data
 }
 
-const getproductspecifications = async () => {
+const getproductspecifications = async (subSubDeptId: number) => {
   try {
     const response = await $axios.get('/api/product-specifications', {
       params: {
-       product_sub_sub_department_id: form.value.product_sub_sub_department_id
+        product_sub_sub_department_id: subSubDeptId
       }
     });
 
 
- 
+  
 
-     productSpecificationProducts.value = response.data.map((spec: ProductSpecificationDescription) => ({
-            name : spec.name,
-            product_specification_description_id: spec.id,
-            value: ''
-          }));
+ productSpecificationProducts.value = response.data.map((spec: ProductSpecificationDescription) => ({
+      Product_Specification_Description_Name: spec.Product_Specification_Description_Name,
+      product_specification_description_id: spec.id,
+      value: ''
+    }));
 
-    
 
-   } catch (error) {
+
+     
+
+
+  } catch (error) {
     console.error('Failed to fetch product specifications:', error);
     throw error;
   }
@@ -194,14 +250,37 @@ watch(() => form.value.product_department_id, fetchSubDepartments)
 watch(() => form.value.product_sub_department_id, fetchSubSubDepartments)
 
 
-watch(() => form.value.product_sub_sub_department_id, async () => {
+
+const getLatestProducts = async () => {
+  loadingProducts.value = true
   try {
-    const specifications = await getproductspecifications();
-    console.log('Product specifications:', specifications);
+    const response = await $axios.get('/api/latest-products')
+
+    product_id.value = Number(response.data) > 0 ? Number(response.data) + 1 : 1;
+
+     
+
+    // Generate inhouse barcode with random 5 digits
+    randomDigits.value = Math.floor(10000 + Math.random() * 90000)
+    form.value.inhouse_barcode = `${product_id.value}-${randomDigits.value}`
+
   } catch (error) {
-    console.error('Error fetching product specifications:', error);
+    console.error('Failed to fetch latest products:', error)
+    throw error
+  } finally {
+    loadingProducts.value = false
   }
-});
+}
+
+
+// watch(() => form.value.product_sub_sub_department_id, async () => {
+//   try {
+//     const specifications = await getproductspecifications(form.value.product_sub_sub_department_id);
+//     console.log('Product specifications:', specifications);
+//   } catch (error) {
+//     console.error('Error fetching product specifications:', error);
+//   }
+// });
 
   
 const submitForm = async () => {
@@ -215,36 +294,37 @@ const submitForm = async () => {
     formData.append('product_sub_department_id', form.value.product_sub_department_id.toString())
     formData.append('product_sub_sub_department_id', form.value.product_sub_sub_department_id.toString())
     formData.append('product_type_id', form.value.product_type_id.toString())
-    formData.append('product_brand_id', form.value.product_brand_id.toString())
+    if (form.value.product_brand_id !== 0) {
+        formData.append('product_brand_id', form.value.product_brand_id.toString())
+      }
+    
     formData.append('product_manufacture_id', form.value.product_manufacture_id.toString())
     formData.append('name', form.value.name)
     formData.append('name_ar', form.value.name_ar)
     formData.append('description', form.value.description)
-    formData.append('inhouse_barcode', form.value.inhouse_barcode)
+    formData.append('inhouse_barcode', randomDigits.value.toString())
     formData.append('price', form.value.price.toString())
     formData.append('stock', form.value.stock.toString())
 
     // Append barcodes as JSON string
     formData.append('barcodes', JSON.stringify(barcodes.value))
 
-    // Append specifications as JSON
-    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '');
-
-    formData.append('specifications', JSON.stringify(filteredSpecs))
+   
 
     // Append multiple images
     uploadedImages.value.forEach((file, index) => {
       formData.append(`file[]`, file)
     })
 
-    // Send FormData via Axios
-    const response = await $axios.post('/api/productmaster', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
 
-    console.log('Product created successfully:', response.data)
+    const currentSubSubId = form.value.product_sub_sub_department_id;
 
-    // Reset form
+   const response = await $axios.post('/api/productmaster', formData, {
+                                                            headers: { 'Content-Type': 'multipart/form-data' }
+                                                          });
+
+    await getproductspecifications(currentSubSubId);
+
     form.value = {
       product_department_id: 0,
       product_sub_department_id: 0,
@@ -260,16 +340,22 @@ const submitForm = async () => {
       stock: 0
     }
 
+   
     barcodes.value = []
-    productSpecificationProducts.value = []
     uploadedImages.value = []
     previewUrls.value.forEach(url => URL.revokeObjectURL(url))
     previewUrls.value = []
-    steps.value = 1
+
+
+    product_id.value = response.data.data.id;
+    steps.value = 3
+
+
+   
 
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
-      // @ts-ignore
+       
       console.error('Submission failed:', error.response.data)
     } else if (error instanceof Error) {
       console.error('Submission failed:', error.message)
@@ -282,8 +368,54 @@ const submitForm = async () => {
 }
 
 
+const submitSpecs = async () => {
+
+
+    const formData = new FormData()
+
+
+   // Append specifications as JSON
+    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '');
+
+    formData.append('specifications', JSON.stringify(filteredSpecs))
+    formData.append('product_id', product_id.value.toString())
+
+
+  try {
+    await $axios.post('/api/product-specification-products', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+     await getLatestProducts();
+     steps.value = 1;
+      productSpecificationProducts.value = [];
+
+  } catch (error) {
+     
+  }
+}
+ 
+
+
+
+
+
+
+
+watch(() => barcodes.value[0], (newVal) => {
+  if (newVal === '') {
+    barcodes.value.splice(0, 1);
+  }
+});
+
  
 onMounted(async () => {
+
+   if (barcodes.value.length === 0) {
+    barcodes.value.push('');
+  }
+
+  await getLatestProducts()
       
 
             try {
@@ -314,7 +446,7 @@ onMounted(async () => {
                         </NuxtLink>
                     </li>
                     <li>-</li>
-                    <li class="fw-medium">Create Products</li>
+                    <li class="fw-medium">Creating Products</li>
                 </ul>
             </div>
 
@@ -322,7 +454,7 @@ onMounted(async () => {
                 <div class="col-lg-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">Create Products</h5>
+                            <h5 class="card-title mb-0">Create a product for id number  <span v-if="loadingProducts">loading...</span>   <span v-else>{{ product_id }}</span></h5>
                         </div>
 
                         
@@ -362,7 +494,7 @@ onMounted(async () => {
                                                 </span>
                                                 <select class="form-select" v-model="form.product_sub_department_id" required>
                                                   <option disabled value="">Select Sub Category</option>
-                                                  <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+                                                  <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">{{ sub.Sub_Department_Name }}</option>
                                                 </select>
                                               </div>
                                             </div>
@@ -378,7 +510,7 @@ onMounted(async () => {
                                                 </span>
                                                 <select class="form-select" v-model="form.product_sub_sub_department_id" required>
                                                   <option disabled value="">Select Sub Sub Category</option>
-                                                  <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">{{ subsub.name }}</option>
+                                                  <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">{{ subsub.Product_Sub_Sub_Department_Name }}</option>
                                                 </select>
                                               </div>
                                             </div>
@@ -394,7 +526,7 @@ onMounted(async () => {
                                                 </span>
                                                 <select class="form-select" v-model="form.product_type_id" required>
                                                   <option disabled value="">Select Product Type</option>
-                                                  <option v-for="type in productTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                                                  <option v-for="type in productTypes" :key="type.id" :value="type.id">{{ type.Product_Types_Name }}</option>
                                                 </select>
                                               </div>
                                             </div>
@@ -410,7 +542,7 @@ onMounted(async () => {
                                                 </span>
                                                 <select class="form-select" v-model="form.product_brand_id" required>
                                                   <option disabled value="">Select Product Brand</option>
-                                                  <option v-for="brand in productBrands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
+                                                  <option v-for="brand in productBrands" :key="brand.id" :value="brand.id">{{ brand.Products_Brands_Name }}</option>
                                                 </select>
                                               </div>
                                             </div>
@@ -426,7 +558,7 @@ onMounted(async () => {
                                                 </span>
                                                 <select class="form-select" v-model="form.product_manufacture_id" required>
                                                   <option disabled value="">Select Product Manufacturer</option>
-                                                  <option v-for="manufacture in ProductManufactures" :key="manufacture.id" :value="manufacture.id">{{ manufacture.name }}</option>
+                                                  <option v-for="manufacture in ProductManufactures" :key="manufacture.id" :value="manufacture.id">{{ manufacture.Products_Manufacture_Name }}</option>
                                                 </select>
                                               </div>
                                             </div>
@@ -440,10 +572,26 @@ onMounted(async () => {
                                                 <span class="icon">
                                                   <iconify-icon icon="mdi:barcode"></iconify-icon>
                                                 </span>
-                                                <input type="text" v-model="form.inhouse_barcode" class="form-control" placeholder="Enter In house Barcode" required>
+                                                <input type="text" v-model="form.inhouse_barcode" class="form-control" placeholder="Enter In house Barcode" disabled readonly>
+
                                               </div>
                                             </div>
                                           </div>
+
+                                          <div class="row mb-24 gy-3 align-items-center">
+                                          <label class="form-label mb-0 col-sm-2">Manufacturer Barcodes</label>
+                                          <div class="col-sm-10 d-flex align-items-center gap-3">
+                                            <input
+                                                    type="text"
+                                                    v-model="barcodes[0]"
+                                                    class="form-control"
+                                                    placeholder="Enter Barcode"
+                                                  />
+                                            <button type="button" class="btn btn-outline-primary" @click="showBarcodeModal = true">
+                                              Manage ({{ barcodes.length }})
+                                            </button>
+                                          </div>
+                                        </div>
 
                                           <!-- Product Name -->
                                           <div class="row mb-24 gy-3 align-items-center">
@@ -520,73 +668,8 @@ onMounted(async () => {
                         </div>
 
 
-                        <div class="card" v-show="steps === 2">
-
-                           <div class="card-header">
-                            <h6>Barcode Manufacturer </h6>
-                           </div>
-
-                          <div class="card-body">
-
-                                                      <div v-for="(barcode, index) in barcodes" :key="index" class="mb-3">
-                                                          <input type="text" v-model="barcodes[index]" class="form-control" placeholder="Enter Barcode" required>
-                                                          <button type="button" class="btn btn-danger mt-2" @click="barcodes.splice(index, 1)">Remove</button>
-                                                          </div>
-
-                                                      <button type="button" class="btn btn-success" @click="addBarcode">Add Barcode</button>
-                          </div>
-                          
-                        </div>
-
-
-
-                        <div class="card" v-show="steps === 3">
-
-
-                            <div class="card-header">
-                            <h6>Enter Product Feature Values</h6>
-
-                          </div>
-                             <div class="card-body">
-
-                    
-                                       
-
-                                          <!-- Description -->
-                                          <div class="row mb-24 gy-3 align-items-center" v-for="(spec, index) in productSpecificationProducts" :key="index">
-
-                                           
-                                            <label class="form-label mb-0 col-sm-2">{{ spec.name }}</label>
-                                            <div class="col-sm-10">
-                                              <div class="icon-field">
-                                                <span class="icon">
-                                                  <iconify-icon icon="mdi:text-box-outline"></iconify-icon>
-                                                </span>
-
-                                                 <input type="text" v-model="productSpecificationProducts[index].value" class="form-control" placeholder="Enter Value">
-      
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                       
-
-                                        
-
-                                                          
-
-
-                            </div>
-
-                           
-
-
-
-                        </div>
-
-
-                        <div class="card-body" v-show="steps === 4">
-                            <h5 class="mb-3">Upload Image</h5>
+                        <div class="card-body" v-show="steps === 2">
+                            <h5 class="mb-3">Upload Image for {{ form.name }}</h5>
 
 
                             <div class="upload-image-wrapper d-flex align-items-center gap-3 flex-wrap">
@@ -624,7 +707,7 @@ onMounted(async () => {
       @change="handleFileChange"
     />
   </label>
-</div>
+                            </div>
 
  
                             
@@ -633,15 +716,70 @@ onMounted(async () => {
                         </div>
 
 
-                        <div class="card-footer d-flex justify-content-between">
-                            <button class="btn btn-secondary border border-primary-600 text-md px-24 py-12 radius-8" @click="prevStep()" :disabled="steps === 1" v-if="steps !== 1">Previous</button>
-                            
-                            <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click="nextStep()"   v-if="steps !== 4" :disabled="!isStep1Valid" > Next</button>
 
-                            <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click.prevent="submitForm()" v-if="steps === 4" :disabled="loading">
+                       
+
+
+
+                        <div class="card" v-show="steps === 3">
+
+
+                            <div class="card-header">
+                            <h6>Enter Product Feature Values</h6>
+
+                          </div>
+                             <div class="card-body">
+                         
+
+                                    <div class="row mb-24 gy-3 align-items-center" v-for="(spec, index) in productSpecificationProducts" :key="index">
+                                    <label class="form-label mb-0 col-sm-2">{{ spec.Product_Specification_Description_Name }}</label>
+                                    <div class="col-sm-10">
+                                      <div class="icon-field">
+                                        <span class="icon">
+                                          <iconify-icon icon="mdi:text-box-outline"></iconify-icon>
+                                        </span>
+                                        <input type="text" v-model="spec.value" class="form-control" placeholder="Enter Value">
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                       
+
+                                        
+
+                                                          
+
+
+                            </div>
+
+                           
+
+
+
+                        </div>
+
+
+                        
+
+                        <div class="card-footer d-flex justify-content-between">
+                            <button class="btn btn-secondary border border-primary-600 text-md px-24 py-12 radius-8" @click="prevStep()" :disabled="steps === 1" v-if="steps !== 3">Previous</button>
+
+                            <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click="nextStep()"   v-if="steps !== 2 && steps !== 3"  :disabled="!isStep1Valid"> Next</button>
+
+                            <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click.prevent="submitForm()" v-if="steps === 2" :disabled="loading">
                             <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                                Submit
                             </button>
+
+
+                            <button class="btn btn-secondary border border-primary-600 text-md px-24 py-12 radius-8" @click="restart()"  v-if="steps === 3">Reset</button>
+                            <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click.prevent="submitSpecs()" v-if="steps === 3">
+                            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                               Submit Specifications
+                            </button>
+
+
+
                         </div>
                        
                     </div>
@@ -651,6 +789,37 @@ onMounted(async () => {
             
 
         </div>
+
+
+        <!-- Barcode Modal -->
+ <teleport to="body">
+  <div v-if="showBarcodeModal">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Manage Additional Barcodes ({{ barcodes.length }})</h5>
+            <button type="button" class="btn-close" @click="showBarcodeModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div v-for="(barcode, index) in barcodes" :key="index"  class="d-flex align-items-center gap-2 mb-2">
+              
+              <input type="text" v-model="barcodes[index]" class="form-control" placeholder="Enter Barcode" required>
+              <button type="button" class="btn btn-danger mt-2" @click="barcodes.splice(index, 1)">Remove</button>
+            </div>
+            <button type="button" class="btn btn-success" @click="addBarcode">Add Barcode</button>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showBarcodeModal = false">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</teleport>
+
+
 
     
 </template>

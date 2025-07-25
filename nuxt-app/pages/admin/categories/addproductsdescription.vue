@@ -16,9 +16,13 @@ const { $axios } = useNuxtApp()
                        }
 
  
-   interface SelectOption {
+   interface SubDepartment {
         id: number;
-        name: string;
+        Sub_Department_Name: string;
+        }
+        interface SubSubDepartment {
+            id: number;
+            Product_Sub_Sub_Department_Name: string;
         }
 
    interface Categories{
@@ -38,9 +42,9 @@ const form = ref<Categories>({
 
 
 const departments = ref<Department[]>([])
-const subDepartments = ref<SelectOption[]>([])
-const subSubDepartments = ref<SelectOption[]>([])
-const headers = ref<string[]>([])
+const subDepartments = ref<SubDepartment[]>([])
+const subSubDepartments = ref<SubSubDepartment[]>([])
+const headers = ref<string[]>([''])
 
 const fetchDepartments = async () => {
   const res = await $axios.get('/api/productdepartment')
@@ -153,7 +157,7 @@ onMounted(async () => {
                                             <label class="form-label">Sub Category</label>
                                             <select class="form-select" v-model="form.product_sub_department_id" required>
                                               <option disabled value="">Select Sub Category</option>
-                                              <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+                                              <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">{{ sub.Sub_Department_Name }}</option>
                                             </select>
                                           </div>
 
@@ -161,7 +165,7 @@ onMounted(async () => {
                                             <label class="form-label">Sub Sub Category</label>
                                             <select class="form-select" v-model="form.product_sub_sub_department_id" required>
                                               <option disabled value="">Select Sub Sub Category</option>
-                                              <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">{{ subsub.name }}</option>
+                                              <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">{{ subsub.Product_Sub_Sub_Department_Name }}</option>
                                             </select>
                                           </div>
 
@@ -186,34 +190,25 @@ onMounted(async () => {
     <div class="dashboard-main-body">
 
         <div class="card h-100 p-0 radius-12 overflow-hidden">
-            <div class="card-body p-40">
+            <div class="card-body">
 
-            <div class="col-lg-12" v-for="(header, index) in headers" :key="index">
-
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Products Features Description {{ index + 1 }}</h5>
+     <div class="row mb-24 gy-3 align-items-center" v-for="(header, index) in headers" :key="index">
+                <h5 class="col-sm-12 mb-3">Feature Description {{ index + 1 }}</h5>
+                    <div class="form-label mb-0 col-sm-6">
+                                           <input type="text" class="form-control" v-model="headers[index]" :placeholder="`Feature Description ${index + 1}`" style="margin-bottom: 10px;"/>
+                        </div>
+                     <div class="col-sm-6">
+                          <div class="icon-field">
+                              <button class="btn btn-danger" @click="removeSpecHeader(index)">Remove</button>
+                           </div>
+                      </div>
                </div>
 
-                  <input type="text" class="form-control" v-model="headers[index]" :placeholder="`Feature Header ${index + 1}`" style="
-    margin-bottom: 10px;
-" />
-
-
-                  <button class="btn btn-danger" @click="removeSpecHeader(index)">Remove</button>
-
-            </div>
-
-
-            
-
-             
-             
-            
-
-            </div>
+             </div>
              <div class="card-footer">
-                  <button class="btn btn-primary" @click="addHeaderField">Generate Text</button>
+                  <button class="btn btn-primary" @click="addHeaderField">Add Feature Description +</button>
 
+           
 
                     
  
