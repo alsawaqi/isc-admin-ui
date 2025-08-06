@@ -52,7 +52,7 @@ const allPermissions = [
   'other services', 'free lancers', 'collaborations',
   'admin', 'users', 'add new user', 'view user profile', 'print user profile',
   'define roles', 'assign roles', 'system parameters', 'companies', 'currencies', 'merchant',
-  'couriers', 'admin report'
+  'couriers', 'admin report','geography','country', 'state', 'city'
 ]
 
 const toggleAllPermissions = (checkAll: boolean) => {
@@ -294,6 +294,14 @@ onMounted(async () => {
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="print user profile"> Print User Profile</label></li>
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="define roles"> Define Roles</label></li>
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="assign roles"> Assign Roles</label></li>
+                                                      </ul>
+                                                    </li>
+
+                                                    <li><label><input type="checkbox" v-model="selectedPermissions" value="geography"> Geography</label>
+                                                      <ul class="permission-tree-level-2">
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="country"> country</label></li>
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="state"> state</label></li>
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="city"> city</label></li>
                                                       </ul>
                                                     </li>
                                                     <li><label><input type="checkbox" v-model="selectedPermissions" value="system parameters"> System Parameters</label></li>

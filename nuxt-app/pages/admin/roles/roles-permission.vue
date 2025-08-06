@@ -25,7 +25,7 @@ const allPermissions = [
   'other services', 'free lancers', 'collaborations',
 
   // Admin
-  'admin', 'users', 'add new user', 'view user profile', 'print user profile',
+  'admin', 'users', 'add new user',  'geography','country','state','city','view user profile', 'print user profile',
   'define roles', 'assign roles', 'system parameters', 'companies', 'currencies',
   'merchant', 'couriers', 'admin report',
 ]
@@ -68,6 +68,11 @@ const permissionTree: Record<string, string[]> = {
     'define roles',
     'assign roles',
   ],
+ geography: [
+    'country',
+    'state',
+    'city',
+  ]
 }
 
 // Watcher: When a parent is added/removed, cascade to children
@@ -242,6 +247,14 @@ onMounted(() => {
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="print user profile"> Print User Profile</label></li>
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="define roles"> Define Roles</label></li>
                                                         <li><label><input type="checkbox" v-model="selectedPermissions" value="assign roles"> Assign Roles</label></li>
+                                                      </ul>
+                                                    </li>
+
+                                                    <li><label><input type="checkbox" v-model="selectedPermissions" value="geography"> Geography</label>
+                                                      <ul class="permission-tree-level-2">
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="country"> country</label></li>
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="state"> state</label></li>
+                                                        <li><label><input type="checkbox" v-model="selectedPermissions" value="city"> city</label></li>
                                                       </ul>
                                                     </li>
                                                     <li><label><input type="checkbox" v-model="selectedPermissions" value="system parameters"> System Parameters</label></li>

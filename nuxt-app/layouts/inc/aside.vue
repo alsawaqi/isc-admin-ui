@@ -60,9 +60,9 @@ onMounted(() => {
     <div>
       <NuxtLink
     to="/admin" class="sidebar-logo">
-        <img src="https://midnightblue-llama-681520.hostingersite.com/logonew1.jpg" alt="site logo" class="light-logo">
-        <img src="https://midnightblue-llama-681520.hostingersite.com/logonew1.jpg" alt="site logo" class="dark-logo">
-        <img src="https://midnightblue-llama-681520.hostingersite.com/logonew1.jpg" alt="site logo" class="logo-icon">
+        <img src="/logo.jpg" alt="site logo" class="light-logo">
+        <img src="/logo.jpg" alt="site logo" class="dark-logo">
+        <img src="/logo.jpg" alt="site logo" class="logo-icon">
       </NuxtLink>
     </div>
 
@@ -191,7 +191,19 @@ onMounted(() => {
             <li v-if="hasPermission('orders')" class="has-child">
               <a href="javascript:void(0)">Orders</a>
               <ul class="open" style="display: block;">
-                <li v-if="hasPermission('orders placed')"><a href="#">Orders Placed</a></li>
+                <li v-if="hasPermission('orders placed')">
+
+
+                  
+
+                  <NuxtLink
+                    to="/admin/orders/ordersplaced"
+                    :style="isActive('/admin/orders/ordersplaced') ? getActiveColor('/admin/orders/ordersplaced') : ''"
+                  >
+                    Orders Placed
+                  </NuxtLink>
+
+                </li>
                 <li v-if="hasPermission('order packaging')"><a href="#">Order Packaging</a></li>
                 <li v-if="hasPermission('order dispatched')"><a href="#">Order Dispatched</a></li>
                 <li v-if="hasPermission('order shipments')"><a href="#">Order Shipments</a></li>
@@ -276,6 +288,51 @@ onMounted(() => {
                   </NuxtLink>
                 </li>
 
+                    
+                  </ul>
+                </li>
+
+                <li v-if="hasPermission('geography')" class="has-child">
+                    <a href="javascript:void(0)"
+                :style="isAnyChildActive([
+                            '/admin/geography/country',
+                            '/admin/geography/state',
+                            '/admin/geography/city',
+                             
+                          ]) ? getActiveColor(route.path) : ''">
+                Geography
+              </a>
+                  <ul>
+                    <li v-if="hasPermission('country')">
+                  <NuxtLink 
+                    to="/admin/geography/country"
+                    :style="isActive('/admin/geography/country') ? getActiveColor('/admin/geography/country') : ''"
+                  >
+                    Country
+                  </NuxtLink>
+                </li>
+                    <li v-if="hasPermission('state')">
+                  <NuxtLink
+                    to="/admin/geography/state"
+                    :style="isActive('/admin/geography/state') ? getActiveColor('/admin/geography/state') : ''"   
+                  >
+                    State 
+                      
+                  </NuxtLink>
+                </li>
+                    <li v-if="hasPermission('city')">
+
+                  <NuxtLink
+                    to="/admin/geography/city"  
+                    :style="isActive('/admin/geography/city') ? getActiveColor('/admin/geography/city') : ''"
+                      
+                  >
+
+                    City
+
+                      
+                  </NuxtLink>
+                </li>
                     
                   </ul>
                 </li>
