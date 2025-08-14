@@ -6,8 +6,22 @@ definePageMeta({
      
     });
  
-import { ref, onMounted ,defineEmits, defineProps, watch} from 'vue'
+import { ref, onMounted ,defineEmits, defineProps, watch,nextTick } from 'vue'
 const { $axios, $r2Url } = useNuxtApp();
+
+
+const showSpecModal = ref(false)
+let currentProductId: number | null = null
+
+type SpecRow = {
+  id?: number | null
+  product_specification_description_id: number
+  Product_Specification_Description_Name: string
+  options: Array<{ id: string; value: string }>
+  product_specification_value_id: string // <-- string, not number|null
+}
+
+
 
 
 interface Products{
@@ -29,9 +43,23 @@ interface ProductSpec {
 
 const products = ref<Products[]>([]);
 
-const showSpecModal = ref(false)
-const productSpecs = ref<any[]>([])
-let currentProductId = 0;
+
+const saveResult = ref<null | {
+  created: number
+  updated: number
+  unchanged: number
+  enriched_rows: Array<{
+    index: number
+    action: 'created' | 'updated' | 'unchanged'
+    product_name: string
+    spec_name: string
+    value_label?: string | null
+    from_label?: string | null
+    to_label?: string | null
+  }>
+}>(null)
+
+const productSpecs = ref<SpecRow[]>([])
 
 const showBarcodeModal = ref(false)
 const productBarcodes = ref<string[]>([])
@@ -137,36 +165,98 @@ const saveBarcodes = async () => {
 
 
 const openSpecModal = async (productId: number) => {
-  currentProductId = productId;
+  currentProductId = productId
   try {
-    const res = await $axios.get(`/api/product-specifications/${productId}`);
-    productSpecs.value = res.data;
-    showSpecModal.value = true;
+    const res = await $axios.get(`/api/product-specifications/${productId}`)
+
+
+    productSpecs.value = res.data.map((s: any) => {
+  const options = (s.options || []).map((v: any) => ({
+    id: String(v.id),
+    value: v.value
+  }))
+
+  // If null, choose first option (or '' if none)
+  let selected = s.product_specification_value_id != null
+    ? String(s.product_specification_value_id)
+    : (options[0]?.id ?? '')
+
+  // (If the saved id isn’t in options, inject placeholder)
+  if (selected && !options.some((o: { id: any; }) => o.id === selected)) {
+    const label = s.selected_label ?? `(Saved) #${selected}`
+    options.unshift({ id: selected, value: label })
+  }
+
+  return {
+    id: s.id ?? null,
+    product_specification_description_id: Number(s.product_specification_description_id),
+    Product_Specification_Description_Name: s.Product_Specification_Description_Name,
+    options,
+    product_specification_value_id: selected
+  }
+})
+
+
+    
+
+    // Debug: confirm types/values
+    console.table(productSpecs.value.map(x => ({
+      descId: x.product_specification_description_id,
+      selected: x.product_specification_value_id,
+      selectedType: typeof x.product_specification_value_id,
+      optionIds: x.options.map(o => o.id).join(','),
+      optionIdTypes: Array.from(new Set(x.options.map(o => typeof o.id))).join(',')
+    })))
+
+    await nextTick()
+    showSpecModal.value = true
   } catch (err) {
-    console.error('Failed to fetch product specs', err);
+    console.error('Failed to fetch product specs', err)
   }
 }
 
-
-const removeSpec = (index: number) => {
-  productSpecs.value.splice(index, 1);
-}
+const showSummaryModal = ref(false)
 
 const saveSpecifications = async () => {
-  const payload = {
-  product_id: currentProductId,
-  specifications: productSpecs.value.map(s => ({
-    id: s.id ?? null,
-    product_specification_description_id: s.product_specification_description_id,
-    value: s.value
-  }))
-};
+  if (!currentProductId) return
+
+  const specsPayload = productSpecs.value
+    // only rows with a non-empty selection
+    .filter(s => typeof s.product_specification_value_id === 'string' && s.product_specification_value_id.trim() !== '')
+    // map and coerce to numbers
+    .map(s => ({
+      product_specification_description_id: Number(s.product_specification_description_id),
+      product_specification_value_id: Number(s.product_specification_value_id)
+    }))
+
+  if (specsPayload.length === 0) {
+    alert('Please select at least one specification value.')
+    return
+  }
+
+  // DEBUG: sanity check
+  console.table(specsPayload)
 
   try {
-    await $axios.post('/api/product-specifications-update', payload);
-    showSpecModal.value = false;
+   const { data } =  await $axios.post('/api/product-specifications-update', {
+      product_id: currentProductId,
+      specifications: specsPayload
+    })
+
+       // pull summary for UI
+    saveResult.value = {
+      created: data?.summary?.created ?? 0,
+      updated: data?.summary?.updated ?? 0,
+      unchanged: data?.summary?.unchanged ?? 0,
+      enriched_rows: data?.summary?.enriched_rows ?? []
+    }
+
+
+
+    showSpecModal.value = false
+     showSummaryModal.value = true
   } catch (err) {
-    console.error('Failed to save specs', err);
+    console.error('Failed to save specs', err)
   }
 }
 
@@ -361,33 +451,50 @@ onMounted(async() => {
    </div>
 
 
-   <teleport to="body">
-  <div v-if="showSpecModal">
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Edit Specifications</h5>
-            <button type="button" class="btn-close" @click="showSpecModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <div v-for="(spec, index) in productSpecs" :key="index" class="d-flex align-items-center mb-3 gap-3">
-            <label class="form-label mb-0 col-3">{{ spec.Product_Specification_Description_Name }}</label>
-           <input v-model="spec.value" type="text" class="form-control col" />
-            
-          </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" @click="showSpecModal = false">Close</button>
-            <button class="btn btn-primary" @click="saveSpecifications">Save</button>
+ <teleport to="body">
+    <div v-if="showSpecModal">
+      <div class="modal-backdrop fade show"></div>
+      <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Edit Specifications</h5>
+              <button type="button" class="btn-close" @click="showSpecModal = false"></button>
+            </div>
+
+            <div class="modal-body">
+              <div v-for="(spec, index) in productSpecs" :key="spec.product_specification_description_id" class="row mb-3 align-items-center">
+                <label class="form-label mb-0 col-3">{{ spec.Product_Specification_Description_Name }}</label>
+                <div class="col-9">
+                 
+
+
+              <select
+                    class="form-select"
+                    :key="`${spec.product_specification_description_id}:${spec.product_specification_value_id}`"
+                    v-model="spec.product_specification_value_id" 
+                    :disabled="spec.options.length === 0"
+                  >
+                    <option value="" disabled>Select a value</option> <!-- empty string -->
+                    <option v-for="opt in spec.options" :key="opt.id" :value="opt.id">
+                      {{ opt.value }}
+                    </option>
+                  </select>
+
+                  <small v-if="spec.options.length === 0" class="text-muted">No values available for this spec.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-secondary" @click="showSpecModal = false">Close</button>
+              <button class="btn btn-primary" @click="saveSpecifications">Save</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 </teleport>
-
 
 <teleport to="body">
   <div v-if="showBarcodeModal">
@@ -455,6 +562,70 @@ onMounted(async() => {
       </div>
     </div>
   </teleport>
+
+
+  <teleport to="body">
+  <div v-if="showSummaryModal">
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Specification Update Summary
+              <small class="ms-2 text-muted" v-if="saveResult">
+                (created: {{ saveResult.created }}, updated: {{ saveResult.updated }}, unchanged: {{ saveResult.unchanged }})
+              </small>
+            </h5>
+            <button type="button" class="btn-close" @click="showSummaryModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Product</th>
+                  <th>Specification</th>
+                  <th>Action</th>
+                  <th class="text-nowrap">Old Value</th>
+                  <th class="text-nowrap">New/Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(r, i) in saveResult?.enriched_rows || []" :key="i">
+                  <td>{{ r.index + 1 }}</td>
+                  <td>{{ r.product_name }}</td>
+                  <td>{{ r.spec_name }}</td>
+                  <td class="text-capitalize">{{ r.action }}</td>
+
+                  <!-- For updated: show from -> to; for others: show value -->
+                  <td>
+                    <template v-if="r.action === 'updated'">
+                      {{ r.from_label ?? '—' }}
+                    </template>
+                    <template v-else>—</template>
+                  </td>
+                  <td>
+                    <template v-if="r.action === 'updated'">
+                      {{ r.to_label ?? '—' }}
+                    </template>
+                    <template v-else>
+                      {{ r.value_label ?? '—' }}
+                    </template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" @click="showSummaryModal = false">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</teleport>
+
 
 
 

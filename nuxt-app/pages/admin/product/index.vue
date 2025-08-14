@@ -131,12 +131,13 @@ interface ProductSpecificationDescription {
   updated_at: string;
 }
 
+interface SpecOption { id: number; value: string }
 
-interface ProductSpecificationProduct{
-  product_specification_description_id: number;
-  Product_Specification_Description_Name: string;
-  value: string;
-  
+interface ProductSpecificationProductVM{
+   product_specification_description_id: number
+  Product_Specification_Description_Name: string
+  options: SpecOption[]          // <-- dropdown options from Product_Specification_Value_T
+  product_specification_value_id?: number | null // <-- the chosen value id
 }
  
  
@@ -163,7 +164,7 @@ const ProductManufactures = ref<ProductManufacture[]>([]);
 const departments = ref<Department[]>([]);
 const subDepartments = ref<SubDepartment[]>([]);
 const subSubDepartments = ref<SubSubDepartment[]>([]);
-const productSpecificationProducts = ref<ProductSpecificationProduct[]>([]);
+const productSpecificationProducts = ref<ProductSpecificationProductVM[]>([]);
 const loading = ref<boolean>(false);
 const loadingProducts = ref<boolean>(false);
 const randomDigits = ref<Number>(0);
@@ -205,30 +206,22 @@ const fetchSubSubDepartments = async () => {
 const getproductspecifications = async (subSubDeptId: number) => {
   try {
     const response = await $axios.get('/api/product-specifications', {
-      params: {
-        product_sub_sub_department_id: subSubDeptId
-      }
-    });
+      params: { product_sub_sub_department_id: subSubDeptId }
+    })
 
-
-  
-
- productSpecificationProducts.value = response.data.map((spec: ProductSpecificationDescription) => ({
+    // Expecting each item like:
+    // { id, Product_Specification_Description_Name, values: [{id, value}, ...] }
+    productSpecificationProducts.value = response.data.map((spec: any) => ({
       Product_Specification_Description_Name: spec.Product_Specification_Description_Name,
       product_specification_description_id: spec.id,
-      value: ''
-    }));
-
-
-
-     
-
-
+      options: (spec.values || []).map((v: any) => ({ id: v.id, value: v.value })),
+      product_specification_value_id: null
+    }))
   } catch (error) {
-    console.error('Failed to fetch product specifications:', error);
-    throw error;
+    console.error('Failed to fetch product specifications:', error)
+    throw error
   }
-};
+}
 
 const getManufactures = async () => {
  
@@ -368,33 +361,37 @@ const submitForm = async () => {
 }
 
 
+ 
+
+
 const submitSpecs = async () => {
+  // only send rows where the user actually chose a value
+  const chosen = productSpecificationProducts.value
+    .filter(s => s.product_specification_value_id != null)
+    .map(s => ({
+      product_specification_description_id: s.product_specification_description_id,
+      product_specification_value_id: s.product_specification_value_id
+    }))
 
-
-    const formData = new FormData()
-
-
-   // Append specifications as JSON
-    const filteredSpecs = productSpecificationProducts.value.filter(p => p.value.trim() !== '');
-
-    formData.append('specifications', JSON.stringify(filteredSpecs))
-    formData.append('product_id', product_id.value.toString())
-
+  if (chosen.length === 0) {
+    alert('Please select at least one specification value.')
+    return
+  }
 
   try {
-    await $axios.post('/api/product-specification-products', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    await $axios.post('/api/product-specification-products', {
+      product_id: Number(product_id.value),
+      specifications: chosen
+    }) // axios sends JSON by default
 
-     await getLatestProducts();
-     steps.value = 1;
-      productSpecificationProducts.value = [];
-
+    await getLatestProducts()
+    steps.value = 1
+    productSpecificationProducts.value = []
   } catch (error) {
-     
+    console.error('Failed to save product specs:', error)
+    alert('Failed to save product specs')
   }
 }
- 
 
 
 
@@ -731,17 +728,30 @@ onMounted(async () => {
                              <div class="card-body">
                          
 
-                                    <div class="row mb-24 gy-3 align-items-center" v-for="(spec, index) in productSpecificationProducts" :key="index">
-                                    <label class="form-label mb-0 col-sm-2">{{ spec.Product_Specification_Description_Name }}</label>
-                                    <div class="col-sm-10">
-                                      <div class="icon-field">
-                                        <span class="icon">
-                                          <iconify-icon icon="mdi:text-box-outline"></iconify-icon>
-                                        </span>
-                                        <input type="text" v-model="spec.value" class="form-control" placeholder="Enter Value">
-                                      </div>
-                                    </div>
-                                  </div>
+                                     <div class="row mb-24 gy-3 align-items-center"
+     v-for="(spec, index) in productSpecificationProducts"
+     :key="spec.product_specification_description_id">
+  <label class="form-label mb-0 col-sm-2">{{ spec.Product_Specification_Description_Name }}</label>
+  <div class="col-sm-10">
+    <div class="icon-field">
+       
+
+      <select class="form-select"
+              v-model.number="spec.product_specification_value_id"
+              :disabled="spec.options.length === 0">
+        <option :value="null" disabled>Select a value</option>
+        <option v-for="opt in spec.options" :key="opt.id" :value="opt.id">
+          {{ opt.value }}
+        </option>
+      </select>
+
+      <small v-if="spec.options.length === 0" class="text-muted">
+        No values configured for this spec yet.
+      </small>
+    </div>
+  </div>
+</div>
+
 
                                        
 

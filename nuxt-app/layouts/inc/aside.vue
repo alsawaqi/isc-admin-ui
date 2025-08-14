@@ -122,14 +122,23 @@ onMounted(() => {
 
 
 
-          <li
-          v-if="hasPermission('addproductsdescription')"
-        >
+          <li v-if="hasPermission('addproductsdescription')">
           <NuxtLink
                 to="/admin/categories/addproductsdescription"
                 :style="isActive('/admin/categories/addproductsdescription') ? getActiveColor('/admin/categories/addproductsdescription') : 'color: #17a2b8;'"
               >
                 Products Features
+              </NuxtLink>
+          </li>
+
+
+
+           <li>
+          <NuxtLink
+                to="/admin/categories/viewproductdescription"
+                :style="isActive('/admin/categories/viewproductdescription') ? getActiveColor('/admin/categories/viewproductdescription') : 'color: #17a2b8;'"
+              >
+                View Products Features
               </NuxtLink>
           </li>
 
