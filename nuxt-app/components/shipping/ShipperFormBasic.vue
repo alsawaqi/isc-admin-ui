@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 
 export interface BasicForm {
   Shippers_Code: string
@@ -19,18 +19,43 @@ export interface BasicForm {
 const props = defineProps<{ modelValue: BasicForm }>()
 const emit = defineEmits<{ 'update:modelValue':[BasicForm] }>()
 
-const f = ref<BasicForm>({...props.modelValue})
-watch(() => props.modelValue, v => f.value = {...v})
-watch(f, v => emit('update:modelValue', v), { deep: true })
+// Local working copy
+const f = ref<BasicForm>({ ...props.modelValue })
+
+// Debounce + reentrancy guard
+let timer: ReturnType<typeof setTimeout> | null = null
+const DEBOUNCE_MS = 200
+const syncingFromParent = ref(false)
+
+// If parent replaces modelValue, sync into local (without triggering emit)
+watch(() => props.modelValue, (v) => {
+  syncingFromParent.value = true
+  // merge to preserve any fields not sent by parent (if any)
+  f.value = { ...f.value, ...v }
+  syncingFromParent.value = false
+}, { deep: false }) // usually parent replaces the object; deep not needed
+
+// Emit to parent, but debounce so typing stays smooth
+watch(f, (v) => {
+  if (syncingFromParent.value) return
+  if (timer) clearTimeout(timer)
+  timer = setTimeout(() => {
+    emit('update:modelValue', { ...v })
+  }, DEBOUNCE_MS)
+}, { deep: true, flush: 'post' })
+
+onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
 </script>
 
 <template>
   <div class="row">
-    
     <div class="col-sm-4 mb-20">
-      <label class="form-label fw-semibold text-primary-light text-sm mb-8">Name <span class="text-danger-600">*</span></label>
+      <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+        Name <span class="text-danger-600">*</span>
+      </label>
       <input v-model="f.Shippers_Name" class="form-control radius-8" />
     </div>
+
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Email</label>
       <input v-model="f.Shippers_Email_Address" type="email" class="form-control radius-8" />
