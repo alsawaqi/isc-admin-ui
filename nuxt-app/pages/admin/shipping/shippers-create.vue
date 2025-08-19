@@ -160,30 +160,31 @@ const saveAll = async () => {
       <div class="card-body p-40">
 
         <!-- STEP 1 -->
-        <div v-show="active===1"><ShipperFormBasic v-model="basic" /></div>
+        <div v-if="active===1"><ShipperFormBasic v-model="basic" /></div>
 
         <!-- STEP 2 -->
-        <div v-show="active===2"><ShipperFormContacts v-model="contacts" /></div>
+       <div v-else-if="active===2"><ShipperFormContacts v-model="contacts" /></div>
 
         <!-- STEP 3: REVIEW -->
-        <div v-show="active===3" class="row"> <ShipperFormDestinations v-model="destinations" /> </div>
+       <div v-else-if="active===3"><ShipperFormDestinations v-model="destinations" /></div>
 
          <!-- STEP 4: REVIEW -->
-      <div v-show="active===4"><ShipperFormRates :destinations="destinations" v-model="rates"/></div>
+          <div v-else-if="active===4"><ShipperFormRates :destinations="destinations" v-model="rates"/></div>
+
 
 
       <!-- Heavy step appears as step 5 when type=heavy -->
-      <div v-if="basic.Shippers_Type==='heavy'" v-show="active===5"><ShipperFormHeavy :destinations="destinations" v-model="heavy" /></div>
-
+    <div v-else-if="basic.Shippers_Type==='heavy' && active===5">
+  <ShipperFormHeavy :destinations="destinations" v-model="heavy" />
+</div>
 
 
          <!-- Review: either step 5 (non-heavy) or step 6 (heavy) -->
-      <div v-show="active=== (basic.Shippers_Type==='heavy' ? 6 : 5)" class="row">
+     <div v-else-if="active=== (basic.Shippers_Type==='heavy' ? 6 : 5)">
         <div class="col-12 mb-16">
           <h6 class="fw-semibold mb-8">Review</h6>
           <pre class="bg-light p-3 radius-8" style="white-space:pre-wrap">
-{{ {basic, contacts, destinations, rates, heavy: basic.Shippers_Type==='heavy' ? heavy : undefined} }}
-          </pre>
+   </pre>
         </div>
       </div>
 
