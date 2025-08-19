@@ -12,7 +12,11 @@ export interface Product {
   inhouse_barcode: string;
   price: number;
   stock: number;
- 
+   Weight_Kg: number;
+    Length_Cm: number;
+    Width_Cm: number;
+    Height_Cm: number;
+
 }
 
  

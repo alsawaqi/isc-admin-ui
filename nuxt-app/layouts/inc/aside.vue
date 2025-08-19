@@ -213,10 +213,11 @@ onMounted(() => {
                   </NuxtLink>
 
                 </li>
-                <li v-if="hasPermission('order packaging')"><a href="#">Order Packaging</a></li>
-                <li v-if="hasPermission('order dispatched')"><a href="#">Order Dispatched</a></li>
-                <li v-if="hasPermission('order shipments')"><a href="#">Order Shipments</a></li>
-                <li v-if="hasPermission('order delivery')"><a href="#">Order Delivery</a></li>
+                <li v-if="hasPermission('order packaging')"><NuxtLink to="/admin/orders/orderspacking">Order Packaging</NuxtLink></li>
+                <li v-if="hasPermission('order dispatched')"><NuxtLink to="/admin/orders/ordersdispatch">Order Dispatched</NuxtLink></li>
+                <li v-if="hasPermission('order shipments')"><NuxtLink to="/admin/orders/ordersshipment">Order Shipments</NuxtLink></li>
+                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">Order Delivery</NuxtLink></li>
+                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">Order Return Request</NuxtLink></li>
                 <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li>
               </ul>
             </li>
@@ -320,12 +321,33 @@ onMounted(() => {
                     Country
                   </NuxtLink>
                 </li>
-                    <li v-if="hasPermission('state')">
+                    <!-- <li v-if="hasPermission('state')">
                   <NuxtLink
                     to="/admin/geography/state"
                     :style="isActive('/admin/geography/state') ? getActiveColor('/admin/geography/state') : ''"   
                   >
                     State 
+                      
+                  </NuxtLink>
+                </li> -->
+
+                  <li>
+                  <NuxtLink
+                    to="/admin/geography/region"
+                    :style="isActive('/admin/geography/region') ? getActiveColor('/admin/geography/region') : ''"   
+                  >
+                    Region
+                      
+                  </NuxtLink>
+                </li>
+
+
+                <li>
+                  <NuxtLink
+                    to="/admin/geography/districts"
+                    :style="isActive('/admin/geography/districts') ? getActiveColor('/admin/geography/districts') : ''"   
+                  >
+                    Districts
                       
                   </NuxtLink>
                 </li>
@@ -345,6 +367,41 @@ onMounted(() => {
                     
                   </ul>
                 </li>
+
+
+                <li class="has-child">
+                    <a href="javascript:void(0)"
+                             :style="isAnyChildActive([
+                            '/admin/shipping/shippers-create',
+                            '/admin/shipping/shippers'
+                            ]) ? getActiveColor(route.path) : ''">
+                  Shipping Services
+                  </a>
+
+                 <ul> 
+                   <li>
+                     <NuxtLink
+                       to="/admin/shipping/shippers-create"
+                       :style="isActive('/admin/shipping/shippers-create') ? getActiveColor('/admin/shipping/shippers-create') : ''"
+                     >
+                       Create Shippers
+                     </NuxtLink>
+                   </li>
+
+
+                    <li>
+                     <NuxtLink
+                       to="/admin/shipping/shippers"
+                       :style="isActive('/admin/shipping/shippers') ? getActiveColor('/admin/shipping/shippers') : ''"
+                     >
+                       View Shippers
+                     </NuxtLink>
+                   </li>
+                 </ul>
+
+                </li>
+
+
                 <li v-if="hasPermission('system parameters')"><a href="#">System Parameters</a></li>
                 <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>

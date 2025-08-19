@@ -76,7 +76,12 @@ const restart = async () => {
     description: '',
     inhouse_barcode: '',
     price: 0,
-    stock: 0   
+    stock: 0,
+    Weight_Kg:0,
+    Length_Cm:0,
+    Width_Cm:0,
+    Height_Cm:0
+
   };
   barcodes.value = [];
   uploadedImages.value = [];
@@ -153,7 +158,11 @@ const form = ref<Product>({
   description: '',
   inhouse_barcode: '',
   price: 0,
-  stock: 0   
+  stock: 0,
+  Weight_Kg: 0,
+  Length_Cm: 0,
+  Width_Cm: 0,
+  Height_Cm: 0
 });
 
 
@@ -298,6 +307,10 @@ const submitForm = async () => {
     formData.append('inhouse_barcode', randomDigits.value.toString())
     formData.append('price', form.value.price.toString())
     formData.append('stock', form.value.stock.toString())
+    formData.append('Weight_Kg', form.value.Weight_Kg.toString())
+    formData.append('Length_Cm', form.value.Length_Cm.toString())
+    formData.append('Width_Cm', form.value.Width_Cm.toString())
+    formData.append('Height_Cm', form.value.Height_Cm.toString())
 
     // Append barcodes as JSON string
     formData.append('barcodes', JSON.stringify(barcodes.value))
@@ -330,7 +343,11 @@ const submitForm = async () => {
       description: '',
       inhouse_barcode: '',
       price: 0,
-      stock: 0
+      stock: 0,
+      Weight_Kg:0,
+      Length_Cm:0,
+      Width_Cm:0,
+      Height_Cm:0
     }
 
    
@@ -656,12 +673,67 @@ onMounted(async () => {
                                           </div>
 
 
-                                                          
+
+                                           <div class="row mb-24 gy-3 align-items-center">
+                                            <label class="form-label mb-0 col-sm-2">Weight (Kg)</label>
+                                            <div class="col-sm-10">
+                                              <div class="icon-field">
+                                                <span class="icon">
+                                                  
+
+                                                </span>
+                                                <input type="number" v-model="form.Weight_Kg" class="form-control" placeholder="Enter Weight (Kg)" required>
+                                              </div>
+                                            </div>
+                                          </div>
 
 
-                            </div>                  
-                            
-                           
+ 
+
+
+                                    <div class="row mb-24 gy-3 align-items-center">
+                                            <label class="form-label mb-0 col-sm-2">Length (Cm)</label>
+                                            <div class="col-sm-10">
+                                              <div class="icon-field">
+                                                <span class="icon">
+
+                                                </span>
+                                                <input type="number" v-model="form.Length_Cm" class="form-control" placeholder="Enter Length (Cm)" required>
+                                              </div>
+                                            </div>
+                                          </div>
+
+
+
+                                            <div class="row mb-24 gy-3 align-items-center">
+                                            <label class="form-label mb-0 col-sm-2">Width (Cm)</label>
+                                            <div class="col-sm-10">
+                                              <div class="icon-field">
+                                                <span class="icon">
+
+                                                </span>
+                                                <input type="number" v-model="form.Width_Cm" class="form-control" placeholder="Enter Width (Cm)" required>
+                                              </div>
+                                            </div>
+                                          </div>
+
+
+                                      <div class="row mb-24 gy-3 align-items-center">
+                                              <label class="form-label mb-0 col-sm-2">Height (Cm)</label>
+                                              <div class="col-sm-10">
+                                                <div class="icon-field">
+                                                  <span class="icon">
+
+                                                  </span>
+                                                  <input type="number" v-model="form.Height_Cm" class="form-control" placeholder="Enter Height (Cm)" required>
+                                                </div>
+                                              </div>
+                                      </div>
+
+
+                            </div>
+
+
                         </div>
 
 

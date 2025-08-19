@@ -46,7 +46,7 @@ const orders = ref<Order[]>([]);
 
 const fetchOrders = async () => {
   try {
-    const response = await $axios.get('/api/orders-placed');
+    const response = await $axios.get('/api/orders-placed/delivered');
     orders.value = response.data;
 
     console.log(response.data)
@@ -67,7 +67,7 @@ onMounted(() => {
 
 
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-              <h6 class="fw-semibold mb-0" style="color: #ef4444">View Orders</h6>
+              <h6 class="fw-semibold mb-0" style="color: #ef4444">View Shippments</h6>
               <ul class="d-flex align-items-center gap-2">
                   <li class="fw-medium">
                       <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -76,7 +76,7 @@ onMounted(() => {
                       </a>
                   </li>
                   <li>-</li>
-                  <li class="fw-medium">View Orders</li>
+                  <li class="fw-medium">View Shippments</li>
               </ul>
           </div>
 
@@ -152,7 +152,7 @@ onMounted(() => {
                               <td class="p-3">{{ order.Status }}</td>
                               <td class="p-3">{{ order.created_at }}</td>
                               <td class="p-3 text-center">
-                                <NuxtLink :to="`/admin/orders/${order.id}`"  class="btn btn-sm btn-primary">View</NuxtLink>
+                                <NuxtLink :to="`/admin/orders/shippment/${order.id}`"  class="btn btn-sm btn-primary">View</NuxtLink>
                                 <button class="btn btn-sm btn-danger">Print</button>
                             
                               </td>
