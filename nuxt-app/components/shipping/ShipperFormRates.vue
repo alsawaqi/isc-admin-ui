@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 
 export interface DestLite {
   Shippers_Destination_Country?: string | null
@@ -40,51 +40,111 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ 'update:modelValue':[RatesPerDestination[]] }>()
-const rows = ref<RatesPerDestination[]>(
+
+// ---------- stable keys + mapping helpers ----------
+type WithUID<T> = T & { _uid: string }
+type UIRow = {
+  volumeBands: WithUID<VolumeBand>[]
+  weightBands: WithUID<WeightBand>[]
+}
+const uid = () => Math.random().toString(36).slice(2,10)
+
+const bandDefaultsVolume = (): VolumeBand => ({
+  Shippers_Standard_Shipping_Volume_Size: '',
+  Shippers_Standard_Shipping_Volume_Rate: 0,
+  Shippers_Currency: 'OMR',
+  Shippers_Min_Volume_Cbm: null,
+  Shippers_Max_Volume_Cbm: null,
+  Shippers_Base_Fee: null,
+  Shippers_Per_Cbm_Fee: null,
+  Shippers_Flat_Fee: null
+})
+
+const bandDefaultsWeight = (): WeightBand => ({
+  Shippers_Standard_Shipping_Weight_Size: '',
+  Shippers_Standard_Shipping_Weight_Rate: 0,
+  Shippers_Currency: 'OMR',
+  Shippers_Min_Weight_Kg: null,
+  Shippers_Max_Weight_Kg: null,
+  Shippers_Base_Fee: null,
+  Shippers_Per_Kg_Fee: null,
+  Shippers_Flat_Fee: null
+})
+
+const toUIRow = (r?: RatesPerDestination): UIRow => ({
+  volumeBands: (r?.volumeBands ?? []).map(b => ({ _uid: uid(), ...b })),
+  weightBands: (r?.weightBands ?? []).map(b => ({ _uid: uid(), ...b })),
+})
+
+const toPayload = (arr: UIRow[]): RatesPerDestination[] =>
+  arr.map(r => ({
+    volumeBands: r.volumeBands.map(({ _uid, ...b }) => b),
+    weightBands: r.weightBands.map(({ _uid, ...b }) => b),
+  }))
+
+// ---------- state ----------
+const rows = ref<UIRow[]>(
   props.modelValue?.length
-    ? JSON.parse(JSON.stringify(props.modelValue))
-    : props.destinations.map(() => ({ volumeBands: [], weightBands: [] }))
+    ? props.modelValue.map(r => toUIRow(r))
+    : (props.destinations ?? []).map(() => ({ volumeBands: [], weightBands: [] }))
 )
 
-watch(() => props.destinations, (v) => {
-  // resize rows to destinations length while preserving existing data
-  const arr = rows.value
-  if (v.length > arr.length) {
-    for (let i = arr.length; i < v.length; i++) arr.push({ volumeBands: [], weightBands: [] })
-  } else if (v.length < arr.length) {
-    arr.splice(v.length)
+// keep rows length aligned with destinations (preserve existing by index)
+const resizeRowsToDestinations = () => {
+  const need = props.destinations.length
+  const have = rows.value.length
+  if (need > have) {
+    for (let i = have; i < need; i++) rows.value.push({ volumeBands: [], weightBands: [] })
+  } else if (need < have) {
+    rows.value.splice(need)
   }
-}, { deep: true, immediate: true })
-
-watch(rows, v => emit('update:modelValue', JSON.parse(JSON.stringify(v))), { deep: true })
-
-const addVolume = (i:number) => {
-  rows.value[i].volumeBands.push({
-    Shippers_Standard_Shipping_Volume_Size: '',
-    Shippers_Standard_Shipping_Volume_Rate: 0,
-    Shippers_Currency: 'OMR',
-    Shippers_Min_Volume_Cbm: null,
-    Shippers_Max_Volume_Cbm: null,
-    Shippers_Base_Fee: null,
-    Shippers_Per_Cbm_Fee: null,
-    Shippers_Flat_Fee: null
-  })
 }
-const removeVolume = (i:number, j:number) => rows.value[i].volumeBands.splice(j,1)
+
+// ---------- debounce + guard ----------
+let t: ReturnType<typeof setTimeout> | null = null
+const DEBOUNCE = 200
+const syncingFromParent = ref(false)
+
+// parent → local (no deep watch)
+watch(() => props.modelValue, (v) => {
+  syncingFromParent.value = true
+  if (Array.isArray(v)) {
+    rows.value = v.map(r => toUIRow(r))
+    resizeRowsToDestinations()
+  }
+  syncingFromParent.value = false
+}, { deep: false })
+
+// destinations length changes → resize rows (preserve data)
+watch(() => props.destinations.length, () => {
+  resizeRowsToDestinations()
+})
+
+// local → parent (debounced)
+watch(rows, (v) => {
+  if (syncingFromParent.value) return
+  if (t) clearTimeout(t)
+  t = setTimeout(() => {
+    emit('update:modelValue', toPayload(v))
+  }, DEBOUNCE)
+}, { deep: true, flush: 'post' })
+
+onBeforeUnmount(() => { if (t) clearTimeout(t) })
+
+// ---------- actions ----------
+const addVolume = (i:number) => {
+  rows.value[i].volumeBands.push({ _uid: uid(), ...bandDefaultsVolume() })
+}
+const removeVolume = (i:number, j:number) => {
+  rows.value[i].volumeBands.splice(j,1)
+}
 
 const addWeight = (i:number) => {
-  rows.value[i].weightBands.push({
-    Shippers_Standard_Shipping_Weight_Size: '',
-    Shippers_Standard_Shipping_Weight_Rate: 0,
-    Shippers_Currency: 'OMR',
-    Shippers_Min_Weight_Kg: null,
-    Shippers_Max_Weight_Kg: null,
-    Shippers_Base_Fee: null,
-    Shippers_Per_Kg_Fee: null,
-    Shippers_Flat_Fee: null
-  })
+  rows.value[i].weightBands.push({ _uid: uid(), ...bandDefaultsWeight() })
 }
-const removeWeight = (i:number, j:number) => rows.value[i].weightBands.splice(j,1)
+const removeWeight = (i:number, j:number) => {
+  rows.value[i].weightBands.splice(j,1)
+}
 </script>
 
 <template>
@@ -107,7 +167,7 @@ const removeWeight = (i:number, j:number) => rows.value[i].weightBands.splice(j,
         </div>
         <div v-if="rows[i].volumeBands.length === 0" class="text-muted mt-8">No volume bands.</div>
 
-        <div v-for="(v, j) in rows[i].volumeBands" :key="'v-'+j" class="p-3 mt-8 border radius-8">
+        <div v-for="(v, j) in rows[i].volumeBands" :key="v._uid" class="p-3 mt-8 border radius-8">
           <div class="row">
             <div class="col-sm-3 mb-8">
               <label class="form-label text-sm">Size Code</label>
@@ -160,7 +220,7 @@ const removeWeight = (i:number, j:number) => rows.value[i].weightBands.splice(j,
         </div>
         <div v-if="rows[i].weightBands.length === 0" class="text-muted mt-8">No weight bands.</div>
 
-        <div v-for="(w, j) in rows[i].weightBands" :key="'w-'+j" class="p-3 mt-8 border radius-8">
+        <div v-for="(w, j) in rows[i].weightBands" :key="w._uid" class="p-3 mt-8 border radius-8">
           <div class="row">
             <div class="col-sm-3 mb-8">
               <label class="form-label text-sm">Band Code</label>
