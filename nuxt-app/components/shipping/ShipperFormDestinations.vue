@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, toRaw } from 'vue'
 import { useGeoApi } from '@/services/geoApi'
 
 // What parent (wizard) stores per row (names + flags)
@@ -25,32 +25,52 @@ interface District{ id:number; Region_Id:number; District_Name:string }
 const props = defineProps<{ modelValue: DestinationRow[] }>()
 const emit  = defineEmits<{ 'update:modelValue':[DestinationRow[]] }>()
 
-// ----- stable key wrapper -----
-type RowUI = DestinationRow & { _uid: string }
+// ----- utils (SSR-safe) -----
+const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
 const uid = () => Math.random().toString(36).slice(2, 10)
+
+type RowUI = DestinationRow & { _uid: string }
 const toUI = (arr: DestinationRow[] = []): RowUI[] => arr.map(r => ({ _uid: uid(), ...r }))
 const toPayload = (arr: RowUI[]): DestinationRow[] => arr.map(({ _uid, ...rest }) => rest)
+const hashPayload = (rowsOrPayload: RowUI[] | DestinationRow[]) =>
+  JSON.stringify(Array.isArray(rowsOrPayload) && (rowsOrPayload as any[])[0]?._uid
+    ? toPayload(rowsOrPayload as RowUI[])
+    : rowsOrPayload)
 
-// Local rows (stable keys) — NO JSON stringify
-const rows = ref<RowUI[]>(toUI(props.modelValue))
+// ----- local rows (stable keys) -----
+const initialUI = toUI(plain(props.modelValue ?? []))
+const rows = ref<RowUI[]>(initialUI)
 
-// ----- debounce & guard -----
+// ----- debounce & guards -----
 let t: ReturnType<typeof setTimeout> | null = null
-const syncingFromParent = ref(false)
 const DEBOUNCE = 200
+const syncingFromParent = ref(false)
+let lastEmittedHash    = hashPayload(rows.value)
+let lastFromParentHash = lastEmittedHash
 
+// parent -> local (ignore no-op payloads)
 watch(() => props.modelValue, (v) => {
+  const incoming = plain(v ?? [])
+  const incomingHash = JSON.stringify(incoming) // hash payload directly (no _uid)
+  if (incomingHash === lastFromParentHash && incomingHash === hashPayload(rows.value)) return
+
   syncingFromParent.value = true
-  rows.value = toUI(v || [])
+  rows.value = toUI(incoming)
+  lastFromParentHash = incomingHash
   ensureSelRows()
   syncingFromParent.value = false
 }, { deep: false })
 
+// local -> parent (only emit on real change, debounced)
 watch(rows, (v) => {
   if (syncingFromParent.value) return
   if (t) clearTimeout(t)
   t = setTimeout(() => {
-    emit('update:modelValue', toPayload(v))
+    const payload = toPayload(v)
+    const h = JSON.stringify(payload)
+    if (h === lastEmittedHash) return
+    emit('update:modelValue', payload)
+    lastEmittedHash = h
   }, DEBOUNCE)
 }, { deep: true, flush: 'post' })
 
@@ -198,7 +218,6 @@ const removeRow = (i:number) => {
 onMounted(async () => {
   await loadCountries()
   ensureSelRows()
-  // hydrate initial selections from provided names, if any
   await hydrateSelectionsFromRows()
 })
 </script>

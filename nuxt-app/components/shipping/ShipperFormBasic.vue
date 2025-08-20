@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
 
 export interface BasicForm {
   Shippers_Code: string
@@ -17,32 +17,55 @@ export interface BasicForm {
 }
 
 const props = defineProps<{ modelValue: BasicForm }>()
-const emit = defineEmits<{ 'update:modelValue':[BasicForm] }>()
+const emit  = defineEmits<{ 'update:modelValue':[BasicForm] }>()
 
-// Local working copy
-const f = ref<BasicForm>({ ...props.modelValue })
+// ---------- utils (SSR-safe) ----------
+// Make a plain JSON-serializable copy (works fine for this flat form)
+const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
+const hash  = (v: unknown) => JSON.stringify(v) // stable enough for flat objects
 
-// Debounce + reentrancy guard
+// ---------- local state ----------
+const f = ref<BasicForm>(plain(props.modelValue))
+
+// debounce + guards + snapshot hashes
 let timer: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE_MS = 200
 const syncingFromParent = ref(false)
+let lastEmittedHash     = hash(f.value)
+let lastFromParentHash  = hash(f.value)
 
-// If parent replaces modelValue, sync into local (without triggering emit)
-watch(() => props.modelValue, (v) => {
-  syncingFromParent.value = true
-  // merge to preserve any fields not sent by parent (if any)
-  f.value = { ...f.value, ...v }
-  syncingFromParent.value = false
-}, { deep: false }) // usually parent replaces the object; deep not needed
+// parent -> local (ignore no-op updates)
+watch(
+  () => props.modelValue,
+  (v) => {
+    const incoming = plain(v)
+    const h = hash(incoming)
+    if (h === lastFromParentHash && h === hash(f.value)) return
 
-// Emit to parent, but debounce so typing stays smooth
-watch(f, (v) => {
-  if (syncingFromParent.value) return
-  if (timer) clearTimeout(timer)
-  timer = setTimeout(() => {
-    emit('update:modelValue', { ...v })
-  }, DEBOUNCE_MS)
-}, { deep: true, flush: 'post' })
+    syncingFromParent.value = true
+    f.value = incoming
+    lastFromParentHash = h
+    syncingFromParent.value = false
+  },
+  { deep: false }
+)
+
+// local -> parent (only emit on real change, debounced)
+watch(
+  f,
+  (v) => {
+    if (syncingFromParent.value) return
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      const payload = plain(v)
+      const h = hash(payload)
+      if (h === lastEmittedHash) return
+      emit('update:modelValue', payload)
+      lastEmittedHash = h
+    }, DEBOUNCE_MS)
+  },
+  { deep: true, flush: 'post' }
+)
 
 onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
 </script>

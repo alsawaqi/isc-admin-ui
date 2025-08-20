@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
 
 export interface DestLite {
   Shippers_Destination_Country?: string | null
@@ -49,6 +49,9 @@ type UIRow = {
 }
 const uid = () => Math.random().toString(36).slice(2,10)
 
+// SSR-safe plain copy
+const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
+
 const bandDefaultsVolume = (): VolumeBand => ({
   Shippers_Standard_Shipping_Volume_Size: '',
   Shippers_Standard_Shipping_Volume_Rate: 0,
@@ -82,10 +85,13 @@ const toPayload = (arr: UIRow[]): RatesPerDestination[] =>
     weightBands: r.weightBands.map(({ _uid, ...b }) => b),
   }))
 
+// hash only the payload (no _uid) to avoid false changes
+const hashPayload = (rows: UIRow[]) => JSON.stringify(toPayload(rows))
+
 // ---------- state ----------
 const rows = ref<UIRow[]>(
-  props.modelValue?.length
-    ? props.modelValue.map(r => toUIRow(r))
+  (props.modelValue?.length ? plain(props.modelValue) : []).length
+    ? plain(props.modelValue).map(r => toUIRow(r))
     : (props.destinations ?? []).map(() => ({ volumeBands: [], weightBands: [] }))
 )
 
@@ -100,18 +106,25 @@ const resizeRowsToDestinations = () => {
   }
 }
 
-// ---------- debounce + guard ----------
+// ---------- debounce + guard + snapshots ----------
 let t: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE = 200
 const syncingFromParent = ref(false)
+let lastEmittedHash    = hashPayload(rows.value)
+let lastFromParentHash = lastEmittedHash
 
-// parent → local (no deep watch)
+// parent → local (no deep watch; ignore no-op payloads)
 watch(() => props.modelValue, (v) => {
+  const incoming = Array.isArray(v) ? plain(v) : []
+  const incomingRows = incoming.map(r => toUIRow(r))
+  const incomingHash = JSON.stringify(incoming) // payload-only hash
+
+  if (incomingHash === lastFromParentHash && incomingHash === hashPayload(rows.value)) return
+
   syncingFromParent.value = true
-  if (Array.isArray(v)) {
-    rows.value = v.map(r => toUIRow(r))
-    resizeRowsToDestinations()
-  }
+  rows.value = incomingRows
+  resizeRowsToDestinations()
+  lastFromParentHash = incomingHash
   syncingFromParent.value = false
 }, { deep: false })
 
@@ -120,12 +133,16 @@ watch(() => props.destinations.length, () => {
   resizeRowsToDestinations()
 })
 
-// local → parent (debounced)
+// local → parent (debounced, only on real change)
 watch(rows, (v) => {
   if (syncingFromParent.value) return
   if (t) clearTimeout(t)
   t = setTimeout(() => {
-    emit('update:modelValue', toPayload(v))
+    const payload = toPayload(v)
+    const h = JSON.stringify(payload)
+    if (h === lastEmittedHash) return
+    emit('update:modelValue', payload)
+    lastEmittedHash = h
   }, DEBOUNCE)
 }, { deep: true, flush: 'post' })
 

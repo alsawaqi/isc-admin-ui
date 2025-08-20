@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+ <script setup lang="ts">
+import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
 
 export interface DestLite {
   id?: number
@@ -30,14 +30,15 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [{ vehicles: VehicleRow[]; heavyRates: HeavyRateRow[] }] }>()
 
 
-// ---------- stable-key wrappers ----------
+// ---------- stable-key wrappers + utils (SSR-safe) ----------
 type WithUID<T> = T & { _uid: string }
 type UIState = {
   vehicles: WithUID<VehicleRow>[]
   heavyRates: WithUID<HeavyRateRow>[]
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10)
+const uid   = () => Math.random().toString(36).slice(2, 10)
+const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
 
 const toUI = (payload: { vehicles: VehicleRow[]; heavyRates: HeavyRateRow[] } | null | undefined): UIState => ({
   vehicles: (payload?.vehicles ?? []).map(v => ({ _uid: uid(), ...v })),
@@ -49,32 +50,49 @@ const toPayload = (ui: UIState) => ({
   heavyRates: ui.heavyRates.map(({ _uid, ...r }) => r),
 })
 
+// hash only the payload (no _uid) so UI key changes don't trigger emits
+const hashPayload = (ui: UIState | null | undefined) => JSON.stringify(ui ? toPayload(ui as UIState) : { vehicles: [], heavyRates: [] })
 
-// ---------- local state (no JSON stringify) ----------
-const state = ref<UIState>(toUI(props.modelValue))
 
-// debounce + guard
+// ---------- local state ----------
+const initial = toUI(plain(props.modelValue))
+const state   = ref<UIState>(initial)
+
+// debounce + guard + snapshot hashes
 let t: ReturnType<typeof setTimeout> | null = null
 const DEBOUNCE = 200
 const syncingFromParent = ref(false)
+let lastEmittedHash    = hashPayload(state.value)
+let lastFromParentHash = lastEmittedHash
 
+// parent -> local (ignore no-op updates)
 watch(
   () => props.modelValue,
   v => {
+    const incoming = toUI(plain(v ?? { vehicles: [], heavyRates: [] }))
+    const incomingHash = hashPayload(incoming)
+    if (incomingHash === lastFromParentHash && incomingHash === hashPayload(state.value)) return
+
     syncingFromParent.value = true
-    state.value = toUI(v)
+    state.value = incoming
+    lastFromParentHash = incomingHash
     syncingFromParent.value = false
   },
   { deep: false }
 )
 
+// local -> parent (only emit on real change, debounced)
 watch(
   state,
   v => {
     if (syncingFromParent.value) return
     if (t) clearTimeout(t)
     t = setTimeout(() => {
-      emit('update:modelValue', toPayload(v))
+      const payload = toPayload(v)
+      const h = JSON.stringify(payload)
+      if (h === lastEmittedHash) return
+      emit('update:modelValue', payload)
+      lastEmittedHash = h
     }, DEBOUNCE)
   },
   { deep: true, flush: 'post' }
@@ -93,7 +111,6 @@ const addVehicle = () => {
 }
 
 const removeVehicle = (i: number) => {
-  const removed = state.value.vehicles[i]
   state.value.vehicles.splice(i, 1)
 
   // clear vehicleType on rates that reference a now-missing type

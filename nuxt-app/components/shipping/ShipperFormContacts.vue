@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
 
 export interface ContactRow {
   Shippers_Contact_Name: string
@@ -13,37 +13,34 @@ export interface ContactRow {
 type RowUI = ContactRow & { _uid: string }
 
 const props = defineProps<{ modelValue: ContactRow[] }>()
-const emit = defineEmits<{ 'update:modelValue':[ContactRow[]] }>()
+const emit  = defineEmits<{ 'update:modelValue':[ContactRow[]] }>()
 
-// --- helpers ---
+// ---------- utils (SSR-safe) ----------
 const uid = () => Math.random().toString(36).slice(2, 10)
-const toUI = (arr: ContactRow[] = []): RowUI[] =>
-  arr.map(r => ({ _uid: uid(), ...r }))
-const toPayload = (arr: RowUI[]): ContactRow[] =>
-  arr.map(({ _uid, ...rest }) => rest)
+const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
+const toUI = (arr: ContactRow[] = []): RowUI[] => arr.map(r => ({ _uid: uid(), ...r }))
+const toPayload = (arr: RowUI[]): ContactRow[] => arr.map(({ _uid, ...rest }) => rest)
+// hash only the payload (no _uid) so we don’t treat key changes as data changes
+const hashPayload = (arr: RowUI[] | ContactRow[]) =>
+  JSON.stringify(Array.isArray(arr) && (arr as any[]).length && (arr as any[])[0]?._uid
+    ? toPayload(arr as RowUI[])
+    : arr)
 
-// --- local state (stable keys) ---
-const rows = ref<RowUI[]>(toUI(props.modelValue))
+// ---------- local state ----------
+const rows = ref<RowUI[]>(toUI(plain(props.modelValue ?? [])))
 
-// --- debounce + guard ---
+// debounce + guards + snapshot hashes
 let t: ReturnType<typeof setTimeout> | null = null
-const syncingFromParent = ref(false)
 const DEBOUNCE = 200
-
-// Sync when parent replaces modelValue (no deep watch to avoid storms)
-watch(() => props.modelValue, (v) => {
-  syncingFromParent.value = true
-  // keep existing rows when possible? we just rebuild with fresh uids to be safe
-  rows.value = toUI(v || [])
-  syncingFromParent.value = false
-}, { deep: false })
+const syncingFromParent = ref(false)
+let lastEmittedHash    = hashPayload(rows.value)
+let lastFromParentHash = lastEmittedHash
 
 // Enforce a single Primary checkbox
 watch(rows, (arr) => {
-  // Find last checked primary; if multiple, keep the most recent true and unset others
   const primaryIndexes = arr
     .map((r, i) => [r.Shippers_Is_Primary === true, i] as const)
-    .filter(([isP]) => isP)
+    .filter(([p]) => p)
     .map(([, i]) => i)
 
   if (primaryIndexes.length > 1) {
@@ -52,14 +49,41 @@ watch(rows, (arr) => {
   }
 }, { deep: true })
 
-// Debounced emit to parent (no feedback during sync)
-watch(rows, (v) => {
-  if (syncingFromParent.value) return
-  if (t) clearTimeout(t)
-  t = setTimeout(() => {
-    emit('update:modelValue', toPayload(v))
-  }, DEBOUNCE)
-}, { deep: true, flush: 'post' })
+// parent -> local (ignore no-op updates)
+watch(
+  () => props.modelValue,
+  (v) => {
+    const incoming = plain(v ?? [])
+    const incomingUI = toUI(incoming)
+    const incomingHash = JSON.stringify(incoming) // hash payload directly
+
+    // If parent sends the same payload we already have, skip
+    if (incomingHash === lastFromParentHash && incomingHash === hashPayload(rows.value)) return
+
+    syncingFromParent.value = true
+    rows.value = incomingUI
+    lastFromParentHash = incomingHash
+    syncingFromParent.value = false
+  },
+  { deep: false }
+)
+
+// local -> parent (only emit on real change, debounced)
+watch(
+  rows,
+  (v) => {
+    if (syncingFromParent.value) return
+    if (t) clearTimeout(t)
+    t = setTimeout(() => {
+      const payload = toPayload(v)
+      const h = JSON.stringify(payload)
+      if (h === lastEmittedHash) return
+      emit('update:modelValue', payload)
+      lastEmittedHash = h
+    }, DEBOUNCE)
+  },
+  { deep: true, flush: 'post' }
+)
 
 onBeforeUnmount(() => { if (t) clearTimeout(t) })
 
