@@ -11,25 +11,25 @@ const error = ref<string>('');
 
 const { $axios } = useNuxtApp()
 
-const login = async () => {
+const login = async (): Promise<void> => {
 
     loading.value = true;
   try {
-
     
-    const res = await $axios.post('/api/login', {
-      email: email.value,
-      password: password.value
-    })
+        const res = await $axios.post('/api/login', {
+        email: email.value,
+        password: password.value
+        })
 
-    const token = res.data.token
-    localStorage.setItem('token', token)
+        const token = res.data.token
+        localStorage.setItem('token', token)
 
-    const { data: user } = await $axios.get('/api/user')
-    
-    localStorage.setItem('user', JSON.stringify(user))
+        const { data: user } = await $axios.get('/api/user')
+        
+        localStorage.setItem('user', JSON.stringify(user))
 
-    await navigateTo('/admin')
+        await navigateTo('/admin')
+
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Login failed'
 

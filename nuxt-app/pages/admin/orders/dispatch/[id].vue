@@ -6,12 +6,23 @@ definePageMeta({
      
     });
 
-    import {ref , onMounted} from 'vue';
+    import {defineAsyncComponent,ref , onMounted} from 'vue';
    const { $axios } = useNuxtApp();
+    
 
     const Orders_Id = useParam('id');
 
     const orders = ref<any>([]);
+
+
+   const VueWebCam = defineAsyncComponent(() => import('vue-web-cam'))
+
+const camera = ref()
+const captured = ref<string | null>(null)
+
+const captureImage = () => {
+  captured.value = camera.value?.capture()
+}
 
 
     const getorders = async () => {
@@ -58,6 +69,9 @@ definePageMeta({
 
       <div class="dashboard-main-body">
 
+
+  
+
     <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
   <h6 class="font-semibold mb-0 dark:text-white">Invoice List</h6>
   <ul class="flex items-center gap-[6px]">
@@ -71,6 +85,12 @@ definePageMeta({
     <li class="font-medium dark:text-white">Invoice List</li>
   </ul>
 </div>
+
+ <client-only>
+    <VueWebCam ref="camera" />
+    <button @click="captureImage" class="mt-2 bg-blue-500 text-white px-3 py-1 rounded">Capture</button>
+    <img v-if="captured" :src="captured" class="mt-4 w-32 h-32 object-cover" />
+  </client-only>
     
     <div class="card border-0">
       <div class="card-header">
