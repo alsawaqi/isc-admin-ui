@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, toRaw } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useGeoApi } from '@/services/geoApi'
 
 // What parent (wizard) stores per row (names + flags)
@@ -16,92 +16,47 @@ export interface DestinationRow {
   Shippers_Destination_Rate_Applicable?: boolean
 }
 
+/**
+ * Two-way bind with the parent:
+ * <ShipperFormDestinations v-model="destinations" />
+ */
+const rows = defineModel<DestinationRow[]>({ default: [] })
+
 // Lookup DTOs
 interface Country { id:number; Country_Name:string }
 interface Region  { id:number; Country_Id:number; Region_Name:string }
 interface District{ id:number; Region_Id:number; District_Name:string }
-
-// ----- props/emit -----
-const props = defineProps<{ modelValue: DestinationRow[] }>()
-const emit  = defineEmits<{ 'update:modelValue':[DestinationRow[]] }>()
-
-// ----- utils (SSR-safe) -----
-const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
-const uid = () => Math.random().toString(36).slice(2, 10)
-
-type RowUI = DestinationRow & { _uid: string }
-const toUI = (arr: DestinationRow[] = []): RowUI[] => arr.map(r => ({ _uid: uid(), ...r }))
-const toPayload = (arr: RowUI[]): DestinationRow[] => arr.map(({ _uid, ...rest }) => rest)
-const hashPayload = (rowsOrPayload: RowUI[] | DestinationRow[]) =>
-  JSON.stringify(Array.isArray(rowsOrPayload) && (rowsOrPayload as any[])[0]?._uid
-    ? toPayload(rowsOrPayload as RowUI[])
-    : rowsOrPayload)
-
-// ----- local rows (stable keys) -----
-const initialUI = toUI(plain(props.modelValue ?? []))
-const rows = ref<RowUI[]>(initialUI)
-
-// ----- debounce & guards -----
-let t: ReturnType<typeof setTimeout> | null = null
-const DEBOUNCE = 200
-const syncingFromParent = ref(false)
-let lastEmittedHash    = hashPayload(rows.value)
-let lastFromParentHash = lastEmittedHash
-
-// parent -> local (ignore no-op payloads)
-watch(() => props.modelValue, (v) => {
-  const incoming = plain(v ?? [])
-  const incomingHash = JSON.stringify(incoming) // hash payload directly (no _uid)
-  if (incomingHash === lastFromParentHash && incomingHash === hashPayload(rows.value)) return
-
-  syncingFromParent.value = true
-  rows.value = toUI(incoming)
-  lastFromParentHash = incomingHash
-  ensureSelRows()
-  syncingFromParent.value = false
-}, { deep: false })
-
-// local -> parent (only emit on real change, debounced)
-watch(rows, (v) => {
-  if (syncingFromParent.value) return
-  if (t) clearTimeout(t)
-  t = setTimeout(() => {
-    const payload = toPayload(v)
-    const h = JSON.stringify(payload)
-    if (h === lastEmittedHash) return
-    emit('update:modelValue', payload)
-    lastEmittedHash = h
-  }, DEBOUNCE)
-}, { deep: true, flush: 'post' })
-
-onBeforeUnmount(() => { if (t) clearTimeout(t) })
 
 // ----- lookups & caches -----
 const countries    = ref<Country[]>([])
 const regionsMap   = ref<Record<number, Region[]>>({})     // key: countryId
 const districtsMap = ref<Record<string, District[]>>({})   // key: `${countryId}-${regionId}`
 
-// Per-row ID selections (while rows store *names*)
+// per-row *ID* selections (UI) while rows store *names* (payload)
 type Sel = { countryId:number|''; regionId:number|''; districtId:number|'' }
 const selections = ref<Sel[]>([])
 
 const ensureSelRows = () => {
-  while (selections.value.length < rows.value.length) selections.value.push({countryId:'', regionId:'', districtId:''})
-  if (selections.value.length > rows.value.length) selections.value.splice(rows.value.length)
+  while (selections.value.length < rows.value.length)
+    selections.value.push({ countryId:'', regionId:'', districtId:'' })
+  if (selections.value.length > rows.value.length)
+    selections.value.splice(rows.value.length)
 }
+
+watch(() => rows.value.length, ensureSelRows, { immediate: true })
 
 const { listCountries, listRegions, listDistricts } = useGeoApi()
 
 const loadCountries = async () => {
   const { data } = await listCountries()
-  countries.value = data
+  countries.value = data || []
 }
 
 const loadRegions = async (countryId:number) => {
   if (!countryId) return
   if (regionsMap.value[countryId]) return
   const { data } = await listRegions(countryId)
-  regionsMap.value[countryId] = data
+  regionsMap.value[countryId] = data || []
 }
 
 const loadDistricts = async (countryId:number, regionId:number) => {
@@ -109,10 +64,10 @@ const loadDistricts = async (countryId:number, regionId:number) => {
   const key = `${countryId}-${regionId}`
   if (districtsMap.value[key]) return
   const { data } = await listDistricts({ country_id: countryId, region_id: regionId })
-  districtsMap.value[key] = data
+  districtsMap.value[key] = data || []
 }
 
-// ----- hydration: try to pre-select IDs from existing names -----
+// Try to pre-select IDs from existing *names* in rows
 const hydrateSelectionsFromRows = async () => {
   ensureSelRows()
   for (let i = 0; i < rows.value.length; i++) {
@@ -120,7 +75,7 @@ const hydrateSelectionsFromRows = async () => {
     const sel = selections.value[i]
 
     // Country
-    if (r.Shippers_Destination_Country) {
+    if (r?.Shippers_Destination_Country) {
       const c = countries.value.find(
         x => x.Country_Name?.toLowerCase() === r.Shippers_Destination_Country!.toLowerCase()
       )
@@ -131,8 +86,8 @@ const hydrateSelectionsFromRows = async () => {
     }
 
     // Region
-    if (sel.countryId && r.Shippers_Destination_Region) {
-      const regs = regionsMap.value[sel.countryId as number] || []
+    if (sel.countryId && r?.Shippers_Destination_Region) {
+      const regs = regionsMap.value[sel.countryId] || []
       const rg = regs.find(
         x => x.Region_Name?.toLowerCase() === r.Shippers_Destination_Region!.toLowerCase()
       )
@@ -143,7 +98,7 @@ const hydrateSelectionsFromRows = async () => {
     }
 
     // District
-    if (sel.countryId && sel.regionId && r.Shippers_Destination_District) {
+    if (sel.countryId && sel.regionId && r?.Shippers_Destination_District) {
       const key = `${sel.countryId}-${sel.regionId}`
       const ds = districtsMap.value[key] || []
       const d = ds.find(
@@ -154,11 +109,11 @@ const hydrateSelectionsFromRows = async () => {
   }
 }
 
-// ----- change handlers -----
+// ----- UI handlers (map IDs -> names on the rows array) -----
 const onCountryChange = async (i:number) => {
   const sel = selections.value[i]
-  rows.value[i].Shippers_Destination_Country =
-    countries.value.find(c => c.id === sel.countryId)?.Country_Name || null
+  const countryName = countries.value.find(c => c.id === sel.countryId)?.Country_Name || null
+  rows.value[i].Shippers_Destination_Country = countryName
 
   // reset lower levels
   sel.regionId = ''
@@ -172,8 +127,8 @@ const onCountryChange = async (i:number) => {
 const onRegionChange = async (i:number) => {
   const sel = selections.value[i]
   const regs = regionsMap.value[sel.countryId as number] || []
-  rows.value[i].Shippers_Destination_Region =
-    regs.find(r => r.id === sel.regionId)?.Region_Name || null
+  const regionName = regs.find(r => r.id === sel.regionId)?.Region_Name || null
+  rows.value[i].Shippers_Destination_Region = regionName
 
   // reset district
   sel.districtId = ''
@@ -188,14 +143,13 @@ const onDistrictChange = (i:number) => {
   const sel = selections.value[i]
   const key = `${sel.countryId}-${sel.regionId}`
   const ds = districtsMap.value[key] || []
-  rows.value[i].Shippers_Destination_District =
-    ds.find(d => d.id === sel.districtId)?.District_Name || null
+  const districtName = ds.find(d => d.id === sel.districtId)?.District_Name || null
+  rows.value[i].Shippers_Destination_District = districtName
 }
 
-// ----- UI helpers -----
+// ----- add/remove -----
 const addRow = () => {
   rows.value.push({
-    _uid: uid(),
     Shippers_Destination_Country: '',
     Shippers_Destination_Region: '',
     Shippers_Destination_District: '',
@@ -211,8 +165,8 @@ const addRow = () => {
 }
 
 const removeRow = (i:number) => {
-  rows.value.splice(i,1)
-  selections.value.splice(i,1)
+  rows.value.splice(i, 1)
+  selections.value.splice(i, 1)
 }
 
 onMounted(async () => {
@@ -230,7 +184,7 @@ onMounted(async () => {
 
     <div v-if="rows.length === 0" class="text-muted">No destinations added.</div>
 
-    <div v-for="(r,i) in rows" :key="r._uid" class="border p-3 radius-8 mb-12">
+    <div v-for="(r,i) in rows" :key="i" class="border p-3 radius-8 mb-12">
       <div class="row">
         <!-- Country -->
         <div class="col-sm-4 mb-12">
@@ -244,12 +198,18 @@ onMounted(async () => {
         <!-- Region -->
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Region</label>
-          <select v-model="selections[i].regionId" class="form-control radius-8"
-                  :disabled="!selections[i].countryId" @change="onRegionChange(i)">
+          <select
+            v-model="selections[i].regionId"
+            class="form-control radius-8"
+            :disabled="!selections[i].countryId"
+            @change="onRegionChange(i)"
+          >
             <option value="">-- Select Region --</option>
             <option
               v-for="rg in (regionsMap[selections[i].countryId as number] || [])"
-              :key="rg.id" :value="rg.id">
+              :key="rg.id"
+              :value="rg.id"
+            >
               {{ rg.Region_Name }}
             </option>
           </select>
@@ -258,12 +218,18 @@ onMounted(async () => {
         <!-- District -->
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">District</label>
-          <select v-model="selections[i].districtId" class="form-control radius-8"
-                  :disabled="!selections[i].regionId" @change="onDistrictChange(i)">
+          <select
+            v-model="selections[i].districtId"
+            class="form-control radius-8"
+            :disabled="!selections[i].regionId"
+            @change="onDistrictChange(i)"
+          >
             <option value="">-- Select District --</option>
             <option
               v-for="d in (districtsMap[`${selections[i].countryId}-${selections[i].regionId}`] || [])"
-              :key="d.id" :value="d.id">
+              :key="d.id"
+              :value="d.id"
+            >
               {{ d.District_Name }}
             </option>
           </select>
@@ -302,16 +268,16 @@ onMounted(async () => {
           <label class="form-label text-sm">Rate Flags</label>
           <div class="d-flex gap-4">
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Volume" :id="'v-'+r._uid" class="form-check-input"/>
-              <label class="form-check-label" :for="'v-'+r._uid">Volume</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Volume" :id="'v-'+i" class="form-check-input"/>
+              <label class="form-check-label" :for="'v-'+i">Volume</label>
             </div>
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Weight" :id="'w-'+r._uid" class="form-check-input"/>
-              <label class="form-check-label" :for="'w-'+r._uid">Weight</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Weight" :id="'w-'+i" class="form-check-input"/>
+              <label class="form-check-label" :for="'w-'+i">Weight</label>
             </div>
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-'+r._uid" class="form-check-input"/>
-              <label class="form-check-label" :for="'a-'+r._uid">Applicable</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-'+i" class="form-check-input"/>
+              <label class="form-check-label" :for="'a-'+i">Applicable</label>
             </div>
           </div>
         </div>

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
-
 export interface ContactRow {
   Shippers_Contact_Name: string
   Shippers_Contact_Position?: string | null
@@ -10,88 +8,15 @@ export interface ContactRow {
   Shippers_Is_Primary?: boolean
 }
 
-type RowUI = ContactRow & { _uid: string }
+/**
+ * Two-way binding to the parent with v-model:
+ * <ShipperFormContacts v-model="contacts" />
+ */
+const rows = defineModel<ContactRow[]>({ default: [] })
 
-const props = defineProps<{ modelValue: ContactRow[] }>()
-const emit  = defineEmits<{ 'update:modelValue':[ContactRow[]] }>()
-
-// ---------- utils (SSR-safe) ----------
-const uid = () => Math.random().toString(36).slice(2, 10)
-const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
-const toUI = (arr: ContactRow[] = []): RowUI[] => arr.map(r => ({ _uid: uid(), ...r }))
-const toPayload = (arr: RowUI[]): ContactRow[] => arr.map(({ _uid, ...rest }) => rest)
-// hash only the payload (no _uid) so we don’t treat key changes as data changes
-const hashPayload = (arr: RowUI[] | ContactRow[]) =>
-  JSON.stringify(Array.isArray(arr) && (arr as any[]).length && (arr as any[])[0]?._uid
-    ? toPayload(arr as RowUI[])
-    : arr)
-
-// ---------- local state ----------
-const rows = ref<RowUI[]>(toUI(plain(props.modelValue ?? [])))
-
-// debounce + guards + snapshot hashes
-let t: ReturnType<typeof setTimeout> | null = null
-const DEBOUNCE = 200
-const syncingFromParent = ref(false)
-let lastEmittedHash    = hashPayload(rows.value)
-let lastFromParentHash = lastEmittedHash
-
-// Enforce a single Primary checkbox
-watch(rows, (arr) => {
-  const primaryIndexes = arr
-    .map((r, i) => [r.Shippers_Is_Primary === true, i] as const)
-    .filter(([p]) => p)
-    .map(([, i]) => i)
-
-  if (primaryIndexes.length > 1) {
-    const keep = primaryIndexes[primaryIndexes.length - 1]
-    arr.forEach((r, i) => { if (i !== keep) r.Shippers_Is_Primary = false })
-  }
-}, { deep: true })
-
-// parent -> local (ignore no-op updates)
-watch(
-  () => props.modelValue,
-  (v) => {
-    const incoming = plain(v ?? [])
-    const incomingUI = toUI(incoming)
-    const incomingHash = JSON.stringify(incoming) // hash payload directly
-
-    // If parent sends the same payload we already have, skip
-    if (incomingHash === lastFromParentHash && incomingHash === hashPayload(rows.value)) return
-
-    syncingFromParent.value = true
-    rows.value = incomingUI
-    lastFromParentHash = incomingHash
-    syncingFromParent.value = false
-  },
-  { deep: false }
-)
-
-// local -> parent (only emit on real change, debounced)
-watch(
-  rows,
-  (v) => {
-    if (syncingFromParent.value) return
-    if (t) clearTimeout(t)
-    t = setTimeout(() => {
-      const payload = toPayload(v)
-      const h = JSON.stringify(payload)
-      if (h === lastEmittedHash) return
-      emit('update:modelValue', payload)
-      lastEmittedHash = h
-    }, DEBOUNCE)
-  },
-  { deep: true, flush: 'post' }
-)
-
-onBeforeUnmount(() => { if (t) clearTimeout(t) })
-
-// --- actions ---
 const addRow = () => {
   const isFirst = rows.value.length === 0
   rows.value.push({
-    _uid: uid(),
     Shippers_Contact_Name: '',
     Shippers_Contact_Position: '',
     Shippers_Contact_Office_No: '',
@@ -104,10 +29,15 @@ const addRow = () => {
 const removeRow = (i: number) => {
   const wasPrimary = rows.value[i]?.Shippers_Is_Primary
   rows.value.splice(i, 1)
-  // If we removed the primary, set the first row (if any) as primary
+  // keep exactly one primary if any rows remain
   if (wasPrimary && rows.value.length > 0) {
-    rows.value.forEach((r, idx) => { r.Shippers_Is_Primary = idx === 0 })
+    rows.value.forEach((r, idx) => (r.Shippers_Is_Primary = idx === 0))
   }
+}
+
+// Ensure exactly one primary — simple, explicit, no watchers
+const setPrimary = (i: number) => {
+  rows.value.forEach((r, idx) => (r.Shippers_Is_Primary = idx === i))
 }
 </script>
 
@@ -119,33 +49,40 @@ const removeRow = (i: number) => {
 
     <div v-if="rows.length === 0" class="text-muted">No contacts added.</div>
 
-    <div v-for="(r,i) in rows" :key="r._uid" class="border p-3 radius-8 mb-12">
+    <div v-for="(r,i) in rows" :key="i" class="border p-3 radius-8 mb-12">
       <div class="row">
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Contact Name <span class="text-danger-600">*</span></label>
-          <input v-model="r.Shippers_Contact_Name" class="form-control radius-8"/>
+          <input v-model="rows[i].Shippers_Contact_Name" class="form-control radius-8"/>
         </div>
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Position</label>
-          <input v-model="r.Shippers_Contact_Position" class="form-control radius-8"/>
+          <input v-model="rows[i].Shippers_Contact_Position" class="form-control radius-8"/>
         </div>
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Email</label>
-          <input v-model="r.Shippers_Contact_Email_Address" type="email" class="form-control radius-8"/>
+          <input v-model="rows[i].Shippers_Contact_Email_Address" type="email" class="form-control radius-8"/>
         </div>
 
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Office No</label>
-          <input v-model="r.Shippers_Contact_Office_No" class="form-control radius-8"/>
+          <input v-model="rows[i].Shippers_Contact_Office_No" class="form-control radius-8"/>
         </div>
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">GSM No</label>
-          <input v-model="r.Shippers_Contact_GSM_No" class="form-control radius-8"/>
+          <input v-model="rows[i].Shippers_Contact_GSM_No" class="form-control radius-8"/>
         </div>
         <div class="col-sm-4 mb-12 d-flex align-items-center">
           <div class="form-check">
-            <input type="checkbox" v-model="r.Shippers_Is_Primary" :id="'p-'+r._uid" class="form-check-input"/>
-            <label class="form-check-label" :for="'p-'+r._uid">Primary</label>
+            <!-- keep one primary: clicking sets this one as primary -->
+            <input
+              type="checkbox"
+              :checked="r.Shippers_Is_Primary === true"
+              @change="setPrimary(i)"
+              :id="'p-'+i"
+              class="form-check-input"
+            />
+            <label class="form-check-label" :for="'p-'+i">Primary</label>
           </div>
         </div>
       </div>

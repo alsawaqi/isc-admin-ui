@@ -15,14 +15,26 @@ definePageMeta({
     const orders = ref<any>([]);
 
 
-   const VueWebCam = defineAsyncComponent(() => import('vue-web-cam'))
+   const VueWebCam = defineAsyncComponent(() => import('vue-web-cam').then(m => m.default))
 
 const camera = ref()
 const captured = ref<string | null>(null)
 
-const captureImage = () => {
-  captured.value = camera.value?.capture()
-}
+ const capturedImages = ref<Record<number, string>>({});
+
+const handleImageCapture = (e: Event, orderId: number) => {
+  const input = e.target as HTMLInputElement;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    capturedImages.value[orderId] = reader.result as string;
+    console.log(`Captured for order ${orderId}:`, capturedImages.value[orderId]);
+    // You can now upload to server using Axios
+  };
+  reader.readAsDataURL(file);
+};
 
 
     const getorders = async () => {
@@ -86,11 +98,7 @@ const captureImage = () => {
   </ul>
 </div>
 
- <client-only>
-    <VueWebCam ref="camera" />
-    <button @click="captureImage" class="mt-2 bg-blue-500 text-white px-3 py-1 rounded">Capture</button>
-    <img v-if="captured" :src="captured" class="mt-4 w-32 h-32 object-cover" />
-  </client-only>
+ 
     
     <div class="card border-0">
       <div class="card-header">
@@ -195,12 +203,19 @@ const captureImage = () => {
                           <td>{{ order.product?.Volume_Cbm }} Cbm</td>
                           <td>{{ order.product?.Weight_Kg }} Kg  </td>
 
-                          <td>
-                             <!--camera icon-->
-                             <iconify-icon icon="ion:camera-outline"></iconify-icon>
-                             <input type="file" accept="image/*" class="d-none" id="file-{{ index }}">
-                             <label for="file-{{ index }}" class="cursor-pointer">Upload</label>
-                          </td>
+                        <td>
+          <label class="cursor-pointer inline-flex items-center gap-1">
+            <iconify-icon icon="ion:camera-outline" class="text-xl"></iconify-icon>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden"
+              @change="handleImageCapture($event, order.id)"
+            />
+            
+          </label>
+        </td>
                         </tr>
                         
                          

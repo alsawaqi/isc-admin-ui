@@ -1,4 +1,4 @@
- <script setup lang="ts">
+<script setup lang="ts">
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -17,6 +17,9 @@ const { $axios } = useNuxtApp()
 
 const stepsBase = ['Basic Details', 'Contacts', 'Destinations & Flags', 'Rates (Volume/Weight)', 'Review & Save']
 const active = ref(1)
+
+
+const basicRef = ref<InstanceType<typeof ShipperFormBasic> | null>(null)
 
 const destinations = ref<DestinationRow[]>([])
 const rates = ref<RatesPerDestination[]>([]) // aligned by destination index
@@ -65,11 +68,14 @@ const validateBasic = () => {
 
 const goNext = () => {
   if (active.value === 1) {
+      
     const err = validateBasic()
     if (err) { alert(err); return }
   }
   if (active.value < steps.value.length) active.value++
 }
+
+
 const goPrev = () => { if (active.value > 1) active.value-- }
 
 const saveAll = async () => {
@@ -160,22 +166,23 @@ const saveAll = async () => {
       <div class="card-body p-40">
 
         <!-- STEP 1 -->
-        <div v-if="active===1"><ShipperFormBasic v-model="basic" /></div>
+        <div v-if="active===1"><ShipperFormBasic v-model="basic"/></div>
 
-        <!-- STEP 2 -->
-       <div v-else-if="active===2"><ShipperFormContacts v-model="contacts" /></div>
+        <!-- STEP 2 --> 
+       <div v-else-if="active===2"><ShipperFormContacts v-model="contacts"/></div>
 
-        <!-- STEP 3: REVIEW -->
-       <div v-else-if="active===3"><ShipperFormDestinations v-model="destinations" /></div>
+     
+       <div v-else-if="active===3"> <ShipperFormDestinations v-model="destinations" />
+                                      </div>
 
          <!-- STEP 4: REVIEW -->
-          <div v-else-if="active===4"><ShipperFormRates :destinations="destinations" v-model="rates"/></div>
+          <div v-else-if="active===4"> <ShipperFormRates v-model="rates" :destinations="destinations" /></div>
 
 
 
       <!-- Heavy step appears as step 5 when type=heavy -->
     <div v-else-if="basic.Shippers_Type==='heavy' && active===5">
-  <ShipperFormHeavy :destinations="destinations" v-model="heavy" />
+   <ShipperFormHeavy v-model="heavy" :destinations="destinations" />
 </div>
 
 

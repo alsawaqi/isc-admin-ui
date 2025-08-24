@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
+import { reactive, toRaw } from 'vue'
 
 export interface BasicForm {
   Shippers_Code: string
@@ -16,74 +16,69 @@ export interface BasicForm {
   Shippers_Is_Active: boolean
 }
 
-const props = defineProps<{ modelValue: BasicForm }>()
-const emit  = defineEmits<{ 'update:modelValue':[BasicForm] }>()
 
-// ---------- utils (SSR-safe) ----------
-// Make a plain JSON-serializable copy (works fine for this flat form)
-const plain = <T>(v: T): T => JSON.parse(JSON.stringify(toRaw(v)))
-const hash  = (v: unknown) => JSON.stringify(v) // stable enough for flat objects
 
-// ---------- local state ----------
-const f = ref<BasicForm>(plain(props.modelValue))
 
-// debounce + guards + snapshot hashes
-let timer: ReturnType<typeof setTimeout> | null = null
-const DEBOUNCE_MS = 200
-const syncingFromParent = ref(false)
-let lastEmittedHash     = hash(f.value)
-let lastFromParentHash  = hash(f.value)
 
-// parent -> local (ignore no-op updates)
-watch(
-  () => props.modelValue,
-  (v) => {
-    const incoming = plain(v)
-    const h = hash(incoming)
-    if (h === lastFromParentHash && h === hash(f.value)) return
+const props = withDefaults(defineProps<{ modelValue?: BasicForm }>(), {
+  modelValue: () => ({
+    Shippers_Code: '',
+    Shippers_Name: '',
+    Shippers_Address: '',
+    Shippers_Office_No: '',
+    Shippers_GSM_No: '',
+    Shippers_Email_Address: '',
+    Shippers_Official_Website_Address: '',
+    Shippers_GPS_Location: '',
+    Shippers_Scope: 'local',
+    Shippers_Type: '',
+    Shippers_Rate_Mode: 'weight',
+    Shippers_Is_Active: true
+  })
+})
 
-    syncingFromParent.value = true
-    f.value = incoming
-    lastFromParentHash = h
-    syncingFromParent.value = false
-  },
-  { deep: false }
-)
+const emit = defineEmits<{ 'update:modelValue':[BasicForm] }>()
 
-// local -> parent (only emit on real change, debounced)
-watch(
-  f,
-  (v) => {
-    if (syncingFromParent.value) return
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      const payload = plain(v)
-      const h = hash(payload)
-      if (h === lastEmittedHash) return
-      emit('update:modelValue', payload)
-      lastEmittedHash = h
-    }, DEBOUNCE_MS)
-  },
-  { deep: true, flush: 'post' }
-)
+// ---- safe plain copy helpers (SSR-friendly)
+const toPlain = <T>(v: T): T =>
+  JSON.parse(JSON.stringify(toRaw(v))) as T
 
-onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
+// local state (no watchers)
+const f = defineModel<BasicForm>({ default: {
+  Shippers_Code: '',
+  Shippers_Name: '',
+  Shippers_Address: '',
+  Shippers_Office_No: '',
+  Shippers_GSM_No: '',
+  Shippers_Email_Address: '',
+  Shippers_Official_Website_Address: '',
+  Shippers_GPS_Location: '',
+  Shippers_Scope: 'local',
+  Shippers_Type: '',
+  Shippers_Rate_Mode: 'weight',
+  Shippers_Is_Active: true
+}})
+
+// parent calls this on Next/Finish
+ 
+ 
+
+ 
 </script>
 
 <template>
   <div class="row">
+    <!-- inputs unchanged -->
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">
         Name <span class="text-danger-600">*</span>
       </label>
       <input v-model="f.Shippers_Name" class="form-control radius-8" />
     </div>
-
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Email</label>
       <input v-model="f.Shippers_Email_Address" type="email" class="form-control radius-8" />
     </div>
-
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Scope</label>
       <select v-model="f.Shippers_Scope" class="form-control radius-8">
@@ -91,7 +86,6 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
         <option value="international">International</option>
       </select>
     </div>
-
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Type</label>
       <select v-model="f.Shippers_Type" class="form-control radius-8">
@@ -102,7 +96,6 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
         <option value="heavy">Heavy</option>
       </select>
     </div>
-
     <div class="col-sm-4 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Rate Mode</label>
       <select v-model="f.Shippers_Rate_Mode" class="form-control radius-8">
@@ -111,12 +104,10 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
         <option value="both">Both</option>
       </select>
     </div>
-
     <div class="col-sm-12 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Address</label>
       <input v-model="f.Shippers_Address" class="form-control radius-8" />
     </div>
-
     <div class="col-sm-3 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Office No</label>
       <input v-model="f.Shippers_Office_No" class="form-control radius-8" />
