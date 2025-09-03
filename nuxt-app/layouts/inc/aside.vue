@@ -216,9 +216,8 @@ onMounted(() => {
                 <li v-if="hasPermission('order packaging')"><NuxtLink to="/admin/orders/orderspacking">Order Packaging</NuxtLink></li>
                 <li v-if="hasPermission('order dispatched')"><NuxtLink to="/admin/orders/ordersdispatch">Order Dispatched</NuxtLink></li>
                 <li v-if="hasPermission('order shipments')"><NuxtLink to="/admin/orders/ordersshipment">Order Shipments</NuxtLink></li>
-                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">Order Delivery</NuxtLink></li>
-                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">Order Return Request</NuxtLink></li>
-                <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li>
+                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">View All Orders</NuxtLink></li>
+               <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li>
               </ul>
             </li>
 

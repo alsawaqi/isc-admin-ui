@@ -1,263 +1,223 @@
-<script setup lang="ts">
+ <script setup lang="ts">
 definePageMeta({
-     layout: 'admin',
-     middleware: ['permission'],
-     permissions: 'departments'
-     
-    });
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'departments'
+})
 
-    import {defineAsyncComponent,ref , onMounted} from 'vue';
-   const { $axios } = useNuxtApp();
-    
+import { ref, onMounted, computed } from 'vue'
+import SignaturePad from '~/components/SignaturePad.vue'
 
-    const Orders_Id = useParam('id');
+const { $axios } = useNuxtApp()
+const route = useRoute()
 
-    const orders = ref<any>([]);
+// id
+const Orders_Id = computed(() => String(route.params.id || ''))
 
+// data
+const orders = ref<any>({ orderlist: [] })
 
-   const VueWebCam = defineAsyncComponent(() => import('vue-web-cam').then(m => m.default))
+// signature modal ctrl
+const showSignature = ref(false)
+const submitting = ref(false)
+const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
+const signNote = ref('')
 
-const camera = ref()
-const captured = ref<string | null>(null)
+// open/close
+const openSignatureModal = () => { showSignature.value = true }
+const closeSignatureModal = () => { showSignature.value = false; sigRef.value?.clear() }
 
- const capturedImages = ref<Record<number, string>>({});
+// fetch
+const getorders = async () => {
+  try {
+    const { data } = await $axios.get(`/api/orders-placed/${Orders_Id.value}`)
+    orders.value = data
+  } catch (error) {
+    console.error('Failed to fetch order details:', error)
+  }
+}
 
-const handleImageCapture = (e: Event, orderId: number) => {
-  const input = e.target as HTMLInputElement;
-  const file = input?.files?.[0];
-  if (!file) return;
+// submit to /pack (route unchanged)
+const submitShippment = async () => {
+  if (!sigRef.value || sigRef.value.isEmpty()) {
+    alert('Please add your signature first.')
+    return
+  }
+  submitting.value = true
+  try {
+    const dataUrl = sigRef.value.toDataURL('image/png')
+    await $axios.post(`/api/orders-placed/${Orders_Id.value}/shipment`, {
+      signature: dataUrl,
+      note: signNote.value || null,
+    })
+    closeSignatureModal()
+    navigateTo('/admin/orders/ordersshipment')
+  } catch (e) {
+    console.error('Pack failed:', e)
+    alert('Failed to confirm shipment')
+  } finally {
+    submitting.value = false
+  }
+}
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    capturedImages.value[orderId] = reader.result as string;
-    console.log(`Captured for order ${orderId}:`, capturedImages.value[orderId]);
-    // You can now upload to server using Axios
-  };
-  reader.readAsDataURL(file);
-};
+// optional: print A5
+const printA5 = (orientation: 'portrait' | 'landscape' = 'portrait') => {
+  const id = 'a5-orientation-style'
+  let s = document.getElementById(id) as HTMLStyleElement | null
+  const css = `@page{size:A5 ${orientation}; margin:8mm;}`
+  if (s) s.innerHTML = css
+  else {
+    s = document.createElement('style')
+    s.id = id
+    s.media = 'print'
+    s.innerHTML = css
+    document.head.appendChild(s)
+  }
+  window.print()
+}
 
-
-    const getorders = async () => {
-      try {
-      
-        const response = await $axios.get(`/api/orders-placed/${Orders_Id}`);
-        orders.value = response.data;
-        console.log('Orders fetched successfully:', orders.value);
-      } catch (error) {
-        console.error('Failed to fetch order details:', error);
-        return null;
-      }
-    };
-
-
-    const shippment = async() => {
-      try{
-
-       const response = await $axios.get(`/api/orders-placed/shipment/${Orders_Id}`);
-         console.log('Order shippment successfully:', response.data);
-         navigateTo('/admin/orders/ordersshipment')
-      }catch(error){
-         console.error('Failed to shippment order:', error);
-      }
-            
-       
-
-    }
-
-
-    onMounted(async()=>{
-       await getorders();
-    
-    });
-
-
-
-
-
+onMounted(async()=>{ await getorders() })
 </script>
 
 
-<template>
 
-      <div class="dashboard-main-body">
-
-
-  
-
+ <template>
+  <div class="dashboard-main-body">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
-  <h6 class="font-semibold mb-0 dark:text-white">Invoice List</h6>
-  <ul class="flex items-center gap-[6px]">
-    <li class="font-medium">
-      <a href="index.html" class="flex items-center gap-2 hover:text-primary-600 dark:text-white">
-        <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
-        Dashboard
-      </a>
-    </li>
-    <li class="dark:text-white">-</li>
-    <li class="font-medium dark:text-white">Invoice List</li>
-  </ul>
-</div>
+      <h6 class="font-semibold mb-0 dark:text-white">Invoice</h6>
+    </div>
 
- 
-    
-    <div class="card border-0">
-      <div class="card-header">
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <a href="javascript:void(0)" class="btn btn-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="pepicons-pencil:paper-plane" class="text-xl"></iconify-icon>
-            Send Invoice
-          </a>
-          <a href="javascript:void(0)" class="btn btn-sm bg-warning-600 hover:bg-warning-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="solar:download-linear" class="text-xl"></iconify-icon>
-            Download
-          </a>
-          <a href="javascript:void(0)" class="btn btn-sm bg-success-600 hover:bg-success-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="uil:edit" class="text-xl"></iconify-icon>
-            Edit
-          </a>
-          <button type="button" class="btn btn-sm bg-danger-600 hover:bg-danger-700 text-white rounded-lg inline-flex items-center gap-1" onclick="printInvoice()">
-            <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
-            Print
+    <div class="card border-0 shadow-sm">
+      <!-- Actions -->
+      <div class="card-header bg-white border-0 py-3 no-print">
+        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+          <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1"
+                  @click="printA5()">
+            <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon> Print
           </button>
-
-          <button type="button" class="btn btn-sm bg-success-600" @click.prevent="shippment">
-
+          <button type="button" class="btn btn-sm btn-outline-success" @click.prevent="openSignatureModal">
             Shippment
           </button>
         </div>
       </div>
-      <div class="card-body py-[60px]">
-        <div class="grid grid-cols-1" id="invoice">
-          <div class="max-w-[1174px] mx-auto w-full">
-            <div class="shadow-4 border border-neutral-200 dark:border-neutral-600 rounded-lg">
-              <div class="p-5 flex flex-wrap justify-between gap-3 border-b border-neutral-200 dark:border-neutral-600">
+
+      <div class="card-body py-3">
+        <div id="invoice" class="mx-auto" style="max-width: 980px;">
+          <div class="border rounded-3 overflow-hidden invoice">
+            <!-- Brand / Meta -->
+            <div class="p-4 border-bottom bg-light">
+              <div class="d-flex justify-content-between align-items-start gap-3">
                 <div>
-                  <h3 class="text-xl">Invoice #{{ orders.Transaction_Number}}</h3>
-                  <p class="mb-1 text-sm">Date Issued:  {{ orders.created_at }}</p>
-   
+                  <h3 class="h5 mb-1 fw-semibold">
+                    Invoice <span class="text-muted">#{{ orders.Transaction_Number }}
+                      <Qrcode :value="Orders_Id" variant="pixelated" :height="70" :scale="2" />
+                    </span>
+                  </h3>
+                  <div class="small text-muted">Date Issued: {{ new Date(orders.created_at).toLocaleString() }}</div>
                 </div>
-                <div>
-                  <img src="#" alt="image" class="mb-2">
-                  
+                <div class="text-end">
+                  <img :src="'https://isc-depot.com/images/logonew1.jpg'" alt="Logo"
+                       class="img-fluid mb-1" style="max-height:48px;">
+                  <div class="small text-muted">ISC</div>
                 </div>
               </div>
-              <div class="py-7 px-5">
-                <div class="flex flex-wrap justify-between align-items-end gap-3">
-                  <div>
-                    <h6 class="text-base">Issus For:</h6>
-                    <table class="text-sm text-secondary-light">
-                      <tbody>
-                        <tr>
-                          <td>Name</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Contact_Person_Name }}</td>
-                        </tr>
-                        <tr>
-                          <td>Address</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Designation }}</td>
-                        </tr>
-                        <tr>
-                          <td>Phone number</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Telephone }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div>
-                    <table class="text-sm text-secondary-light">
-                      <tbody>
-                        <tr>
-                          <td>TOTAL WEIGHT</td>
-                          <td class="ps-2">:{{ orders.Shipping_Weight_Kg }} Kg</td>
-                        </tr>
-                        
-                      </tbody>
-                    </table>
-                  </div>
+            </div>
+
+            <!-- Parties & Info -->
+            <div class="p-4">
+              <div class="row g-4 mb-3">
+                <div class="col-md-6">
+                  <h6 class="text-uppercase text-muted small mb-2">Issued For</h6>
+                  <ul class="list-unstyled small mb-0">
+                    <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-' }}</li>
+                    <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.Designation || '-' }}</li>
+                    <li><span class="text-muted">Phone:</span> {{ orders.customer_contact?.Telephone || '-' }}</li>
+                  </ul>
                 </div>
-
-                <div class="mt-6">
-                  <div class="table-responsive scroll-sm">
-                    <table class="table bordered-table text-sm">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="text-sm">SL.</th>
-                          <th scope="col" class="text-sm">Items</th>
-                          <th scope="col" class="text-sm">Qty</th>
-                          
-                          <th scope="col" class="text-sm">Unit Price </th>
-                         
-                          <th scope="col" class="text-end text-sm">Price</th>
-                           <th scope="col" class="text-sm">Shipping Volume Cbm </th>
-                          <th scope="col" class="text-sm">Shipping  Weight Kg</th>
-                          <th scope="col" class="text-sm">Upload Image</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(order,index) in orders.orderlist" :key="order.id">
-                          <td>{{ index + 1 }}</td>
-                          <td>{{ order.product?.Product_Name }}</td>
-                          <td>{{ order.Quantity}}</td>
-
-                          <td>{{ order.Price }} OMR</td>
-                          <td class="text-end">{{ order.Subtotal}} OMR</td>
-                          <td>{{ order.product?.Volume_Cbm }} Cbm</td>
-                          <td>{{ order.product?.Weight_Kg }} Kg  </td>
-
-                        <td>
-          <label class="cursor-pointer inline-flex items-center gap-1">
-            <iconify-icon icon="ion:camera-outline" class="text-xl"></iconify-icon>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              class="hidden"
-              @change="handleImageCapture($event, order.id)"
-            />
-            
-          </label>
-        </td>
-                        </tr>
-                        
-                         
-                        
-                      </tbody>
-                    </table>
-                  </div>
-                  <div class="flex flex-wrap justify-between gap-3">
-                    <div>
-                
-                      <p class="text-sm mb-0">Thanks for your business</p>
-                    </div>
-                    <div>
-                      <table class="text-sm">
-                        <tbody>
-                         
-                          <tr>
-                            <td class="pe-[64px] pt-4">
-                              <span class="text-neutral-600 dark:text-neutral-200 font-semibold">Total:</span>
-                            </td>
-                            <td class="ps-6 pt-4">
-                              <span class="text-neutral-600 dark:text-neutral-200 font-semibold">$1690</span>
-                            </td>
-                            </tr>
-                        
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                <div class="col-md-6">
+                  <h6 class="text-uppercase text-muted small mb-2">Invoice Info</h6>
+                  <ul class="list-unstyled small mb-0">
+                    <li><span class="text-muted">Order Code:</span> {{ orders.Order_Code }}</li>
+                    <li><span class="text-muted">Issue Date:</span> {{ new Date(orders.created_at).toLocaleDateString() }}</li>
+                    <li><span class="text-muted">Shipper:</span> {{ orders.shipper?.Shippers_Name || '-' }}</li>
+                  </ul>
                 </div>
+              </div>
 
-                <div class="mt-16">
-            
+              <!-- Items -->
+              <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr class="text-muted">
+                      <th>SL.</th>
+                      <th>Item</th>
+                      <th class="text-center">Qty</th>
+                      <th class="text-end">Unit Price</th>
+                      <th class="text-end">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(line, i) in orders.orderlist" :key="line.id">
+                      <td class="text-muted">{{ i + 1 }}</td>
+                      <td>{{ line.product?.Product_Name || '-' }}</td>
+                      <td class="text-center">{{ line.Quantity }}</td>
+                      <td class="text-end">OMR {{ Number(line.Price || 0).toFixed(3) }}</td>
+                      <td class="text-end">OMR {{ Number(line.Subtotal || 0).toFixed(3) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Totals -->
+              <div class="row align-items-start g-3">
+                <div class="col-md-6">
+                  <div class="small text-muted">Thank you for your business.</div>
                 </div>
+                <div class="col-md-6">
+                  <table class="table table-sm mb-0">
+                    <tbody>
+                      <tr class="table-light">
+                        <th>Total</th>
+                        <th class="text-end">OMR {{ Number(orders.Total_Price || 0).toFixed(3) }}</th>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
-              
+            <!-- Note -->
+            <div class="px-4 py-3 bg-light border-top small text-muted">
+              <div class="d-flex justify-content-between flex-wrap gap-2">
+                <div>Invoice was created electronically and is valid without a signature or seal.</div>
+                <div>Kasr Althqt LTljart EST</div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-    
+
+    <!-- Signature overlay -->
+    <div v-if="showSignature" class="sig-modal-backdrop">
+      <div class="sig-modal" role="dialog" aria-modal="true" aria-label="Signature dialog">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Sign to confirm packing</h6>
+          <button type="button" class="btn btn-sm btn-light" @click="closeSignatureModal">×</button>
+        </div>
+
+        <SignaturePad ref="sigRef" :height="220" :lineWidth="2" penColor="#111" backgroundColor="#fff" />
+
+        <div class="d-flex gap-2 mt-3">
+          <input v-model="signNote" class="form-control form-control-sm" placeholder="Note (optional)" />
+          <button type="button" class="btn btn-sm btn-light" @click="sigRef?.clear()">Clear</button>
+          <button type="button" class="btn btn-sm btn-secondary" @click="closeSignatureModal">Cancel</button>
+          <button type="button" class="btn btn-sm btn-success" :disabled="submitting" @click="submitShippment">
+            <span v-if="submitting" class="spinner-border spinner-border-sm me-1"></span>
+            Confirm & Sign
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

@@ -1,9 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
  modules: [
-    '@pinia/nuxt'
+    '@pinia/nuxt',
+    ['nuxt-qrcode', {
+      options: {
+        // variant: 'pixelated',
+        variant: { inner: 'circle', marker: 'rounded', pixel: 'rounded' },
+        radius: 1,
+        blackColor: 'currentColor',
+        whiteColor: 'transparent',
+      }
+    }],
   ],
-
 
  
   devtools: { enabled: true },

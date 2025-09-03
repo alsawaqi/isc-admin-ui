@@ -30,7 +30,7 @@ definePageMeta({
     const complete = async() => {
       try{
 
-       const response = await $axios.get(`/api/orders-placed/complete/${Orders_Id}`);
+       const response = await $axios.post(`/api/orders-placed/complete/${Orders_Id}`);
          console.log('Order completed successfully:', response.data);
          navigateTo('/admin/orders/ordersdeliveried')
       }catch(error){
@@ -58,171 +58,138 @@ definePageMeta({
 
       <div class="dashboard-main-body">
 
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
-  <h6 class="font-semibold mb-0 dark:text-white">Invoice List</h6>
-  <ul class="flex items-center gap-[6px]">
-    <li class="font-medium">
-      <a href="index.html" class="flex items-center gap-2 hover:text-primary-600 dark:text-white">
-        <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
-        Dashboard
-      </a>
-    </li>
-    <li class="dark:text-white">-</li>
-    <li class="font-medium dark:text-white">Invoice List</li>
-  </ul>
-</div>
-    
-    <div class="card border-0">
-      <div class="card-header">
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <a href="javascript:void(0)" class="btn btn-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="pepicons-pencil:paper-plane" class="text-xl"></iconify-icon>
-            Send Invoice
-          </a>
-          <a href="javascript:void(0)" class="btn btn-sm bg-warning-600 hover:bg-warning-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="solar:download-linear" class="text-xl"></iconify-icon>
-            Download
-          </a>
-          <a href="javascript:void(0)" class="btn btn-sm bg-success-600 hover:bg-success-700 text-white rounded-lg inline-flex items-center gap-1">
-            <iconify-icon icon="uil:edit" class="text-xl"></iconify-icon>
-            Edit
-          </a>
-          <button type="button" class="btn btn-sm bg-danger-600 hover:bg-danger-700 text-white rounded-lg inline-flex items-center gap-1" onclick="printInvoice()">
-            <iconify-icon icon="basil:printer-outline" class="text-xl"></iconify-icon>
-            Print
-          </button>
-
-          <button type="button" class="btn btn-sm bg-success-600" @click.prevent="complete">
-
-             Complete
-          </button>
-        </div>
+  <!-- Page header / breadcrumbs -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h6 class="fw-semibold mb-1">Shipment — Complete</h6>
+      <div class="small text-muted">
+        Invoice <span class="fw-semibold">#{{ orders.Transaction_Number || '-' }}</span>
+        <span class="ms-2">Issued: {{ orders.created_at }}</span>
       </div>
-      <div class="card-body py-[60px]">
-        <div class="grid grid-cols-1" id="invoice">
-          <div class="max-w-[1174px] mx-auto w-full">
-            <div class="shadow-4 border border-neutral-200 dark:border-neutral-600 rounded-lg">
-              <div class="p-5 flex flex-wrap justify-between gap-3 border-b border-neutral-200 dark:border-neutral-600">
-                <div>
-                  <h3 class="text-xl">Invoice #{{ orders.Transaction_Number}}</h3>
-                  <p class="mb-1 text-sm">Date Issued:  {{ orders.created_at }}</p>
-   
-                </div>
-                <div>
-                  <img src="#" alt="image" class="mb-2">
-                  
-                </div>
+    </div>
+    <ul class="d-flex align-items-center gap-2 small mb-0">
+      <li class="fw-medium">
+        <NuxtLink to="/admin" class="d-flex align-items-center gap-1 hover-text-primary">
+          <iconify-icon icon="solar:home-smile-angle-outline" class="icon fs-5"></iconify-icon>
+          Dashboard
+        </NuxtLink>
+      </li>
+      <li>•</li>
+      <li class="fw-medium text-muted">Invoice</li>
+    </ul>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <!-- Actions -->
+    <div class="card-header bg-white border-0 py-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
+          <iconify-icon icon="pepicons-pencil:paper-plane" class="fs-5"></iconify-icon>
+          Send Invoice
+        </button>
+        <button type="button" class="btn btn-sm btn-warning text-white d-inline-flex align-items-center gap-1">
+          <iconify-icon icon="solar:download-linear" class="fs-5"></iconify-icon>
+          Download
+        </button>
+        <button type="button" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1">
+          <iconify-icon icon="uil:edit" class="fs-5"></iconify-icon>
+          Edit
+        </button>
+        <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1" onclick="printInvoice()">
+          <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon>
+          Print
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-success" @click.prevent="complete">
+          Complete
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body py-4">
+      <div id="invoice" class="mx-auto" style="max-width: 980px;">
+        <div class="border rounded-3 overflow-hidden">
+          <!-- Meta -->
+          <div class="p-4 border-bottom bg-light">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <div>
+                <h3 class="h5 mb-1">Invoice <span class="text-muted">#{{ orders.Transaction_Number }}</span></h3>
+                <div class="small text-muted">Date Issued: {{ orders.created_at }}</div>
               </div>
-              <div class="py-7 px-5">
-                <div class="flex flex-wrap justify-between align-items-end gap-3">
-                  <div>
-                    <h6 class="text-base">Issus For:</h6>
-                    <table class="text-sm text-secondary-light">
-                      <tbody>
-                        <tr>
-                          <td>Name</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Contact_Person_Name }}</td>
-                        </tr>
-                        <tr>
-                          <td>Address</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Designation }}</td>
-                        </tr>
-                        <tr>
-                          <td>Phone number</td>
-                          <td class="ps-2">:{{ orders.customer_contact?.Telephone }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div>
-                    <table class="text-sm text-secondary-light">
-                      <tbody>
-                        <tr>
-                          <td>TOTAL WEIGHT</td>
-                          <td class="ps-2">:{{ orders.Shipping_Weight_Kg }} Kg</td>
-                        </tr>
-                        
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div class="mt-6">
-                  <div class="table-responsive scroll-sm">
-                    <table class="table bordered-table text-sm">
-                      <thead>
-                        <tr>
-                          <th scope="col" class="text-sm">SL.</th>
-                          <th scope="col" class="text-sm">Items</th>
-                          <th scope="col" class="text-sm">Qty</th>
-                          
-                          <th scope="col" class="text-sm">Unit Price </th>
-                         
-                          <th scope="col" class="text-end text-sm">Price</th>
-                           <th scope="col" class="text-sm">Shipping Volume Cbm </th>
-                          <th scope="col" class="text-sm">Shipping  Weight Kg</th>
-                          <th scope="col" class="text-sm">Upload Image</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(order,index) in orders.orderlist" :key="order.id">
-                          <td>{{ index + 1 }}</td>
-                          <td>{{ order.product?.Product_Name }}</td>
-                          <td>{{ order.Quantity}}</td>
-
-                          <td>{{ order.Price }} OMR</td>
-                          <td class="text-end">{{ order.Subtotal}} OMR</td>
-                          <td>{{ order.product?.Volume_Cbm }} Cbm</td>
-                          <td>{{ order.product?.Weight_Kg }} Kg  </td>
-
-                          <td>
-                             <!--camera icon-->
-                             <iconify-icon icon="ion:camera-outline"></iconify-icon>
-                             <input type="file" accept="image/*" class="d-none" id="file-{{ index }}">
-                             <label for="file-{{ index }}" class="cursor-pointer">Upload</label>
-                          </td>
-                        </tr>
-                        
-                         
-                        
-                      </tbody>
-                    </table>
-                  </div>
-                  <div class="flex flex-wrap justify-between gap-3">
-                    <div>
-                
-                      <p class="text-sm mb-0">Thanks for your business</p>
-                    </div>
-                    <div>
-                      <table class="text-sm">
-                        <tbody>
-                         
-                          <tr>
-                            <td class="pe-[64px] pt-4">
-                              <span class="text-neutral-600 dark:text-neutral-200 font-semibold">Total:</span>
-                            </td>
-                            <td class="ps-6 pt-4">
-                              <span class="text-neutral-600 dark:text-neutral-200 font-semibold">$1690</span>
-                            </td>
-                            </tr>
-                        
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-16">
-            
-                </div>
-
-              
+              <div class="text-end">
+                <!-- Optional logo -->
+                <!-- <img src="/logo.png" alt="Logo" class="img-fluid mb-1" style="max-height:48px;"> -->
               </div>
             </div>
+          </div>
+
+          <!-- Parties / quick totals -->
+          <div class="p-4">
+            <div class="row g-3 mb-3">
+              <div class="col-md-7">
+                <h6 class="text-uppercase text-muted small mb-2">Issued For</h6>
+                <div class="border rounded-3 p-3">
+                  <div class="fw-semibold">{{ orders.customer_contact?.Contact_Person_Name || '-' }}</div>
+                  <div class="small text-muted">{{ orders.customer_contact?.Designation || '-' }}</div>
+                  <div class="small text-muted">{{ orders.customer_contact?.Telephone || '-' }}</div>
+                </div>
+              </div>
+              <div class="col-md-5">
+                <h6 class="text-uppercase text-muted small mb-2">Summary</h6>
+                <div class="border rounded-3 p-3">
+                  <div class="d-flex justify-content-between small mb-1">
+                    <span class="text-muted">Total Weight</span>
+                    <span class="fw-semibold">{{ orders.Shipping_Weight_Kg }} kg</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Items -->
+            <div class="table-responsive rounded-3 border">
+              <table class="table table-hover table-striped align-middle mb-0">
+                <thead class="table-light">
+                  <tr class="text-muted text-uppercase small">
+                    <th style="width:56px;">SL.</th>
+                    <th>Items</th>
+                    <th class="text-center" style="width:90px;">Qty</th>
+                    <th class="text-end" style="width:140px;">Unit Price</th>
+                    <th class="text-end" style="width:140px;">Price</th>
+                    
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(order, index) in orders.orderlist" :key="order.id">
+                    <td class="text-muted">{{ index + 1 }}</td>
+                    <td class="fw-semibold">{{ order.product?.Product_Name }}</td>
+                    <td class="text-center">{{ order.Quantity }}</td>
+                    <td class="text-end">OMR {{ Number(order.Price || 0).toFixed(3) }}</td>
+                    <td class="text-end">OMR {{ Number(order.Subtotal || 0).toFixed(3) }}</td>
+                    
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Footer totals -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
+              <div class="small text-muted">Thanks for your business.</div>
+              <div class="fs-6">
+                <span class="text-muted me-2">Total:</span>
+                <span class="fw-semibold">OMR {{ Number(orders.Total_Price || 0).toFixed(3) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div class="px-4 py-3 bg-light border-top small text-muted d-flex justify-content-between flex-wrap gap-2">
+            <div>Invoice was created electronically and is valid without a signature or seal.</div>
+            <div>Kasr Althqt LTljart EST</div>
           </div>
         </div>
       </div>
     </div>
-    
   </div>
+
+</div>
+
 </template>

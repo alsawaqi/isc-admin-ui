@@ -10,8 +10,10 @@ export interface Product {
   name_ar: string;
   description: string;
   inhouse_barcode: string;
+  product_sku: string;
   price: number;
   stock: number;
+  volume_type: string;
    Weight_Kg: number;
     Length_Cm: number;
     Width_Cm: number;

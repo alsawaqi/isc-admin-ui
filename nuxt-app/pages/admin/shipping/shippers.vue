@@ -166,10 +166,10 @@ onMounted(fetchShippers)
             </td>
             <td>{{ s.contacts_count || 0 }}</td>
             <td>
-              <a href="javascript:void(0)" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center"
-                 @click="toggleActive(s.id)">
+              <NuxtLink :to="`/admin/shipping/${s.id}`" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center"
+                 >
                 <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-              </a>
+              </NuxtLink>
               <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-light text-danger-600 rounded-circle d-inline-flex align-items-center justify-content-center"
                  @click="deleteShipper(s.id)">
                 <iconify-icon icon="iconamoon:trash-light"></iconify-icon>

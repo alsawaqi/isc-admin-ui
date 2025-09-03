@@ -28,15 +28,17 @@
     "nprogress": "^0.2.0",
     "nuxt": "^3.17.4",
     "pinia": "^3.0.2",
+    "signature_pad": "^5.0.10",
     "tinymce": "^8.0.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vue": "^3.5.14",
     "vue-markdown-render": "^2.1.1",
-    "vue-router": "^4.5.1",
-    "vue-web-cam": "^1.9.0"
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@types/bwip-js": "^3.2.3",
     "@types/node": "^22.15.32",
-    "@types/nprogress": "^0.2.3"
+    "@types/nprogress": "^0.2.3",
+    "nuxt-qrcode": "^0.4.6"
   }
 }

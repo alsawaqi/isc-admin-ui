@@ -49,6 +49,7 @@ const isLoading = ref<Boolean>(false);
  
 const name = ref<string>('');
 const description = ref<string>('');
+const View_Options = ref<boolean>(false);
 
 
 
@@ -143,6 +144,7 @@ const handleSubmit = async () => {
     const formData = new FormData();
     formData.append('Product_Sub_Sub_Department_Name', name.value);
     formData.append('description', description.value);
+    formData.append('View_Options', String(View_Options.value));
 
     formData.append('Product_Sub_Department_Id', String(selectedSubDepartmentId.value));
     if (uploadedImage.value) {
@@ -264,6 +266,13 @@ onMounted(async () => {
                         <div class="mb-20">
                             <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> Descriptions* <span class="text-danger-600">*</span></label>
                             <input type="text" class="form-control radius-8" id="address" v-model="description" placeholder="Enter Descriptions">
+                        </div>
+
+
+
+                         <div class="mb-20">
+                            <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8"> View Option* {{ View_Options == true ? 'Grid' : 'List' }}<span class="text-danger-600">*</span></label>
+                            <input type="checkbox" class="form-control radius-8" id="address" values="grid" v-model="View_Options" >
                         </div>
 
                         <div class="mb-20">

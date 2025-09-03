@@ -75,8 +75,10 @@ const restart = async () => {
     name_ar: '',
     description: '',
     inhouse_barcode: '',
+     product_sku: '',
     price: 0,
     stock: 0,
+    volume_type: '',
     Weight_Kg:0,
     Length_Cm:0,
     Width_Cm:0,
@@ -157,14 +159,25 @@ const form = ref<Product>({
   name_ar: '',
   description: '',
   inhouse_barcode: '',
+  product_sku: '',
   price: 0,
   stock: 0,
+  volume_type: 'cm' as 'mm'|'cm'|'m'|'in'|'ft', // default
   Weight_Kg: 0,
   Length_Cm: 0,
   Width_Cm: 0,
   Height_Cm: 0
 });
 
+
+
+const volumeUnitOptions = [
+  { value: 'mm', label: 'Millimeter (mm)' },
+  { value: 'cm', label: 'Centimeter (cm)' },
+  { value: 'm',  label: 'Meter (m)' },
+  { value: 'in', label: 'Inch (in)' },
+  { value: 'ft', label: 'Foot (ft)' },
+]
 
 const product_id = ref<Number>(0);
 const productTypes = ref<ProductType[]>([]);
@@ -311,6 +324,8 @@ const submitForm = async () => {
     formData.append('Length_Cm', form.value.Length_Cm.toString())
     formData.append('Width_Cm', form.value.Width_Cm.toString())
     formData.append('Height_Cm', form.value.Height_Cm.toString())
+    formData.append('volume_type', form.value.volume_type)
+    formData.append('product_sku', form.value.product_sku)
 
     // Append barcodes as JSON string
     formData.append('barcodes', JSON.stringify(barcodes.value))
@@ -342,8 +357,11 @@ const submitForm = async () => {
       name_ar: '',
       description: '',
       inhouse_barcode: '',
+       product_sku: '',
+
       price: 0,
       stock: 0,
+      volume_type: '',
       Weight_Kg:0,
       Length_Cm:0,
       Width_Cm:0,
@@ -580,6 +598,21 @@ onMounted(async () => {
 
                                           <!-- In House Barcode -->
                                           <div class="row mb-24 gy-3 align-items-center">
+                                            <label class="form-label mb-0 col-sm-2">Product Sku</label>
+                                            <div class="col-sm-10">
+                                              <div class="icon-field">
+                                                <span class="icon">
+                                                  <iconify-icon icon="mdi:barcode"></iconify-icon>
+                                                </span>
+                                                <input type="text" v-model="form.product_sku" class="form-control" placeholder="Enter Product Sku" >
+
+                                              </div>
+                                            </div>
+                                          </div>
+
+
+
+                                           <div class="row mb-24 gy-3 align-items-center">
                                             <label class="form-label mb-0 col-sm-2">In House Barcode</label>
                                             <div class="col-sm-10">
                                               <div class="icon-field">
@@ -674,7 +707,7 @@ onMounted(async () => {
 
 
 
-                                           <div class="row mb-24 gy-3 align-items-center">
+                                        <div class="row mb-24 gy-3 align-items-center">
                                             <label class="form-label mb-0 col-sm-2">Weight (Kg)</label>
                                             <div class="col-sm-10">
                                               <div class="icon-field">
@@ -685,14 +718,34 @@ onMounted(async () => {
                                                 <input type="number" v-model="form.Weight_Kg" class="form-control" placeholder="Enter Weight (Kg)" required>
                                               </div>
                                             </div>
-                                          </div>
+                                       </div>
+
+
+
+
+                                        <div class="row mb-24 gy-3 align-items-center">
+                                            <label class="form-label mb-0 col-sm-2">Measurement Type</label>
+                                            <div class="col-sm-10">
+                                              <div class="icon-field">
+                                                <span class="icon">
+                                                  
+
+                                                </span>
+                                                  <select class="form-control" v-model="form.volume_type">
+          <option v-for="u in volumeUnitOptions" :key="u.value" :value="u.value">
+            {{ u.label }}
+          </option>
+        </select>
+                                               </div>
+                                            </div>
+                                       </div>
 
 
  
 
 
                                     <div class="row mb-24 gy-3 align-items-center">
-                                            <label class="form-label mb-0 col-sm-2">Length (Cm)</label>
+                                            <label class="form-label mb-0 col-sm-2">Length</label>
                                             <div class="col-sm-10">
                                               <div class="icon-field">
                                                 <span class="icon">
@@ -706,7 +759,7 @@ onMounted(async () => {
 
 
                                             <div class="row mb-24 gy-3 align-items-center">
-                                            <label class="form-label mb-0 col-sm-2">Width (Cm)</label>
+                                            <label class="form-label mb-0 col-sm-2">Width</label>
                                             <div class="col-sm-10">
                                               <div class="icon-field">
                                                 <span class="icon">
@@ -719,7 +772,7 @@ onMounted(async () => {
 
 
                                       <div class="row mb-24 gy-3 align-items-center">
-                                              <label class="form-label mb-0 col-sm-2">Height (Cm)</label>
+                                              <label class="form-label mb-0 col-sm-2">Height</label>
                                               <div class="col-sm-10">
                                                 <div class="icon-field">
                                                   <span class="icon">

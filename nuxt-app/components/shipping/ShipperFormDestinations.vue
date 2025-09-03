@@ -14,6 +14,7 @@ export interface DestinationRow {
   Shippers_Destination_Rate_Volume?: boolean
   Shippers_Destination_Rate_Weight?: boolean
   Shippers_Destination_Rate_Applicable?: boolean
+  Shippers_Destination_Rate_Box?: boolean
 }
 
 /**
@@ -278,6 +279,11 @@ onMounted(async () => {
             <div class="form-check">
               <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-'+i" class="form-check-input"/>
               <label class="form-check-label" :for="'a-'+i">Applicable</label>
+            </div>
+
+             <div class="form-check">
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Box" :id="'b-'+i" class="form-check-input"/>
+              <label class="form-check-label" :for="'b-'+i">Box: Yes/No</label>
             </div>
           </div>
         </div>
