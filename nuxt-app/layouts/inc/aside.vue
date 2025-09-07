@@ -231,6 +231,16 @@ onMounted(() => {
               </ul>
             </li>
 
+
+
+
+            <li class="has-child">
+              <a href="javascript:void(0)">Supports</a>
+              <ul class="open" style="display: block;">
+                <li><NuxtLink to="/admin/support/tickets">Support Tickets</NuxtLink></li>
+              </ul>
+            </li>
+
             <!-- Other Services -->
             <li v-if="hasPermission('other services')" class="has-child">
               <a href="javascript:void(0)">Other Services</a>
@@ -302,16 +312,15 @@ onMounted(() => {
                 </li>
 
                 <li v-if="hasPermission('geography')" class="has-child">
-                    <a href="javascript:void(0)"
+                    <a href="#"
                 :style="isAnyChildActive([
                             '/admin/geography/country',
                             '/admin/geography/state',
                             '/admin/geography/city',
-                             
                           ]) ? getActiveColor(route.path) : ''">
-                Geography
-              </a>
-                  <ul>
+                       Geography
+                     </a>
+                   <ul>
                     <li v-if="hasPermission('country')">
                   <NuxtLink 
                     to="/admin/geography/country"
@@ -320,7 +329,7 @@ onMounted(() => {
                     Country
                   </NuxtLink>
                 </li>
-                    <!-- <li v-if="hasPermission('state')">
+            <!-- <li v-if="hasPermission('state')">
                   <NuxtLink
                     to="/admin/geography/state"
                     :style="isActive('/admin/geography/state') ? getActiveColor('/admin/geography/state') : ''"   
