@@ -90,57 +90,56 @@ onMounted(() => {
                   :style="isAnyChildActive(['/admin/categories', '/admin/categories/subcategory', '/admin/categories/subsubcategory'])
                       ? getActiveColor(route.path)
                       : ''">
-                  
-                  Product Departments</a>
-                  <ul>
-                    <li v-if="hasPermission('departments')" class="text-blue-600">
-                <NuxtLink to="/admin/categories"
-                  :style="isActive('/admin/categories') ? getActiveColor('/admin/categories') : 'color: #17a2b8;'">
-                Departments
-                </NuxtLink>
+                       Product Departments</a>
+                 <ul>
+                        <li v-if="hasPermission('departments')" class="text-blue-600">
+                    <NuxtLink to="/admin/categories"
+                      :style="isActive('/admin/categories') ? getActiveColor('/admin/categories') : 'color: #17a2b8;'">
+                    Departments
+                    </NuxtLink>
+                        </li>
+
+                    <li v-if="hasPermission('sub departments')">
+                      <NuxtLink to="/admin/categories/subcategory"
+                      :style="isActive('/admin/categories/subcategory') ? getActiveColor('/admin/categories/subcategory') : 'color: #17a2b8;'"
+                          >
+                      Sub Departments
+                      
+                      </NuxtLink>
                     </li>
 
-        <li v-if="hasPermission('sub departments')">
-          <NuxtLink to="/admin/categories/subcategory"
-          :style="isActive('/admin/categories/subcategory') ? getActiveColor('/admin/categories/subcategory') : 'color: #17a2b8;'"
-              >
-          Sub Departments
-          
-          </NuxtLink>
-        </li>
-
-        <li
-          v-if="hasPermission('sub sub departments')"
-        >
-          <NuxtLink
-                to="/admin/categories/subsubcategory"
-                :style="isActive('/admin/categories/subsubcategory') ? getActiveColor('/admin/categories/subsubcategory') : 'color: #17a2b8;'"
-              >
-                Sub Sub Departments
-              </NuxtLink>
-          </li>
+                    <li
+                      v-if="hasPermission('sub sub departments')"
+                    >
+                      <NuxtLink
+                            to="/admin/categories/subsubcategory"
+                            :style="isActive('/admin/categories/subsubcategory') ? getActiveColor('/admin/categories/subsubcategory') : 'color: #17a2b8;'"
+                          >
+                            Sub Sub Departments
+                          </NuxtLink>
+                      </li>
 
 
 
-          <li v-if="hasPermission('addproductsdescription')">
-          <NuxtLink
-                to="/admin/categories/addproductsdescription"
-                :style="isActive('/admin/categories/addproductsdescription') ? getActiveColor('/admin/categories/addproductsdescription') : 'color: #17a2b8;'"
-              >
-                Products Features
-              </NuxtLink>
-          </li>
+                      <li v-if="hasPermission('addproductsdescription')">
+                      <NuxtLink
+                            to="/admin/categories/addproductsdescription"
+                            :style="isActive('/admin/categories/addproductsdescription') ? getActiveColor('/admin/categories/addproductsdescription') : 'color: #17a2b8;'"
+                          >
+                            Products Features
+                          </NuxtLink>
+                      </li>
 
 
 
-           <li>
-          <NuxtLink
-                to="/admin/categories/viewproductdescription"
-                :style="isActive('/admin/categories/viewproductdescription') ? getActiveColor('/admin/categories/viewproductdescription') : 'color: #17a2b8;'"
-              >
-                View Products Features
-              </NuxtLink>
-          </li>
+                      <li>
+                      <NuxtLink
+                            to="/admin/categories/viewproductdescription"
+                            :style="isActive('/admin/categories/viewproductdescription') ? getActiveColor('/admin/categories/viewproductdescription') : 'color: #17a2b8;'"
+                          >
+                            View Products Features
+                          </NuxtLink>
+                      </li>
 
 
           
@@ -253,25 +252,25 @@ onMounted(() => {
             <!-- Admin -->
             <li v-if="hasPermission('admin')" class="has-child">
                 <a href="javascript:void(0)"
-            :style="isAnyChildActive([
-                        '/admin/roles/createadmin',
-                        '/admin/roles/roles-permission',
-                        '/admin/roles/',
-                        '/admin/users'
-                      ]) ? getActiveColor(route.path) : ''">
-            Admin
-          </a>
+                    :style="isAnyChildActive([
+                                '/admin/roles/createadmin',
+                                '/admin/roles/roles-permission',
+                                '/admin/roles/',
+                                '/admin/users'
+                              ]) ? getActiveColor(route.path) : ''">
+                    Admin
+                  </a>
               <ul class="open" style="display: block;">
                 <li v-if="hasPermission('users')" class="has-child">
                     <a href="javascript:void(0)"
-                :style="isAnyChildActive([
+                         :style="isAnyChildActive([
                             '/admin/roles/createadmin',
                             '/admin/roles/roles-permission',
                             '/admin/roles/',
                             '/admin/users'
                           ]) ? getActiveColor(route.path) : ''">
-                User
-              </a>
+                          User
+                        </a>
                   <ul>
                     <li v-if="hasPermission('add new user')">
                   <NuxtLink
@@ -313,7 +312,7 @@ onMounted(() => {
 
                 <li v-if="hasPermission('geography')" class="has-child">
                     <a href="#"
-                :style="isAnyChildActive([
+                        :style="isAnyChildActive([
                             '/admin/geography/country',
                             '/admin/geography/state',
                             '/admin/geography/city',
@@ -410,6 +409,7 @@ onMounted(() => {
                 </li>
 
 
+                <li><NuxtLink to="/admin/department">Contact Departments</NuxtLink></li>
                 <li v-if="hasPermission('system parameters')"><a href="#">System Parameters</a></li>
                 <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>

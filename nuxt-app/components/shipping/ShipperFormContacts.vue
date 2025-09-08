@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { ref, onMounted, watch } from 'vue'
+const { $axios } = useNuxtApp();
+
 export interface ContactRow {
   Shippers_Contact_Name: string
   Shippers_Contact_Position?: string | null
@@ -6,6 +9,7 @@ export interface ContactRow {
   Shippers_Contact_GSM_No?: string | null
   Shippers_Contact_Email_Address?: string | null
   Shippers_Is_Primary?: boolean
+  Contact_Department_Id?: number | null
 }
 
 /**
@@ -13,6 +17,7 @@ export interface ContactRow {
  * <ShipperFormContacts v-model="contacts" />
  */
 const rows = defineModel<ContactRow[]>({ default: [] })
+const departments = ref<any[]>([]);
 
 const addRow = () => {
   const isFirst = rows.value.length === 0
@@ -22,7 +27,8 @@ const addRow = () => {
     Shippers_Contact_Office_No: '',
     Shippers_Contact_GSM_No: '',
     Shippers_Contact_Email_Address: '',
-    Shippers_Is_Primary: isFirst
+    Shippers_Is_Primary: isFirst,
+    Contact_Department_Id: null
   })
 }
 
@@ -39,6 +45,19 @@ const removeRow = (i: number) => {
 const setPrimary = (i: number) => {
   rows.value.forEach((r, idx) => (r.Shippers_Is_Primary = idx === i))
 }
+
+const getDepartments = async () => {
+  try {
+    const response = await $axios.get('/api/contact/departments');
+    departments.value = response.data;
+  } catch (error) {
+    console.error('Failed to fetch departments:', error);
+  }
+};
+
+onMounted(async () => {
+  await getDepartments();
+});
 </script>
 
 <template>
@@ -54,6 +73,18 @@ const setPrimary = (i: number) => {
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Contact Name <span class="text-danger-600">*</span></label>
           <input v-model="rows[i].Shippers_Contact_Name" class="form-control radius-8"/>
+        </div>
+
+        <div class="col-sm-4 mb-12">
+          <label class="form-label text-sm">Contact Designation <span class="text-danger-600">*</span></label>
+         
+
+            <select v-model="rows[i].Contact_Department_Id" class="form-select radius-8">
+              <option value="" disabled selected>Select Department</option>
+              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                {{ dept.Department_Name }}
+              </option>
+            </select>
         </div>
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Position</label>

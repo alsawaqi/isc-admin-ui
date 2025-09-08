@@ -138,45 +138,47 @@ const saveAll = async () => {
         Shippers_Is_Active: !!basic.value.Shippers_Is_Active,
         Shippers_Meta: null
       },
-      contacts: contacts.value,                                     // array of contact rows
-      destinations: destinations.value.map((d, i) => ({
-        basic: {
-          Shippers_Destination_Country: d.Shippers_Destination_Country || null,
-          Shippers_Destination_Region: d.Shippers_Destination_Region || null,
-          Shippers_Destination_District: d.Shippers_Destination_District || null,
-          Shippers_Destination_Rate_Applicability: d.Shippers_Destination_Rate_Applicability || null,
-          Shippers_Destination_Country_Preference: d.Shippers_Destination_Country_Preference || null,
-          Shippers_Destination_Region_Preference: d.Shippers_Destination_Region_Preference || null,
-          Shippers_Destination_District_Preference: d.Shippers_Destination_District_Preference || null
-        },
-        flags: {
-          Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
-          Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
-          Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
-
+       contacts: contacts.value, 
+      
+        // array of contact rows
+        destinations: destinations.value.map((d, i) => ({
+          basic: {
+            Shippers_Destination_Country: d.Shippers_Destination_Country || null,
+            Shippers_Destination_Region: d.Shippers_Destination_Region || null,
+            Shippers_Destination_District: d.Shippers_Destination_District || null,
+            Shippers_Destination_Rate_Applicability: d.Shippers_Destination_Rate_Applicability || null,
+            Shippers_Destination_Country_Preference: d.Shippers_Destination_Country_Preference || null,
+            Shippers_Destination_Region_Preference: d.Shippers_Destination_Region_Preference || null,
+            Shippers_Destination_District_Preference: d.Shippers_Destination_District_Preference || null
+          },
+          flags: {
+            Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
+            Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
+            Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
             Shippers_Destination_Rate_Box: !!d.Shippers_Destination_Rate_Box,
-        },
-        volume_bands: (rates.value[i]?.volumeBands || []),
-        weight_bands: (rates.value[i]?.weightBands || []),
-        heavy_rates:
-          (basic.value.Shippers_Type === 'heavy' ? (heavy.value.heavyRates || []) : [])
-            .filter(hr => hr.destinationIndex === i)
-            .map(hr => ({
-              vehicle_type: hr.vehicleType,
-              Shippers_Flat_Rate: hr.Shippers_Flat_Rate ?? null,
-              Shippers_Hourly_Rate: hr.Shippers_Hourly_Rate ?? null,
-              Shippers_Min_Hours: hr.Shippers_Min_Hours ?? 0,
-              Shippers_Currency: hr.Shippers_Currency || 'OMR'
-            }))
-      })),
-      vehicles: (basic.value.Shippers_Type === 'heavy' ? (heavy.value.vehicles || []) : []),
+          },
+          volume_bands: (rates.value[i]?.volumeBands || []),
+          weight_bands: (rates.value[i]?.weightBands || []),
+          heavy_rates:
+            (basic.value.Shippers_Type === 'heavy' ? (heavy.value.heavyRates || []) : [])
+              .filter(hr => hr.destinationIndex === i)
+              .map(hr => ({
+                vehicle_type: hr.vehicleType,
+                Shippers_Flat_Rate: hr.Shippers_Flat_Rate ?? null,
+                Shippers_Hourly_Rate: hr.Shippers_Hourly_Rate ?? null,
+                Shippers_Min_Hours: hr.Shippers_Min_Hours ?? 0,
+                Shippers_Currency: hr.Shippers_Currency || 'OMR'
+              }))
+        })),
+
+       vehicles: (basic.value.Shippers_Type === 'heavy' ? (heavy.value.vehicles || []) : []),
        standard_boxes: boxes.value.map(b => ({
-    Box_Code: b.Box_Code || null,
-    Box_Label: b.Box_Label || null,
-    Length_cm: b.Length_cm ?? null,
-    Width_cm:  b.Width_cm ?? null,
-    Height_cm: b.Height_cm ?? null,
-    Max_Weight_Kg: b.Max_Weight_Kg ?? null,
+       Box_Code: b.Box_Code || null,
+       Box_Label: b.Box_Label || null,
+       Length_cm: b.Length_cm ?? null,
+       Width_cm:  b.Width_cm ?? null,
+       Height_cm: b.Height_cm ?? null,
+       Max_Weight_Kg: b.Max_Weight_Kg ?? null,
   
     Notes: b.Notes || null
   }))
