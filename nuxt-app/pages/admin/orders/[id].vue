@@ -16,6 +16,13 @@ const submitting = ref(false)
 const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
 const signNote = ref<string>('')   // add this line to define signNote
 
+
+
+const showCancel = ref(false)
+const cancelling = ref(false)
+const cancelNote = ref<string>('')
+
+
 // open/close
 const openSignatureModal = () => { showSignature.value = true }
 const closeSignatureModal = () => {
@@ -42,6 +49,33 @@ const subtotal = computed(() =>
     0
   )
 )
+
+
+
+// open/close cancel modal
+const openCancelModal = () => { showCancel.value = true }
+const closeCancelModal = () => { showCancel.value = false; cancelNote.value = '' }
+
+// submit cancellation
+const submitCancellation = async () => {
+  if (!cancelNote.value.trim()) {
+    alert('Please add a brief cancellation reason.')
+    return
+  }
+  cancelling.value = true
+  try {
+    await $axios.post(`/api/orders-placed/${Orders_Id.value}/cancel`, {
+      note: cancelNote.value.trim(),
+    })
+    closeCancelModal()
+    navigateTo('/admin/orders/ordersplaced') // adjust destination if you have a different page
+  } catch (e) {
+    console.error('Cancellation failed:', e)
+    alert('Failed to cancel the order.')
+  } finally {
+    cancelling.value = false
+  }
+}
 
 const getorders = async (): Promise<void> => {
   try {
@@ -122,6 +156,7 @@ onMounted(async()=> await getorders())
             <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon> Print
           </button>
           <button type="button" class="btn btn-sm btn-outline-success" @click.prevent="openSignatureModal">Packing</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" @click.prevent="openCancelModal">Cancel</button>
         </div>
       </div>
 
@@ -381,6 +416,31 @@ onMounted(async()=> await getorders())
   </div>
 
 
+
+  <!-- Cancel modal -->
+<div v-if="showCancel" class="sig-modal-backdrop">
+  <div class="sig-modal" role="dialog" aria-modal="true" aria-label="Cancel dialog">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0">Cancel order</h6>
+      <button type="button" class="btn btn-sm btn-light" @click="closeCancelModal">×</button>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label fw-semibold">Reason / Notes</label>
+      <textarea v-model="cancelNote" class="form-control" rows="4" placeholder="Brief reason for cancellation"></textarea>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-sm btn-secondary" @click="closeCancelModal">Close</button>
+      <button type="button" class="btn btn-sm btn-danger" :disabled="cancelling" @click="submitCancellation">
+        <span v-if="cancelling" class="spinner-border spinner-border-sm me-1"></span>
+        Confirm Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+
   <div v-if="showSignature" class="sig-modal-backdrop">
   <div class="sig-modal" role="dialog" aria-modal="true" aria-label="Signature dialog">
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -401,7 +461,7 @@ onMounted(async()=> await getorders())
       </button>
     </div>
   </div>
-</div>
+  </div>
 </template>
 
 <style>
