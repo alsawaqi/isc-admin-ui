@@ -9,12 +9,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from '#imports'
 
 import Stepper from '@/components/shipping/Stepper.vue'
-import ShipperFormBasic,       { type BasicForm } from '@/components/shipping/ShipperFormBasic.vue'
-import ShipperFormContacts,    { type ContactRow } from '@/components/shipping/ShipperFormContacts.vue'
-import ShipperFormDestinations,{ type DestinationRow } from '@/components/shipping/ShipperFormDestinations.vue'
-import ShipperFormRates,       { type RatesPerDestination } from '@/components/shipping/ShipperFormRates.vue'
+import ShipperFormBasic, { type BasicForm } from '@/components/shipping/ShipperFormBasic.vue'
+import ShipperFormContacts, { type ContactRow } from '@/components/shipping/ShipperFormContacts.vue'
+import ShipperFormDestinations, { type DestinationRow } from '@/components/shipping/ShipperFormDestinations.vue'
+import ShipperFormRates, { type RatesPerDestination } from '@/components/shipping/ShipperFormRates.vue'
 import ShipperFormHeavy from '@/components/shipping/ShipperFormHeavy.vue'
-import ShipperFormBoxes,       { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
+import ShipperFormBoxes, { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
 
 const { $axios } = useNuxtApp()
 const route = useRoute()
@@ -22,7 +22,7 @@ const shipperId = Number(route.params.id)
 
 const stepsBase = ['Basic Details', 'Contacts', 'Destinations & Flags', 'Rates (Volume/Weight)', 'Review & Save']
 const active = ref(1)
-const busy   = ref(false)
+const busy = ref(false)
 
 // shared state (same shapes as Create)
 const basic = ref<BasicForm>({
@@ -40,10 +40,10 @@ const basic = ref<BasicForm>({
   Shippers_Is_Active: true
 })
 
-const contacts     = ref<ContactRow[]>([])
+const contacts = ref<ContactRow[]>([])
 const destinations = ref<DestinationRow[]>([])
-const rates        = ref<RatesPerDestination[]>([])
-const boxes        = ref<StandardBox[]>([])
+const rates = ref<RatesPerDestination[]>([])
+const boxes = ref<StandardBox[]>([])
 
 // Heavy
 const heavy = ref<{
@@ -80,7 +80,7 @@ const currency = (v?: string | null) => (v || '—')
 const num = (v?: number | null, d = 3) =>
   (v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d))
 const yesno = (b?: boolean) => (b ? 'Yes' : 'No')
-const dash  = (v?: string | null) => (v && String(v).trim() ? v : '—')
+const dash = (v?: string | null) => (v && String(v).trim() ? v : '—')
 
 // Keep rates[] aligned to destinations[]
 function ensureRatesAligned() {
@@ -134,7 +134,7 @@ async function loadShipper() {
     }
 
     // Contacts
-    contacts.value = (data.contacts ?? []).map((c:any) => ({
+    contacts.value = (data.contacts ?? []).map((c: any) => ({
       Shippers_Contact_Name: c.Shippers_Contact_Name,
       Shippers_Contact_Position: c.Shippers_Contact_Position,
       Shippers_Contact_Office_No: c.Shippers_Contact_Office_No,
@@ -145,7 +145,7 @@ async function loadShipper() {
 
     // Destinations (+flags embedded)
     const dests = (data.destinations ?? [])
-    destinations.value = dests.map((d:any) => ({
+    destinations.value = dests.map((d: any) => ({
       Shippers_Destination_Country: d.Shippers_Destination_Country,
       Shippers_Destination_Region: d.Shippers_Destination_Region,
       Shippers_Destination_District: d.Shippers_Destination_District,
@@ -160,26 +160,26 @@ async function loadShipper() {
     }))
 
     // Rates per destination
-    rates.value = dests.map((d:any) => ({
+    rates.value = dests.map((d: any) => ({
       volumeBands: d.volume_bands ?? [],
       weightBands: d.weight_bands ?? []
     }))
     ensureRatesAligned()
 
     // Heavy (vehicles)
-    heavy.value.vehicles = (data.vehicles ?? []).map((v:any) => ({
+    heavy.value.vehicles = (data.vehicles ?? []).map((v: any) => ({
       Shippers_Vehicle_Type: v.Shippers_Vehicle_Type,
       Shippers_Vehicle_Capacity_Ton: v.Shippers_Vehicle_Capacity_Ton
     }))
 
     // Heavy (rates) — map destinationId→index, vehicleId→type
     const destIndexById: Record<number, number> = {}
-    dests.forEach((d:any, idx:number) => { destIndexById[d.id] = idx })
+    dests.forEach((d: any, idx: number) => { destIndexById[d.id] = idx })
     const vehicleTypeById: Record<number, string> = {}
-    ;(data.vehicles ?? []).forEach((v:any) => { vehicleTypeById[v.id] = v.Shippers_Vehicle_Type })
+      ; (data.vehicles ?? []).forEach((v: any) => { vehicleTypeById[v.id] = v.Shippers_Vehicle_Type })
 
     heavy.value.heavyRates = (data.heavy_rates ?? [])
-      .map((hr:any) => {
+      .map((hr: any) => {
         const di = destIndexById[hr.destination_id]
         const vt = vehicleTypeById[hr.vehicle_id]
         if (di === undefined || vt === undefined) return null
@@ -195,11 +195,11 @@ async function loadShipper() {
       .filter(Boolean) as any[]
 
     // Boxes (sizes; admin only)
-    boxes.value = (data.standard_boxes ?? []).map((b:any) => ({
+    boxes.value = (data.standard_boxes ?? []).map((b: any) => ({
       Box_Code: b.Box_Code,
       Box_Label: b.Box_Label,
       Length_cm: b.Length_cm,
-      Width_cm:  b.Width_cm,
+      Width_cm: b.Width_cm,
       Height_cm: b.Height_cm,
       Max_Weight_Kg: b.Max_Weight_Kg,
       // keep pricing fields empty — per-destination in DB
@@ -207,7 +207,7 @@ async function loadShipper() {
       Currency: 'OMR',
       Notes: null
     }))
-  } catch (e:any) {
+  } catch (e: any) {
     alert(e?.response?.data?.message || e?.message || 'Failed to load shipper')
     navigateTo('/admin/shipping/shippers')
   } finally {
@@ -275,10 +275,10 @@ const saveAll = async () => {
         Box_Code: b.Box_Code || null,
         Box_Label: b.Box_Label || null,
         Length_cm: b.Length_cm ?? null,
-        Width_cm:  b.Width_cm ?? null,
+        Width_cm: b.Width_cm ?? null,
         Height_cm: b.Height_cm ?? null,
         Max_Weight_Kg: b.Max_Weight_Kg ?? null,
-       
+
         Notes: b.Notes || null
       }))
     }
@@ -286,7 +286,7 @@ const saveAll = async () => {
     await $axios.put(`/api/v1/shipping/shippers/${shipperId}`, payload)
     alert('Shipper updated successfully.')
     navigateTo('/admin/shipping/shippers')
-  } catch (e:any) {
+  } catch (e: any) {
     alert(e?.response?.data?.message || e?.message || 'Failed to update')
   } finally {
     busy.value = false
@@ -301,7 +301,7 @@ const saveAll = async () => {
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <NuxtLink to="/admin" class="d-flex align-items-center gap-1 hover-text-primary">
-            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"/>
+            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg" />
             Dashboard
           </NuxtLink>
         </li>
@@ -315,24 +315,32 @@ const saveAll = async () => {
     <div class="card h-100 p-0 radius-12 overflow-hidden">
       <div class="card-body p-40">
         <!-- STEP 1 -->
-        <div v-if="active === 1"><ShipperFormBasic v-model="basic" /></div>
+        <div v-if="active === 1">
+          <ShipperFormBasic v-model="basic" />
+        </div>
 
         <!-- STEP 2 -->
-        <div v-else-if="active === 2"><ShipperFormContacts v-model="contacts" /></div>
+        <div v-else-if="active === 2">
+          <ShipperFormContacts v-model="contacts" />
+        </div>
 
         <!-- STEP 3 -->
-        <div v-else-if="active === 3"><ShipperFormDestinations v-model="destinations" /></div>
+        <div v-else-if="active === 3">
+          <ShipperFormDestinations v-model="destinations" />
+        </div>
 
         <!-- STEP 4 -->
-        <div v-else-if="active === 4"><ShipperFormRates v-model="rates" :destinations="destinations" /></div>
+        <div v-else-if="active === 4">
+          <ShipperFormRates v-model="rates" :destinations="destinations" />
+        </div>
 
         <!-- Heavy -->
-        <div v-else-if="isHeavy && active===5">
+        <div v-else-if="isHeavy && active === 5">
           <ShipperFormHeavy v-model="heavy" :destinations="destinations" />
         </div>
 
         <!-- Boxes (non-heavy step 5; heavy step 6) -->
-        <div v-else-if="(!isHeavy && active===5) || (isHeavy && active===6)">
+        <div v-else-if="(!isHeavy && active === 5) || (isHeavy && active === 6)">
           <ShipperFormBoxes v-model="boxes" />
         </div>
 
@@ -343,10 +351,11 @@ const saveAll = async () => {
         </div>
 
         <div class="d-flex align-items-center justify-content-between mt-24">
-          <button type="button" class="btn btn-light border"
-                  @click="goPrev" :disabled="active===1 || busy">Back</button>
+          <button type="button" class="btn btn-light border" @click="goPrev"
+            :disabled="active === 1 || busy">Back</button>
           <div class="d-flex gap-3">
-            <button v-if="active<steps.length" type="button" class="btn btn-primary" @click="goNext" :disabled="busy">Next</button>
+            <button v-if="active < steps.length" type="button" class="btn btn-primary" @click="goNext"
+              :disabled="busy">Next</button>
             <button v-else type="button" class="btn btn-success" @click="saveAll" :disabled="busy">
               {{ busy ? 'Updating…' : 'Update' }}
             </button>

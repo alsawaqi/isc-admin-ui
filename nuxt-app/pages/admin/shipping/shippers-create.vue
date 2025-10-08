@@ -20,7 +20,7 @@ const stepsBase = ['Basic Details', 'Contacts', 'Destinations & Flags', 'Rates (
 const active = ref(1)
 
 
- 
+
 const boxes = ref<StandardBox[]>([])
 
 const destinations = ref<DestinationRow[]>([])
@@ -80,7 +80,7 @@ const validateBasic = () => {
 
 const goNext = () => {
   if (active.value === 1) {
-      
+
     const err = validateBasic()
     if (err) { alert(err); return }
   }
@@ -120,8 +120,34 @@ const dash = (v?: string | null) => (v && String(v).trim() ? v : '—')
 const saveAll = async () => {
   const err = validateBasic()
   if (err) { alert(err); active.value = 1; return }
+
   try {
     busy.value = true
+
+
+    const asMode = (m?: string | null): 'volume' | 'weight' => {
+      const x = String(m || '').toLowerCase()
+      return x === 'volume' ? 'volume' : 'weight'
+    }
+
+
+    const isVolumeBandValid = (v: any) =>
+      v && (v.Shippers_Standard_Shipping_Volume_Rate != null ||
+        v.Shippers_Min_Volume_Cbm != null ||
+        v.Shippers_Max_Volume_Cbm != null ||
+        v.Shippers_Base_Fee != null ||
+        v.Shippers_Per_Cbm_Fee != null ||
+        v.Shippers_Flat_Fee != null)
+
+    const isWeightBandValid = (w: any) =>
+      w && (w.Shippers_Standard_Shipping_Weight_Rate != null ||
+        w.Shippers_Min_Weight_Kg != null ||
+        w.Shippers_Max_Weight_Kg != null ||
+        w.Shippers_Base_Fee != null ||
+        w.Shippers_Per_Kg_Fee != null ||
+        w.Shippers_Flat_Fee != null)
+
+
 
     const payload = {
       shipper: {
@@ -132,17 +158,51 @@ const saveAll = async () => {
         Shippers_Email_Address: basic.value.Shippers_Email_Address || null,
         Shippers_Official_Website_Address: basic.value.Shippers_Official_Website_Address || null,
         Shippers_GPS_Location: basic.value.Shippers_GPS_Location || null,
-        Shippers_Scope: basic.value.Shippers_Scope,                 // 'local' | 'international'
-        Shippers_Type: basic.value.Shippers_Type,                   // 'parcel'|'courier'|'postal'|'heavy'
-        Shippers_Rate_Mode: basic.value.Shippers_Rate_Mode,         // 'weight'|'volume'|'both' or 1|2|3
+        Shippers_Scope: basic.value.Shippers_Scope,
+        Shippers_Type: basic.value.Shippers_Type,
+        Shippers_Rate_Mode: basic.value.Shippers_Rate_Mode,
         Shippers_Is_Active: !!basic.value.Shippers_Is_Active,
         Shippers_Meta: null
       },
-       contacts: contacts.value, 
-      
-        // array of contact rows
-        destinations: destinations.value.map((d, i) => ({
+
+      contacts: contacts.value,
+
+      destinations: destinations.value.map((d, i) => {
+        const r = rates.value[i] || { volumeBands: [], weightBands: [], volumetricRule: null, rate_mode: 'weight' }
+        const mode = asMode(r.rate_mode)
+
+
+
+
+        // keep only the relevant blocks
+        const volume_bands = mode === 'volume'
+          ? (r.volumeBands || []).filter(isVolumeBandValid)
+          : []
+
+        const weight_bands = mode === 'weight'
+          ? (r.weightBands || []).filter(isWeightBandValid)
+          : []
+
+        // Always include the rule (even if mode === 'volume')
+        const volumetric_rule = r.volumetricRule || null
+
+
+
+
+
+        // flags from mode: volumetric behaves like weight (for “which dimension applies”)
+        const flags = {
+          Shippers_Destination_Rate_Volume: (mode === 'volume'),
+          Shippers_Destination_Rate_Weight: (mode === 'weight'),
+          Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
+          Shippers_Destination_Rate_Box: !!d.Shippers_Destination_Rate_Box,
+        }
+
+        return {
           basic: {
+             Shippers_Destination_Country_Id: d.Shippers_Destination_Country_Id ?? null,
+              Shippers_Destination_Region_Id:  d.Shippers_Destination_Region_Id ?? null,
+              Shippers_Destination_District_Id:d.Shippers_Destination_District_Id ?? null,
             Shippers_Destination_Country: d.Shippers_Destination_Country || null,
             Shippers_Destination_Region: d.Shippers_Destination_Region || null,
             Shippers_Destination_District: d.Shippers_Destination_District || null,
@@ -151,14 +211,11 @@ const saveAll = async () => {
             Shippers_Destination_Region_Preference: d.Shippers_Destination_Region_Preference || null,
             Shippers_Destination_District_Preference: d.Shippers_Destination_District_Preference || null
           },
-          flags: {
-            Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
-            Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
-            Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
-            Shippers_Destination_Rate_Box: !!d.Shippers_Destination_Rate_Box,
-          },
-          volume_bands: (rates.value[i]?.volumeBands || []),
-          weight_bands: (rates.value[i]?.weightBands || []),
+          rate_mode: mode,                 // <— NEW
+          flags,
+          volume_bands,
+          weight_bands,
+          volumetric_rule,                 // <— NEW
           heavy_rates:
             (basic.value.Shippers_Type === 'heavy' ? (heavy.value.heavyRates || []) : [])
               .filter(hr => hr.destinationIndex === i)
@@ -168,23 +225,28 @@ const saveAll = async () => {
                 Shippers_Hourly_Rate: hr.Shippers_Hourly_Rate ?? null,
                 Shippers_Min_Hours: hr.Shippers_Min_Hours ?? 0,
                 Shippers_Currency: hr.Shippers_Currency || 'OMR'
-              }))
-        })),
+              })),
+        }
+      }),
 
-       vehicles: (basic.value.Shippers_Type === 'heavy' ? (heavy.value.vehicles || []) : []),
-       standard_boxes: boxes.value.map(b => ({
-       Box_Code: b.Box_Code || null,
-       Box_Label: b.Box_Label || null,
-       Length_cm: b.Length_cm ?? null,
-       Width_cm:  b.Width_cm ?? null,
-       Height_cm: b.Height_cm ?? null,
-       Max_Weight_Kg: b.Max_Weight_Kg ?? null,
-  
-    Notes: b.Notes || null
-  }))
+      vehicles: (basic.value.Shippers_Type === 'heavy' ? (heavy.value.vehicles || []) : []),
+
+      standard_boxes: boxes.value.map(b => ({
+        Box_Code: b.Box_Code || null,
+        Box_Label: b.Box_Label || null,
+        Length_cm: b.Length_cm ?? null,
+        Width_cm: b.Width_cm ?? null,
+        Height_cm: b.Height_cm ?? null,
+        Max_Weight_Kg: b.Max_Weight_Kg ?? null,
+        Flat_Rate_Price: (b as any).Flat_Rate_Price ?? null, // only if you collect it
+        Currency: (b as any).Currency || 'OMR',
+        Notes: b.Notes || null
+      }))
     }
 
     await $axios.post('/api/v1/shipping/shippers', payload)
+
+    //console.log('Save response:', response.data)
 
     alert('Shipper setup saved successfully.')
     navigateTo('/admin/shipping/shippers')
@@ -204,7 +266,7 @@ const saveAll = async () => {
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <NuxtLink to="/admin" class="d-flex align-items-center gap-1 hover-text-primary">
-            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"/>
+            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg" />
             Dashboard
           </NuxtLink>
         </li>
@@ -219,275 +281,351 @@ const saveAll = async () => {
       <div class="card-body p-40">
 
         <!-- STEP 1 -->
-        <div v-if="active===1"><ShipperFormBasic v-model="basic"/></div>
-
-        <!-- STEP 2 --> 
-       <div v-else-if="active===2"><ShipperFormContacts v-model="contacts"/></div>
-
-     
-       <div v-else-if="active===3"> <ShipperFormDestinations v-model="destinations" /></div>
-
-       <!-- 4: Rates -->
-        <div v-else-if="active===4"><ShipperFormRates v-model="rates" :destinations="destinations" /></div>
-
-
-     
-<!-- 5: Heavy (only when heavy) -->
-  <div v-else-if="basic.Shippers_Type==='heavy' && active===5">
-    <ShipperFormHeavy v-model="heavy" :destinations="destinations" />
-  </div>
-
-
-        <div
-  v-else-if="
-    (basic.Shippers_Type !== 'heavy' && active===5) ||
-    (basic.Shippers_Type === 'heavy' && active===6)
-  "
->
-  <ShipperFormBoxes v-model="boxes" />
-</div>
-
-
-
-   <div v-else-if="active===steps.length">
-  <div class="col-12 mb-16">
-    <h6 class="fw-semibold mb-12">Review</h6>
-
-    <!-- BASIC DETAILS -->
-    <div class="mb-16">
-      <h6 class="fw-semibold mb-8">Basic Details</h6>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <tbody>
-            <tr><th class="w-25">Name</th><td>{{ dash(basic.Shippers_Name) }}</td></tr>
-            <tr><th>Scope</th><td>{{ dash(basic.Shippers_Scope) }}</td></tr>
-            <tr><th>Type</th><td>{{ dash(basic.Shippers_Type) }}</td></tr>
-            <tr><th>Rate Mode</th><td>{{ dash(basic.Shippers_Rate_Mode) }}</td></tr>
-            <tr><th>Active</th><td>{{ yesno(basic.Shippers_Is_Active) }}</td></tr>
-            <tr><th>Address</th><td>{{ dash(basic.Shippers_Address) }}</td></tr>
-            <tr><th>Office No</th><td>{{ dash(basic.Shippers_Office_No) }}</td></tr>
-            <tr><th>GSM No</th><td>{{ dash(basic.Shippers_GSM_No) }}</td></tr>
-            <tr><th>Email</th><td>{{ dash(basic.Shippers_Email_Address) }}</td></tr>
-            <tr><th>Website</th><td>{{ dash(basic.Shippers_Official_Website_Address) }}</td></tr>
-            <tr><th>GPS</th><td>{{ dash(basic.Shippers_GPS_Location) }}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- CONTACTS -->
-    <div class="mb-16">
-      <h6 class="fw-semibold mb-8">Contacts</h6>
-      <div v-if="!contacts.length" class="text-muted">No contacts added.</div>
-      <div v-else class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Name</th><th>Position</th><th>Office</th><th>GSM</th><th>Email</th><th>Primary</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(c,ci) in contacts" :key="ci">
-              <td>{{ dash(c.Shippers_Contact_Name) }}</td>
-              <td>{{ dash(c.Shippers_Contact_Position) }}</td>
-              <td>{{ dash(c.Shippers_Contact_Office_No) }}</td>
-              <td>{{ dash(c.Shippers_Contact_GSM_No) }}</td>
-              <td>{{ dash(c.Shippers_Contact_Email_Address) }}</td>
-              <td>{{ yesno(c.Shippers_Is_Primary) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- DESTINATIONS + RATES -->
-    <div class="mb-16">
-      <h6 class="fw-semibold mb-8">Destinations & Rates</h6>
-      <div v-if="!destinations.length" class="text-muted">No destinations added.</div>
-
-      <div v-for="(d,i) in destinations" :key="i" class="border radius-12 p-3 mb-16">
-        <h6 class="fw-semibold mb-10">
-          Destination #{{ i+1 }} —
-          {{ dash(d.Shippers_Destination_Country) }} /
-          {{ dash(d.Shippers_Destination_Region) }} /
-          {{ dash(d.Shippers_Destination_District) }}
-        </h6>
-
-        <div class="table-responsive mb-10">
-          <table class="table table-sm align-middle">
-            <tbody>
-              <tr><th class="w-25">Applicability Label</th><td>{{ dash(d.Shippers_Destination_Rate_Applicability) }}</td></tr>
-              <tr><th>Flags</th>
-                <td>
-                  Volume: {{ yesno(d.Shippers_Destination_Rate_Volume) }} |
-                  Weight: {{ yesno(d.Shippers_Destination_Rate_Weight) }} |
-                  Applicable: {{ yesno(d.Shippers_Destination_Rate_Applicable !== false) }}
-                </td>
-              </tr>
-              <tr><th>Prefs</th>
-                <td>
-                  Country: {{ dash(d.Shippers_Destination_Country_Preference) }} |
-                  Region: {{ dash(d.Shippers_Destination_Region_Preference) }} |
-                  District: {{ dash(d.Shippers_Destination_District_Preference) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="active === 1">
+          <ShipperFormBasic v-model="basic" />
         </div>
 
-        <!-- Volume Bands -->
-        <div class="mb-12">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="fw-semibold">Volume Bands</span>
-          </div>
-          <div v-if="!(rates[i]?.volumeBands?.length)" class="text-muted">None.</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Size</th><th>Rate</th><th>Min CBM</th><th>Max CBM</th>
-                  <th>Currency</th><th>Base Fee</th><th>Per CBM</th><th>Flat Fee</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(v,vi) in rates[i].volumeBands" :key="vi">
-                  <td>{{ dash(v.Shippers_Standard_Shipping_Volume_Size) }}</td>
-                  <td>{{ num(v.Shippers_Standard_Shipping_Volume_Rate) }}</td>
-                  <td>{{ num(v.Shippers_Min_Volume_Cbm, 4) }}</td>
-                  <td>{{ num(v.Shippers_Max_Volume_Cbm, 4) }}</td>
-                  <td>{{ currency(v.Shippers_Currency) }}</td>
-                  <td>{{ num(v.Shippers_Base_Fee) }}</td>
-                  <td>{{ num(v.Shippers_Per_Cbm_Fee) }}</td>
-                  <td>{{ num(v.Shippers_Flat_Fee) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <!-- STEP 2 -->
+        <div v-else-if="active === 2">
+          <ShipperFormContacts v-model="contacts" />
         </div>
 
-        <!-- Weight Bands -->
-        <div class="mb-12">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="fw-semibold">Weight Bands</span>
-          </div>
-          <div v-if="!(rates[i]?.weightBands?.length)" class="text-muted">None.</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Band</th><th>Rate</th><th>Min KG</th><th>Max KG</th>
-                  <th>Currency</th><th>Base Fee</th><th>Per KG</th><th>Flat Fee</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(w,wi) in rates[i].weightBands" :key="wi">
-                  <td>{{ dash(w.Shippers_Standard_Shipping_Weight_Size) }}</td>
-                  <td>{{ num(w.Shippers_Standard_Shipping_Weight_Rate) }}</td>
-                  <td>{{ num(w.Shippers_Min_Weight_Kg) }}</td>
-                  <td>{{ num(w.Shippers_Max_Weight_Kg) }}</td>
-                  <td>{{ currency(w.Shippers_Currency) }}</td>
-                  <td>{{ num(w.Shippers_Base_Fee) }}</td>
-                  <td>{{ num(w.Shippers_Per_Kg_Fee) }}</td>
-                  <td>{{ num(w.Shippers_Flat_Fee) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+
+        <div v-else-if="active === 3">
+          <ShipperFormDestinations v-model="destinations" />
         </div>
 
-        <!-- Heavy Rates per Destination -->
-        <div v-if="isHeavy && (heavyRatesByDest[i]?.length)" class="mb-2">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="fw-semibold">Heavy Rates</span>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Vehicle</th><th>Flat Rate</th><th>Hourly</th><th>Min Hrs</th><th>Currency</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(hr,hi) in heavyRatesByDest[i]" :key="hi">
-                  <td>{{ dash(hr.vehicleType) }}</td>
-                  <td>{{ num(hr.Shippers_Flat_Rate) }}</td>
-                  <td>{{ num(hr.Shippers_Hourly_Rate) }}</td>
-                  <td>{{ num(hr.Shippers_Min_Hours, 0) }}</td>
-                  <td>{{ currency(hr.Shippers_Currency) }}</td>
-                </tr>
-              </tbody>
-            </table>
+        <!-- 4: Rates -->
+        <div v-else-if="active === 4">
+          <ShipperFormRates v-model="rates" :destinations="destinations" />
+        </div>
+
+
+
+        <!-- 5: Heavy (only when heavy) -->
+        <div v-else-if="basic.Shippers_Type === 'heavy' && active === 5">
+          <ShipperFormHeavy v-model="heavy" :destinations="destinations" />
+        </div>
+
+
+        <div v-else-if="
+          (basic.Shippers_Type !== 'heavy' && active === 5) ||
+          (basic.Shippers_Type === 'heavy' && active === 6)
+        ">
+          <ShipperFormBoxes v-model="boxes" />
+        </div>
+
+
+
+        <div v-else-if="active === steps.length">
+          <div class="col-12 mb-16">
+            <h6 class="fw-semibold mb-12">Review</h6>
+
+            <!-- BASIC DETAILS -->
+            <div class="mb-16">
+              <h6 class="fw-semibold mb-8">Basic Details</h6>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <tbody>
+                    <tr>
+                      <th class="w-25">Name</th>
+                      <td>{{ dash(basic.Shippers_Name) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Scope</th>
+                      <td>{{ dash(basic.Shippers_Scope) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Type</th>
+                      <td>{{ dash(basic.Shippers_Type) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Rate Mode</th>
+                      <td>{{ dash(basic.Shippers_Rate_Mode) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Active</th>
+                      <td>{{ yesno(basic.Shippers_Is_Active) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Address</th>
+                      <td>{{ dash(basic.Shippers_Address) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Office No</th>
+                      <td>{{ dash(basic.Shippers_Office_No) }}</td>
+                    </tr>
+                    <tr>
+                      <th>GSM No</th>
+                      <td>{{ dash(basic.Shippers_GSM_No) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Email</th>
+                      <td>{{ dash(basic.Shippers_Email_Address) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Website</th>
+                      <td>{{ dash(basic.Shippers_Official_Website_Address) }}</td>
+                    </tr>
+                    <tr>
+                      <th>GPS</th>
+                      <td>{{ dash(basic.Shippers_GPS_Location) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- CONTACTS -->
+            <div class="mb-16">
+              <h6 class="fw-semibold mb-8">Contacts</h6>
+              <div v-if="!contacts.length" class="text-muted">No contacts added.</div>
+              <div v-else class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Position</th>
+                      <th>Office</th>
+                      <th>GSM</th>
+                      <th>Email</th>
+                      <th>Primary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(c, ci) in contacts" :key="ci">
+                      <td>{{ dash(c.Shippers_Contact_Name) }}</td>
+                      <td>{{ dash(c.Shippers_Contact_Position) }}</td>
+                      <td>{{ dash(c.Shippers_Contact_Office_No) }}</td>
+                      <td>{{ dash(c.Shippers_Contact_GSM_No) }}</td>
+                      <td>{{ dash(c.Shippers_Contact_Email_Address) }}</td>
+                      <td>{{ yesno(c.Shippers_Is_Primary) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- DESTINATIONS + RATES -->
+            <div class="mb-16">
+              <h6 class="fw-semibold mb-8">Destinations & Rates</h6>
+              <div v-if="!destinations.length" class="text-muted">No destinations added.</div>
+
+              <div v-for="(d, i) in destinations" :key="i" class="border radius-12 p-3 mb-16">
+                <h6 class="fw-semibold mb-10">
+                  Destination #{{ i + 1 }} —
+                  {{ dash(d.Shippers_Destination_Country) }} /
+                  {{ dash(d.Shippers_Destination_Region) }} /
+                  {{ dash(d.Shippers_Destination_District) }}
+                </h6>
+
+                <div class="table-responsive mb-10">
+                  <table class="table table-sm align-middle">
+                    <tbody>
+                      <tr>
+                        <th class="w-25">Applicability Label</th>
+                        <td>{{ dash(d.Shippers_Destination_Rate_Applicability) }}</td>
+                      </tr>
+                      <tr>
+                        <th>Flags</th>
+                        <td>
+                          Volume: {{ yesno(d.Shippers_Destination_Rate_Volume) }} |
+                          Weight: {{ yesno(d.Shippers_Destination_Rate_Weight) }} |
+                          Applicable: {{ yesno(d.Shippers_Destination_Rate_Applicable !== false) }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Prefs</th>
+                        <td>
+                          Country: {{ dash(d.Shippers_Destination_Country_Preference) }} |
+                          Region: {{ dash(d.Shippers_Destination_Region_Preference) }} |
+                          District: {{ dash(d.Shippers_Destination_District_Preference) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Volume Bands -->
+                <div class="mb-12">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold">Volume Bands</span>
+                  </div>
+                  <div v-if="!(rates[i]?.volumeBands?.length)" class="text-muted">None.</div>
+                  <div v-else class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Size</th>
+                          <th>Rate</th>
+                          <th>Min CBM</th>
+                          <th>Max CBM</th>
+                          <th>Currency</th>
+                          <th>Base Fee</th>
+                          <th>Per CBM</th>
+                          <th>Flat Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(v, vi) in rates[i].volumeBands" :key="vi">
+                          <td>{{ dash(v.Shippers_Standard_Shipping_Volume_Size) }}</td>
+                          <td>{{ num(v.Shippers_Standard_Shipping_Volume_Rate) }}</td>
+                          <td>{{ num(v.Shippers_Min_Volume_Cbm, 4) }}</td>
+                          <td>{{ num(v.Shippers_Max_Volume_Cbm, 4) }}</td>
+                          <td>{{ currency(v.Shippers_Currency) }}</td>
+                          <td>{{ num(v.Shippers_Base_Fee) }}</td>
+                          <td>{{ num(v.Shippers_Per_Cbm_Fee) }}</td>
+                          <td>{{ num(v.Shippers_Flat_Fee) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Weight Bands -->
+                <div class="mb-12">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold">Weight Bands</span>
+                  </div>
+                  <div v-if="!(rates[i]?.weightBands?.length)" class="text-muted">None.</div>
+                  <div v-else class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Band</th>
+                          <th>Rate</th>
+                          <th>Min KG</th>
+                          <th>Max KG</th>
+                          <th>Currency</th>
+                          <th>Base Fee</th>
+                          <th>Per KG</th>
+                          <th>Flat Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(w, wi) in rates[i].weightBands" :key="wi">
+                          <td>{{ dash(w.Shippers_Standard_Shipping_Weight_Size) }}</td>
+                          <td>{{ num(w.Shippers_Standard_Shipping_Weight_Rate) }}</td>
+                          <td>{{ num(w.Shippers_Min_Weight_Kg) }}</td>
+                          <td>{{ num(w.Shippers_Max_Weight_Kg) }}</td>
+                          <td>{{ currency(w.Shippers_Currency) }}</td>
+                          <td>{{ num(w.Shippers_Base_Fee) }}</td>
+                          <td>{{ num(w.Shippers_Per_Kg_Fee) }}</td>
+                          <td>{{ num(w.Shippers_Flat_Fee) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Heavy Rates per Destination -->
+                <div v-if="isHeavy && (heavyRatesByDest[i]?.length)" class="mb-2">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-semibold">Heavy Rates</span>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Vehicle</th>
+                          <th>Flat Rate</th>
+                          <th>Hourly</th>
+                          <th>Min Hrs</th>
+                          <th>Currency</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(hr, hi) in heavyRatesByDest[i]" :key="hi">
+                          <td>{{ dash(hr.vehicleType) }}</td>
+                          <td>{{ num(hr.Shippers_Flat_Rate) }}</td>
+                          <td>{{ num(hr.Shippers_Hourly_Rate) }}</td>
+                          <td>{{ num(hr.Shippers_Min_Hours, 0) }}</td>
+                          <td>{{ currency(hr.Shippers_Currency) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div> <!-- end each destination -->
+            </div> <!-- end Destinations & Rates -->
+
+            <!-- STANDARD BOXES (global, shown once) -->
+            <div class="mb-16">
+              <h6 class="fw-semibold mb-8">Standard Boxes</h6>
+              <div v-if="!boxes.length" class="text-muted">No standard boxes.</div>
+              <div v-else class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Label</th>
+                      <th>L (cm)</th>
+                      <th>W (cm)</th>
+                      <th>H (cm)</th>
+                      <th>Max Wt (kg)</th>
+                      <th>Flat Rate</th>
+                      <th>Curr</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(b, bi) in boxes" :key="bi">
+                      <td>{{ b.Box_Code || '—' }}</td>
+                      <td>{{ b.Box_Label || '—' }}</td>
+                      <td>{{ b.Length_cm ?? '—' }}</td>
+                      <td>{{ b.Width_cm ?? '—' }}</td>
+                      <td>{{ b.Height_cm ?? '—' }}</td>
+                      <td>{{ b.Max_Weight_Kg ?? '—' }}</td>
+
+                      <td>{{ b.Notes || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- VEHICLES (only for heavy) -->
+            <div v-if="isHeavy" class="mb-16">
+              <h6 class="fw-semibold mb-8">Vehicles</h6>
+              <div v-if="!(heavy?.vehicles?.length)" class="text-muted">No vehicles added.</div>
+              <div v-else class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Capacity (Ton)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(v, vi) in heavy.vehicles" :key="vi">
+                      <td>{{ dash(v.Shippers_Vehicle_Type) }}</td>
+                      <td>{{ num(v.Shippers_Vehicle_Capacity_Ton, 2) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="alert alert-info">
+              Please review the details above. You can go Back to edit, or click <strong>Finish & Create</strong> to
+              submit.
+            </div>
           </div>
         </div>
-      </div> <!-- end each destination -->
-    </div> <!-- end Destinations & Rates -->
-
-    <!-- STANDARD BOXES (global, shown once) -->
-    <div class="mb-16">
-      <h6 class="fw-semibold mb-8">Standard Boxes</h6>
-      <div v-if="!boxes.length" class="text-muted">No standard boxes.</div>
-      <div v-else class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Code</th><th>Label</th><th>L (cm)</th><th>W (cm)</th><th>H (cm)</th>
-              <th>Max Wt (kg)</th><th>Flat Rate</th><th>Curr</th><th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(b,bi) in boxes" :key="bi">
-              <td>{{ b.Box_Code || '—' }}</td>
-              <td>{{ b.Box_Label || '—' }}</td>
-              <td>{{ b.Length_cm ?? '—' }}</td>
-              <td>{{ b.Width_cm ?? '—' }}</td>
-              <td>{{ b.Height_cm ?? '—' }}</td>
-              <td>{{ b.Max_Weight_Kg ?? '—' }}</td>
-         
-              <td>{{ b.Notes || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- VEHICLES (only for heavy) -->
-    <div v-if="isHeavy" class="mb-16">
-      <h6 class="fw-semibold mb-8">Vehicles</h6>
-      <div v-if="!(heavy?.vehicles?.length)" class="text-muted">No vehicles added.</div>
-      <div v-else class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr><th>Type</th><th>Capacity (Ton)</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="(v,vi) in heavy.vehicles" :key="vi">
-              <td>{{ dash(v.Shippers_Vehicle_Type) }}</td>
-              <td>{{ num(v.Shippers_Vehicle_Capacity_Ton, 2) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="alert alert-info">
-      Please review the details above. You can go Back to edit, or click <strong>Finish & Create</strong> to submit.
-    </div>
-  </div>
-</div>
 
 
 
 
         <div class="d-flex align-items-center justify-content-between mt-24">
-          <button type="button" class="btn btn-light border"
-                @click="goPrev"
-                :disabled="active===1 || busy">Back</button>
-        <div class="d-flex gap-3">
-          <button v-if="active<steps.length" type="button" class="btn btn-primary" @click="goNext" :disabled="busy">Save & Next</button>
-          <button v-else type="button" class="btn btn-success" @click="saveAll" :disabled="busy">
-            {{ busy ? 'Saving…' : 'Finish & Create' }}
-          </button>
-        </div>
+          <button type="button" class="btn btn-light border" @click="goPrev"
+            :disabled="active === 1 || busy">Back</button>
+          <div class="d-flex gap-3">
+            <button v-if="active < steps.length" type="button" class="btn btn-primary" @click="goNext"
+              :disabled="busy">Save & Next</button>
+            <button v-else type="button" class="btn btn-success" @click="saveAll" :disabled="busy">
+              {{ busy ? 'Saving…' : 'Finish & Create' }}
+            </button>
+          </div>
         </div>
 
       </div>

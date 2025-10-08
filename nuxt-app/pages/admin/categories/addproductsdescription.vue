@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { on } from 'events'
-import { ref, onMounted, watch   } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 
 definePageMeta({
      layout: 'admin',
@@ -75,8 +74,41 @@ const fetchSubSubDepartments = async () => {
 }
 
 
+// Reset dependents when parent changes
+watch(() => form.value.product_department_id, async (deptId) => {
+  form.value.product_sub_department_id = 0
+  form.value.product_sub_sub_department_id = 0
+  subDepartments.value = []
+  subSubDepartments.value = []
+  if (deptId) await fetchSubDepartments()
+})
+
+watch(() => form.value.product_sub_department_id, async (subId) => {
+  form.value.product_sub_sub_department_id = 0
+  subSubDepartments.value = []
+  if (subId) await fetchSubSubDepartments()
+})
+
 const addHeaderField = () => {
-  headers.value.push({ name: '', input_type: 'text', is_required: false, is_active: false, sort_order: 0, values: [] })
+  headers.value.push({
+    name: '',
+    input_type: 'text',
+    is_required: false,
+    is_active: false,
+    sort_order: 0,
+    values: [],
+    _newVal: ''          // ← keep the temp value for the tag editor
+  })
+}
+
+
+const addValue = (i: number) => {
+  const h = headers.value[i]
+  h._newVal = (h._newVal || '').trim()
+  if (h._newVal && !h.values.includes(h._newVal)) {
+    h.values.push(h._newVal)
+  }
+  h._newVal = ''
 }
 
 
@@ -116,10 +148,10 @@ const submitSpecs = async () => {
       }))
     })
     alert('Specifications submitted successfully')
-    headers.value = [{ name: '', input_type: 'text', is_required: false, is_active: false, sort_order: 0, values: [] }]
-    form.value.product_department_id = 0
-    form.value.product_sub_department_id = 0
-    form.value.product_sub_sub_department_id = 0
+    // headers.value = [{ name: '', input_type: 'text', is_required: false, is_active: false, sort_order: 0, values: [] }]
+    // form.value.product_department_id = 0
+    // form.value.product_sub_department_id = 0
+    // form.value.product_sub_sub_department_id = 0
   } catch (e) {
     console.error('Submission error:', e)
     alert('Failed to submit specifications')
@@ -167,7 +199,7 @@ onMounted(async () => {
                 <div class="col-md-12">
                                             <label class="form-label">Category</label>
                                             <select class="form-select" v-model="form.product_department_id" required>
-                                              <option disabled value="">Select Category</option>
+                                              <option disabled :value="0">Select Category</option>
                                               <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.Product_Department_Name }}</option>
                                             </select>
            </div>
@@ -176,7 +208,7 @@ onMounted(async () => {
            <div class="col-md-12">
                                             <label class="form-label">Sub Category</label>
                                             <select class="form-select" v-model="form.product_sub_department_id" required>
-                                              <option disabled value="">Select Sub Category</option>
+                                              <option disabled :value="0">Select Sub Category</option>
                                               <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">{{ sub.Sub_Department_Name }}</option>
                                             </select>
                                           </div>
@@ -184,7 +216,7 @@ onMounted(async () => {
                                           <div class="col-md-12">
                                             <label class="form-label">Sub Sub Category</label>
                                             <select class="form-select" v-model="form.product_sub_sub_department_id" required>
-                                              <option disabled value="">Select Sub Sub Category</option>
+                                              <option disabled :value="0">Select Sub Sub Category</option>
                                               <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">{{ subsub.Product_Sub_Sub_Department_Name }}</option>
                                             </select>
                                           </div>
@@ -213,68 +245,85 @@ onMounted(async () => {
             <div class="card-body">
 
              <div class="row mb-24 gy-3 align-items-center" v-for="(h, index) in headers" :key="index">
-  <h5 class="col-sm-12 mb-3">Feature Description {{ index + 1 }}</h5>
+                    <h5 class="col-sm-12 mb-3">Feature Description {{ index + 1 }}</h5>
 
-  <div class="col-sm-4">
-    <input class="form-control" v-model="h.name" :placeholder="`Feature Description ${index + 1}`" />
+              <div class="col-sm-4">
+                <input class="form-control" v-model="h.name" :placeholder="`Feature Description ${index + 1}`" />
+              </div>
+
+                  <div class="col-sm-3">
+                    <select class="form-select" v-model="h.input_type">
+                      <option value="text">Text</option>
+                      <option value="number">Number</option>
+                      <option value="select">Select</option>
+                      <option value="multiselect">Multi-select</option>
+                      <option value="boolean">Boolean</option>
+                    </select>
+                  </div>
+
+                  <div class="col-sm-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" v-model="h.is_required" id="req-{{index}}">
+                      <label class="form-check-label" :for="`req-${index}`">Required</label>
+                    </div>
+                  </div>
+
+                  <div class="col-sm-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" v-model="h.is_active" id="active-{{index}}">
+                      <label class="form-check-label" :for="`active-${index}`">Active</label>
+                    </div>
+                  </div>
+
+                  <div class="col-sm-2">
+                    <input class="form-control" type="number" v-model.number="h.sort_order" placeholder="Sort order" />
+                  </div>
+
+                  <!-- Values tag editor for select/multiselect -->
+                <!-- Allowed values (always visible) -->
+<div class="col-sm-12">
+  <label class="form-label d-flex align-items-center gap-2">
+    Allowed values
+    <span
+      v-if="!['select','multiselect'].includes(h.input_type)"
+      class="badge bg-light text-muted"
+      title="These values are only used when the type is Select or Multi-select"
+    >
+      used for Select / Multi-select
+    </span>
+  </label>
+
+  <div class="d-flex gap-2 flex-wrap mb-2">
+    <span v-for="(val, vi) in h.values" :key="vi" class="badge bg-secondary">
+      {{ val }}
+      <button
+        type="button"
+        class="btn btn-sm btn-link text-white"
+        @click="h.values.splice(vi, 1)"
+        aria-label="Remove value"
+      >×</button>
+    </span>
+    <span v-if="!h.values.length" class="text-muted small">No values yet</span>
   </div>
 
-  <div class="col-sm-3">
-    <select class="form-select" v-model="h.input_type">
-      <option value="text">Text</option>
-      <option value="number">Number</option>
-      <option value="select">Select</option>
-      <option value="multiselect">Multi-select</option>
-      <option value="boolean">Boolean</option>
-    </select>
+  <div class="input-group">
+    <input
+      class="form-control"
+      :id="`val-input-${index}`"
+      :placeholder="`Type a value and press Add`"
+      v-model="h._newVal"
+      @keyup.enter="addValue(index)"
+    />
+    <button class="btn btn-outline-primary" @click="addValue(index)">Add</button>
+    <button v-if="h.values.length" class="btn btn-outline-secondary" @click="h.values = []">Clear</button>
   </div>
-
-  <div class="col-sm-2">
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" v-model="h.is_required" id="req-{{index}}">
-      <label class="form-check-label" :for="`req-${index}`">Required</label>
-    </div>
-  </div>
-
-  <div class="col-sm-2">
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" v-model="h.is_active" id="active-{{index}}">
-      <label class="form-check-label" :for="`active-${index}`">Active</label>
-    </div>
-  </div>
-
-  <div class="col-sm-2">
-    <input class="form-control" type="number" v-model.number="h.sort_order" placeholder="Sort order" />
-  </div>
-
-  <!-- Values tag editor for select/multiselect -->
-  <div class="col-sm-12">
-    <label class="form-label">Allowed values</label>
-    <div class="d-flex gap-2 flex-wrap mb-2">
-      <span v-for="(val, vi) in h.values" :key="vi" class="badge bg-secondary">
-        {{ val }}
-        <button type="button" class="btn btn-sm btn-link text-white" @click="h.values.splice(vi,1)">×</button>
-      </span>
-    </div>
-    <div class="input-group">
-      <input class="form-control" :id="`val-input-${index}`" :placeholder="`Type a value and press Add`" v-model="h._newVal" @keyup.enter="
-        (h._newVal = (h._newVal || '').trim()),
-        h._newVal && !h.values.includes(h._newVal) && h.values.push(h._newVal),
-        h._newVal = ''
-      ">
-      <button class="btn btn-outline-primary" @click="
-        h._newVal = (h._newVal || '').trim();
-        if (h._newVal && !h.values.includes(h._newVal)) h.values.push(h._newVal);
-        h._newVal = '';
-      ">Add</button>
-    </div>
-    <small class="text-muted">Examples: Green, Yellow, 220V…</small>
-  </div>
-
-  <div class="col-sm-12">
-    <button class="btn btn-danger" @click="removeSpecHeader(index)">Remove</button>
-  </div>
+  <small class="text-muted">Examples: Green, Yellow, 220V…</small>
 </div>
+
+                  <div class="col-sm-12">
+                    <button class="btn btn-danger" @click="removeSpecHeader(index)">Remove</button>
+                  </div>
+             </div>
 
              </div>
              <div class="card-footer">
@@ -289,7 +338,7 @@ onMounted(async () => {
                                                 <button type="button" class="btn btn-primary" :disabled="isSubmitDisabled" @click="submitSpecs">Submit</button>
                                             </div>
                   
-              </div>
+             </div>
 
         </div>
 

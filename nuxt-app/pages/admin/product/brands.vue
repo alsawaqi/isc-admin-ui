@@ -50,9 +50,6 @@ const productBrands = ref<ProductBrand[]>([]);
 const name = ref<string>('');
 
 const submit = async (e: Event) => {
-
- 
-
     if (!name.value) {
         alert('Please enter a brand name.');
         return;

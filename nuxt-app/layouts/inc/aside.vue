@@ -410,6 +410,7 @@ onMounted(() => {
 
 
                 <li><NuxtLink to="/admin/department">Contact Departments</NuxtLink></li>
+                <li><NuxtLink to="/admin/customer">Customers</NuxtLink></li>
                 <li v-if="hasPermission('system parameters')"><a href="#">System Parameters</a></li>
                 <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>

@@ -4,9 +4,16 @@ import { useGeoApi } from '@/services/geoApi'
 
 // What parent (wizard) stores per row (names + flags)
 export interface DestinationRow {
+ // NEW: IDs you’ll persist
+  Shippers_Destination_Country_Id?: number | null
+  Shippers_Destination_Region_Id?: number | null
+  Shippers_Destination_District_Id?: number | null
+
+  // (keep names for display/review, optional)
   Shippers_Destination_Country?: string | null
   Shippers_Destination_Region?: string | null
   Shippers_Destination_District?: string | null
+
   Shippers_Destination_Rate_Applicability?: 'weight'|'volume'|'both'|'special'|''|null
   Shippers_Destination_Country_Preference?: string | null
   Shippers_Destination_Region_Preference?: string | null
@@ -75,8 +82,11 @@ const hydrateSelectionsFromRows = async () => {
     const r = rows.value[i]
     const sel = selections.value[i]
 
-    // Country
-    if (r?.Shippers_Destination_Country) {
+    // --- Country by ID first ---
+    if (r?.Shippers_Destination_Country_Id) {
+      sel.countryId = r.Shippers_Destination_Country_Id
+      await loadRegions(sel.countryId as number)
+    } else if (r?.Shippers_Destination_Country) {
       const c = countries.value.find(
         x => x.Country_Name?.toLowerCase() === r.Shippers_Destination_Country!.toLowerCase()
       )
@@ -86,8 +96,11 @@ const hydrateSelectionsFromRows = async () => {
       }
     }
 
-    // Region
-    if (sel.countryId && r?.Shippers_Destination_Region) {
+    // --- Region by ID first ---
+    if (sel.countryId && r?.Shippers_Destination_Region_Id) {
+      sel.regionId = r.Shippers_Destination_Region_Id
+      await loadDistricts(sel.countryId as number, sel.regionId as number)
+    } else if (sel.countryId && r?.Shippers_Destination_Region) {
       const regs = regionsMap.value[sel.countryId] || []
       const rg = regs.find(
         x => x.Region_Name?.toLowerCase() === r.Shippers_Destination_Region!.toLowerCase()
@@ -98,8 +111,10 @@ const hydrateSelectionsFromRows = async () => {
       }
     }
 
-    // District
-    if (sel.countryId && sel.regionId && r?.Shippers_Destination_District) {
+    // --- District by ID first ---
+    if (sel.countryId && sel.regionId && r?.Shippers_Destination_District_Id) {
+      sel.districtId = r.Shippers_Destination_District_Id
+    } else if (sel.countryId && sel.regionId && r?.Shippers_Destination_District) {
       const key = `${sel.countryId}-${sel.regionId}`
       const ds = districtsMap.value[key] || []
       const d = ds.find(
@@ -113,12 +128,16 @@ const hydrateSelectionsFromRows = async () => {
 // ----- UI handlers (map IDs -> names on the rows array) -----
 const onCountryChange = async (i:number) => {
   const sel = selections.value[i]
-  const countryName = countries.value.find(c => c.id === sel.countryId)?.Country_Name || null
-  rows.value[i].Shippers_Destination_Country = countryName
+  const name = countries.value.find(c => c.id === sel.countryId)?.Country_Name || null
 
-  // reset lower levels
+  rows.value[i].Shippers_Destination_Country_Id = sel.countryId ? Number(sel.countryId) : null   // NEW
+  rows.value[i].Shippers_Destination_Country = name
+
+  // reset lower levels (IDs + names)
   sel.regionId = ''
   sel.districtId = ''
+  rows.value[i].Shippers_Destination_Region_Id = null      // NEW
+  rows.value[i].Shippers_Destination_District_Id = null    // NEW
   rows.value[i].Shippers_Destination_Region = null
   rows.value[i].Shippers_Destination_District = null
 
@@ -128,11 +147,14 @@ const onCountryChange = async (i:number) => {
 const onRegionChange = async (i:number) => {
   const sel = selections.value[i]
   const regs = regionsMap.value[sel.countryId as number] || []
-  const regionName = regs.find(r => r.id === sel.regionId)?.Region_Name || null
-  rows.value[i].Shippers_Destination_Region = regionName
+  const name = regs.find(r => r.id === sel.regionId)?.Region_Name || null
+
+  rows.value[i].Shippers_Destination_Region_Id = sel.regionId ? Number(sel.regionId) : null   // NEW
+  rows.value[i].Shippers_Destination_Region = name
 
   // reset district
   sel.districtId = ''
+  rows.value[i].Shippers_Destination_District_Id = null    // NEW
   rows.value[i].Shippers_Destination_District = null
 
   if (sel.countryId && sel.regionId) {
@@ -144,13 +166,18 @@ const onDistrictChange = (i:number) => {
   const sel = selections.value[i]
   const key = `${sel.countryId}-${sel.regionId}`
   const ds = districtsMap.value[key] || []
-  const districtName = ds.find(d => d.id === sel.districtId)?.District_Name || null
-  rows.value[i].Shippers_Destination_District = districtName
-}
+  const name = ds.find(d => d.id === sel.districtId)?.District_Name || null
 
+  rows.value[i].Shippers_Destination_District_Id = sel.districtId ? Number(sel.districtId) : null  // NEW
+  rows.value[i].Shippers_Destination_District = name
+}
 // ----- add/remove -----
 const addRow = () => {
-  rows.value.push({
+   rows.value.push({
+    Shippers_Destination_Country_Id: null,   // NEW
+    Shippers_Destination_Region_Id: null,    // NEW
+    Shippers_Destination_District_Id: null,  // NEW
+
     Shippers_Destination_Country: '',
     Shippers_Destination_Region: '',
     Shippers_Destination_District: '',
