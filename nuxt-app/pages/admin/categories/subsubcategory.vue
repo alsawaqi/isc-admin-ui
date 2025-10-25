@@ -11,7 +11,8 @@ const { $axios,$r2Url } = useNuxtApp();
 interface SubSubDepartment {
   id: number
   Product_Sub_Sub_Department_Name: string
- 
+  Product_Sub_Sub_Department_Description?: string
+  View_Options: boolean
   Image_Path: string
 
 }
@@ -34,7 +35,7 @@ interface Department {
 const departments = ref<Department[]>([])
 const expandedDepartments = ref<{ [key: number]: boolean }>({})
 const expandedSubDepartments = ref<{ [key: number]: boolean }>({})
-const subSubDepartments = ref<SubSubDepartment[]>([]);
+ 
 
 const selectedDepartmentId = ref<number | null>(null);
 const selectedSubDepartmentId = ref<number | null>(null);
@@ -43,13 +44,33 @@ const previewUrl = ref<string | null>(null);
 
 const subDepartments = ref<SubDepartment[]>([]);
 
-const isSubmit = ref<Boolean>(false);
-const isLoading = ref<Boolean>(false);
+const isSubmit = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 
  
 const name = ref<string>('');
 const description = ref<string>('');
 const View_Options = ref<boolean>(false);
+
+
+// EDIT MODAL STATE
+const isEditOpen = ref<boolean>(false)
+
+const editId = ref<number | null>(null)
+const editName = ref<string>('')
+const editDescription = ref<string>('')
+const editViewOptions = ref<boolean | number | string>(false)
+
+// We'll allow moving the sub-sub dept to a different sub-department
+const editParentDeptId = ref<number | null>(null)           // parent Department id
+const editSubDeptId = ref<number | null>(null)              // parent SubDepartment id
+const editSubDeptOptions = ref<SubDepartment[]>([])         // list of sub-departments for selected department
+
+// image
+const editImageFile = ref<File | null>(null)                // new file chosen in modal
+const editPreviewUrl = ref<string | null>(null)             // preview in modal
+const editRemoveCurrentImage = ref<boolean>(false)          // if user removed the old one
+
 
 
 
@@ -70,6 +91,36 @@ const removeImage = () => {
 
 
 
+const handleEditImageChange = (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  // revoke old blob if any
+  if (editPreviewUrl.value && editPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(editPreviewUrl.value)
+  }
+
+  editImageFile.value = file
+  editPreviewUrl.value = URL.createObjectURL(file)
+
+  // since user picked a new image, don't ask backend to delete (we'll replace instead)
+  editRemoveCurrentImage.value = false
+}
+
+const removeEditImage = () => {
+  // User clicks × on the current image in modal
+  if (editPreviewUrl.value && editPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(editPreviewUrl.value)
+  }
+
+  editImageFile.value = null
+  editPreviewUrl.value = null
+
+  // tell backend to remove existing image if we submit like this
+  editRemoveCurrentImage.value = true
+}
+
+
 
 const getDepartments = async () => {
   isLoading.value = true;
@@ -87,19 +138,7 @@ const getDepartments = async () => {
   
 };
 
-const fetchSubSubDepartments = async () => {
-  try {
-    const res = await $axios.get('/api/full-product-department-tree');
-    subSubDepartments.value = res.data;
-    console.log('Fetched:', res.data);
-  } catch (error) {
-    console.error('Failed to fetch:', error);
-  }
-};
-
  
-
-
 const fetchSubDepartments = async () => {
   if (!selectedDepartmentId.value) return;
 
@@ -117,8 +156,121 @@ const fetchFullTree = async () => {
   try {
     const res = await $axios.get('/api/full-product-department-tree')
     departments.value = res.data
+    console.log('Full tree:', res.data)
   } catch (err) {
     console.error('Failed to fetch department tree:', err)
+  }
+}
+
+const onEditDeptChange = async () => {
+  if (!editParentDeptId.value) {
+    editSubDeptOptions.value = []
+    editSubDeptId.value = null
+    return
+  }
+  await loadEditSubDeptOptions(editParentDeptId.value)
+  // force user to pick again
+  editSubDeptId.value = null
+}
+
+const loadEditSubDeptOptions = async (deptId: number) => {
+  // this is very similar to fetchSubDepartments but we don't want to overwrite create form data.
+  try {
+    const res = await $axios.get(`/api/sub-departments/${deptId}`)
+    // backend returns { sub_departments: [...] } based on your fetchSubDepartments()
+    editSubDeptOptions.value = res.data.sub_departments || []
+  } catch (err) {
+    console.error('Failed to load sub-depts for edit modal:', err)
+    editSubDeptOptions.value = []
+  }
+}
+
+
+ const openEditModal = async (
+  subsub: SubSubDepartment,
+  parentSub: SubDepartment,
+  parentDept: Department
+) => {
+  isEditOpen.value = true
+
+  // basic fields
+  editId.value = subsub.id
+  editName.value = subsub.Product_Sub_Sub_Department_Name
+  editDescription.value = subsub.Product_Sub_Sub_Department_Description ?? ''
+
+
+  editViewOptions.value = subsub.View_Options ?? false;
+
+  // parent selects
+  editParentDeptId.value = parentDept.id
+
+  await loadEditSubDeptOptions(parentDept.id)
+  editSubDeptId.value = parentSub.id
+
+  // image preview (existing from server)
+  editImageFile.value = null
+  editPreviewUrl.value = subsub.Image_Path
+    ? `${$r2Url}/` + subsub.Image_Path
+    : null
+
+  editRemoveCurrentImage.value = false
+}
+
+const closeEditModal = () => {
+  isEditOpen.value = false
+}
+
+
+
+const updateSubSubDepartment = async (e: Event) => {
+  e.preventDefault()
+  if (!editId.value) return
+
+  isSubmit.value = true
+
+  try {
+    const form = new FormData()
+
+    form.append('Product_Sub_Sub_Department_Name', editName.value ?? '')
+    form.append('description', editDescription.value ?? '')
+    form.append('View_Options', String(editViewOptions.value))
+
+    if (editSubDeptId.value) {
+      form.append('Product_Sub_Department_Id', String(editSubDeptId.value))
+    }
+
+    // send new file if chosen
+    if (editImageFile.value instanceof File) {
+      form.append('image', editImageFile.value)
+    }
+
+    // if user clicked remove and didn't upload a new one
+    if (editRemoveCurrentImage.value && !editImageFile.value) {
+      form.append('remove_image', '1')
+    }
+
+    const res = await $axios.post(
+      `/api/sub-sub-departments/${editId.value}`,
+      form,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    )
+
+    console.log('Updated:', res.data)
+
+    // refresh tree so UI updates
+    await fetchFullTree()
+
+    // close modal
+    isEditOpen.value = false
+  } catch (err) {
+    console.error('Failed to update sub-sub department:', err)
+    alert('Failed to update')
+  } finally {
+    isSubmit.value = false
   }
 }
 
@@ -444,7 +596,7 @@ onMounted(async () => {
                   </td>
                   <td>
                   
-                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                    <a href="javascript:void(0)"  @click.prevent="openEditModal(subsub, sub, dept)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
                       <iconify-icon icon="lucide:edit"></iconify-icon>
                     </a>
                     <a @click.prevent="deleteSubSubDepartment(subsub.id)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
@@ -498,6 +650,183 @@ onMounted(async () => {
 
 
       </div>
+<!-- Edit Modal -->
+<transition
+  enter-active-class="transition-opacity duration-200"
+  enter-from-class="opacity-0"
+  enter-to-class="opacity-100"
+  leave-active-class="transition-opacity duration-150"
+  leave-from-class="opacity-100"
+  leave-to-class="opacity-0"
+>
+  <div
+    v-if="isEditOpen"
+    class="modal-backdrop"
+    @click.self="closeEditModal"
+  >
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <!-- Header -->
+      <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+        <h6 class="fw-semibold mb-0">Edit Sub Sub Department</h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeEditModal">✕</button>
+      </div>
+
+      <!-- Body -->
+      <form @submit.prevent="updateSubSubDepartment">
+        <!-- Department selector -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-sm">
+            Department <span class="text-danger">*</span>
+          </label>
+          <select
+            class="form-control rounded-lg form-select"
+            v-model="editParentDeptId"
+            @change="onEditDeptChange"
+            required
+          >
+            <option
+              v-for="dept in departments"
+              :key="dept.id"
+              :value="dept.id"
+            >
+              {{ dept.Product_Department_Name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Sub Department selector -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-sm">
+            Sub Department <span class="text-danger">*</span>
+          </label>
+          <select
+            class="form-control rounded-lg form-select"
+            v-model="editSubDeptId"
+            required
+          >
+            <option
+              v-for="sd in editSubDeptOptions"
+              :key="sd.id"
+              :value="sd.id"
+            >
+              {{ sd.Sub_Department_Name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Name -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-sm">
+            Name <span class="text-danger">*</span>
+          </label>
+          <input
+            type="text"
+            class="form-control radius-8"
+            placeholder="Enter sub sub department name"
+            v-model="editName"
+            required
+          />
+        </div>
+
+        <!-- Description -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-sm">Description</label>
+          <input
+            type="text"
+            class="form-control radius-8"
+            placeholder="Enter description"
+            v-model="editDescription"
+          />
+        </div>
+
+        <!-- View Options -->
+       <div class="mb-3">
+  <label class="form-label fw-semibold text-sm">
+    View Option
+    <span class="text-muted ms-1">({{ editViewOptions ? 'Grid' : 'List' }})  {{ editViewOptions }}s</span>
+  </label>
+
+  <div class="d-flex align-items-center gap-2">
+    <input
+      type="checkbox"
+      class="form-check-input"
+      v-model="editViewOptions"
+    />
+    <small class="text-muted">{{ editViewOptions ? 'Checked' : 'Not checked' }}</small>
+  </div>
+</div>
+
+
+        <!-- Image -->
+        <div class="mb-3">
+          <div class="mb-2 fw-semibold text-sm">Logo / Image</div>
+
+          <!-- Preview (either server URL OR new blob) -->
+          <div
+            v-if="editPreviewUrl"
+            class="position-relative mb-2"
+            style="width: 120px; height: 120px;"
+          >
+            <img
+              :src="editPreviewUrl"
+              class="img-fluid radius-8 w-100 h-100 object-fit-cover"
+            />
+            <button
+              type="button"
+              class="btn btn-sm btn-danger position-absolute top-0 end-0"
+              style="transform: translate(50%, -50%);"
+              @click="removeEditImage"
+            >
+              ×
+            </button>
+          </div>
+
+          <!-- Upload box if no preview -->
+          <label
+            v-else
+            class="upload-file-multiple h-120-px w-120-px border input-form-light radius-8 overflow-hidden
+                   border-dashed bg-neutral-50 bg-hover-neutral-200 d-inline-flex align-items-center
+                   flex-column justify-content-center gap-1 cursor-pointer"
+          >
+            <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
+            <span class="fw-semibold text-secondary-light">Upload</span>
+            <input
+              type="file"
+              hidden
+              accept="image/*"
+              @change="handleEditImageChange"
+            />
+          </label>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex align-items-center justify-content-end gap-2">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="closeEditModal"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            :disabled="isSubmit"
+          >
+            <span
+              v-if="isSubmit"
+              class="spinner-border spinner-border-sm me-1"
+              role="status"
+              aria-hidden="true"
+            ></span>
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</transition>
 
    
 </template>
@@ -562,6 +891,23 @@ onMounted(async () => {
 }
 
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,0.5);
+  display: grid;
+  place-items: center;
+  z-index: 1050;
+}
+.modal-card {
+  width: min(640px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.18);
+  padding: 20px;
+}
 
 
 </style>

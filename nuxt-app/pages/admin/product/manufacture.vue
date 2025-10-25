@@ -3,7 +3,6 @@ definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
     permissions: 'departments'
-
 });
 
 const { $axios } = useNuxtApp();
@@ -15,7 +14,7 @@ interface ProductDepartments {
     Product_Department_Name: string;
 }
 
-interface department {
+interface Department {
     id: number;
     Product_Department_Name: string;
 }
@@ -23,22 +22,33 @@ interface department {
 interface Manufacture {
     id: number;
     Products_Manufacture_Name: string;
-    department: department;
+    department: Department;
     created_at?: string;
     updated_at?: string;
 }
 
 const ProductDepartments = ref<ProductDepartments[]>([]);
 const ProductManufactures = ref<Manufacture[]>([]);
+
+// create form
 const name = ref<string>('');
 const Product_Department_Id = ref<string>('');
+
+// table/list loading
 const loading = ref<boolean>(false);
 
+// edit modal state
+const showEditModal = ref<boolean>(false);
+const edit_id = ref<number | null>(null);
+const edit_name = ref<string>('');
+const edit_department_id = ref<string>('');
+
+// simple error/success message handling (optional UI hook)
+const errorMessage = ref<string | null>(null);
 
 const getProductDepartment = async () => {
     try {
         const response = await $axios.get('/api/productdepartment');
-
         ProductDepartments.value = response.data;
     } catch (error) {
         console.error('Failed to fetch product departments:', error);
@@ -57,43 +67,97 @@ const getManufactures = async () => {
     } finally {
         loading.value = false;
     }
-
 };
 
+const resetCreateForm = () => {
+    name.value = '';
+    Product_Department_Id.value = '';
+};
 
 const submit = async () => {
+    errorMessage.value = null;
     try {
-        const response = await $axios.post('/api/productmanufacture', {
+        await $axios.post('/api/productmanufacture', {
             name: name.value,
             product_department_id: Product_Department_Id.value
         });
-        console.log('Manufacture created:', response.data);
-        // Optionally, you can reset the form or redirect
-        name.value = '';
-    } catch (error) {
-        console.error('Error creating manufacture:', error);
-    } finally {
+
+        resetCreateForm();
         await getManufactures();
-
-
+    } catch (error: any) {
+        console.error('Error creating manufacture:', error);
+        errorMessage.value =
+            error?.response?.data?.message || 'Failed to create manufacture.';
     }
 };
 
+// ---- EDIT LOGIC ----
 
+// open modal & preload fields
+const openEdit = (m: Manufacture) => {
+    showEditModal.value = true;
+    edit_id.value = m.id;
+    edit_name.value = m.Products_Manufacture_Name;
+    // we assume backend expects `product_department_id`
+    edit_department_id.value = m.department?.id
+        ? String(m.department.id)
+        : '';
+};
+
+// close modal & clear fields
+const closeEdit = () => {
+    showEditModal.value = false;
+    edit_id.value = null;
+    edit_name.value = '';
+    edit_department_id.value = '';
+    errorMessage.value = null;
+};
+
+// save updated data
+const saveEdit = async () => {
+    if (!edit_id.value) return;
+
+    errorMessage.value = null;
+
+    try {
+        await $axios.post(`/api/productmanufacture/${edit_id.value}`, {
+            name: edit_name.value,
+            product_department_id: edit_department_id.value
+        });
+
+        closeEdit();
+        await getManufactures();
+    } catch (error: any) {
+        console.error('Error updating manufacture:', error);
+        errorMessage.value =
+            error?.response?.data?.message || 'Failed to update manufacture.';
+    }
+};
+
+// ---- DELETE LOGIC ----
+const deleteManufacture = async (id: number) => {
+    const yes = confirm('Are you sure you want to delete this manufacture?');
+    if (!yes) return;
+
+    try {
+        await $axios.delete(`/api/productmanufacture/${id}`);
+        await getManufactures();
+    } catch (error) {
+        console.error('Failed to delete manufacture:', error);
+        alert('Delete failed');
+    }
+};
 
 onMounted(async () => {
-
     await getManufactures();
     await getProductDepartment();
-
 });
-
 </script>
-<template>
 
+<template>
     <div class="dashboard-main-body">
 
-
+        <!-- HEADER / BREADCRUMB -->
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
             <h6 class="fw-semibold mb-0" style="color: #10b981">Create Manufacture</h6>
             <ul class="d-flex align-items-center gap-2">
@@ -108,50 +172,74 @@ onMounted(async () => {
             </ul>
         </div>
 
-
-        <div class="card h-100 p-0 radius-12 overflow-hidden">
+        <!-- CREATE CARD -->
+        <div class="card h-100 p-0 radius-12 overflow-hidden mb-24">
             <div class="card-body p-40">
                 <form @submit.prevent="submit()" class="row g-4">
                     <div class="row">
 
                         <div class="col-sm-12">
 
-
+                            <!-- Department Select -->
                             <div class="mb-20">
-                                <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                    Department </label>
-                                <select class="form-control radius-8" id="address" v-model="Product_Department_Id">
-                                    <option value="" disabled selected>Select Department</option>
-                                    <option v-for="department in ProductDepartments" :key="department.id"
-                                        :value="department.id">
+                                <label
+                                    for="departmentSelect"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Department
+                                </label>
+
+                                <select
+                                    class="form-control radius-8"
+                                    id="departmentSelect"
+                                    v-model="Product_Department_Id"
+                                >
+                                    <option value="" disabled>Select Department</option>
+                                    <option
+                                        v-for="department in ProductDepartments"
+                                        :key="department.id"
+                                        :value="department.id"
+                                    >
                                         {{ department.Product_Department_Name }}
                                     </option>
-
                                 </select>
                             </div>
 
-
-
+                            <!-- Name Input -->
                             <div class="mb-20">
-                                <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                    Name <span class="text-danger-600">*</span> </label>
-                                <input type="text" class="form-control radius-8" id="address" v-model="name"
-                                    placeholder="Enter Your Name">
+                                <label
+                                    for="manufactureName"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Name <span class="text-danger-600">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control radius-8"
+                                    id="manufactureName"
+                                    v-model="name"
+                                    placeholder="Enter Manufacture Name"
+                                >
                             </div>
 
-
-
-
-
+                            <!-- Error message (create) -->
+                            <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
+                                {{ errorMessage }}
+                            </div>
 
                         </div>
+
                         <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
-                            <button type="reset"
-                                class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
+                            <button
+                                type="reset"
+                                class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8"
+                                @click.prevent="resetCreateForm()"
+                            >
                                 Reset
                             </button>
-                            <button type="submit"
-                                class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
+                            >
                                 Save Change
                             </button>
                         </div>
@@ -160,21 +248,8 @@ onMounted(async () => {
             </div>
         </div>
 
-
-
-
-
-
-    </div>
-
-
-
-    <div class="dashboard-main-body">
-
-
-
+        <!-- LIST TABLE CARD -->
         <div class="col-lg-12">
-
 
             <div class="card">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -194,15 +269,19 @@ onMounted(async () => {
                             </select>
                         </div>
                         <div class="icon-field">
-                            <input type="text" name="#0" class="form-control form-control-sm w-auto"
-                                placeholder="Search">
+                            <input
+                                type="text"
+                                name="#0"
+                                class="form-control form-control-sm w-auto"
+                                placeholder="Search"
+                            >
                             <span class="icon">
                                 <iconify-icon icon="ion:search-outline"></iconify-icon>
                             </span>
                         </div>
                     </div>
-
                 </div>
+
                 <div class="card-body">
                     <table class="table bordered-table mb-0">
                         <thead>
@@ -216,22 +295,35 @@ onMounted(async () => {
                                     </div>
                                 </th>
                                 <th scope="col">Department</th>
-
                                 <th scope="col">Name</th>
-
-
-                                <th scope="col">Action</th>
+                                <th scope="col" class="text-end">Action</th>
                             </tr>
                         </thead>
+
                         <tbody>
+                            <!-- loading row -->
+                            <tr v-if="loading">
+                                <td colspan="4" class="text-center py-24 text-muted">
+                                    Loading...
+                                </td>
+                            </tr>
 
-
-                            <tr v-for="(manufacture, index) in ProductManufactures" :key="manufacture.id">
+                            <!-- data rows -->
+                            <tr
+                                v-for="(manufacture, index) in ProductManufactures"
+                                :key="manufacture.id"
+                            >
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox"
-                                            :id="'check-' + manufacture.id" />
-                                        <label class="form-check-label" :for="'check-' + manufacture.id">
+                                        <input
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            :id="'check-' + manufacture.id"
+                                        />
+                                        <label
+                                            class="form-check-label"
+                                            :for="'check-' + manufacture.id"
+                                        >
                                             {{ index + 1 }}
                                         </label>
                                     </div>
@@ -239,65 +331,97 @@ onMounted(async () => {
 
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <!-- Optional static image -->
-                                        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{
-                                            manufacture.department?.Product_Department_Name }}</h6>
-
+                                        <h6 class="text-md mb-0 fw-medium flex-grow-1">
+                                            {{ manufacture.department?.Product_Department_Name }}
+                                        </h6>
                                     </div>
                                 </td>
-
 
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <!-- Optional static image -->
-                                        <h6 class="text-md mb-0 fw-medium flex-grow-1">{{
-                                            manufacture.Products_Manufacture_Name }}</h6>
-
+                                        <h6 class="text-md mb-0 fw-medium flex-grow-1">
+                                            {{ manufacture.Products_Manufacture_Name }}
+                                        </h6>
                                     </div>
                                 </td>
 
-                                <td>
-                                    <a href="javascript:void(0)"
-                                        class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                                <td class="text-end">
+                                    <!-- view (placeholder) -->
+                                    <a
+                                        href="javascript:void(0)"
+                                        class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center me-1"
+                                        title="View"
+                                    >
                                         <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
                                     </a>
-                                    <a href="javascript:void(0)"
-                                        class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+
+                                    <!-- edit -->
+                                    <a
+                                        href="javascript:void(0)"
+                                        class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center me-1"
+                                        title="Edit"
+                                        @click="openEdit(manufacture)"
+                                    >
                                         <iconify-icon icon="lucide:edit"></iconify-icon>
                                     </a>
-                                    <a href="javascript:void(0)"
-                                        class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+
+                                    <!-- delete -->
+                                    <a
+                                        href="javascript:void(0)"
+                                        class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center"
+                                        title="Delete"
+                                        @click="deleteManufacture(manufacture.id)"
+                                    >
                                         <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                                     </a>
+                                </td>
+                            </tr>
+
+                            <!-- empty state -->
+                            <tr v-if="!loading && ProductManufactures.length === 0">
+                                <td colspan="4" class="text-center py-24 text-muted">
+                                    No Manufacturers Found
                                 </td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+                    <div
+                        class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24"
+                    >
                         <span>Showing 1 to 10 of 12 entries</span>
                         <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
                             <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
+                                <a
+                                    class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)"
+                                >
                                     <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
                                 </a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">1</a>
+                                <a
+                                    class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
+                                    href="javascript:void(0)"
+                                >1</a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">2</a>
+                                <a
+                                    class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
+                                    href="javascript:void(0)"
+                                >2</a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">3</a>
+                                <a
+                                    class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
+                                    href="javascript:void(0)"
+                                >3</a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
+                                <a
+                                    class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)"
+                                >
                                     <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
                                 </a>
                             </li>
@@ -307,9 +431,101 @@ onMounted(async () => {
             </div>
         </div>
 
+        <!-- EDIT MODAL -->
+        <div
+            v-if="showEditModal"
+            class="modal fade show"
+            style="display:block; background:rgba(0,0,0,0.5);"
+            tabindex="-1"
+            role="dialog"
+        >
+            <div
+                class="modal-dialog modal-dialog-centered"
+                role="document"
+            >
+                <div class="modal-content radius-12">
+                    <div class="modal-header d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="modal-title fw-semibold mb-4">Edit Manufacture</h5>
+                            <small class="text-muted d-block">Update name or department</small>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn-close"
+                            aria-label="Close"
+                            @click="closeEdit"
+                        ></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Department -->
+                        <div class="mb-20">
+                            <label
+                                for="editDepartmentSelect"
+                                class="form-label fw-semibold text-primary-light text-sm mb-8"
+                            >
+                                Department
+                            </label>
+
+                            <select
+                                class="form-control radius-8"
+                                id="editDepartmentSelect"
+                                v-model="edit_department_id"
+                            >
+                                <option value="" disabled>Select Department</option>
+                                <option
+                                    v-for="dep in ProductDepartments"
+                                    :key="dep.id"
+                                    :value="dep.id"
+                                >
+                                    {{ dep.Product_Department_Name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Name -->
+                        <div class="mb-20">
+                            <label
+                                for="editManufactureName"
+                                class="form-label fw-semibold text-primary-light text-sm mb-8"
+                            >
+                                Name <span class="text-danger-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control radius-8"
+                                id="editManufactureName"
+                                v-model="edit_name"
+                                placeholder="Enter Manufacture Name"
+                            >
+                        </div>
+
+                        <!-- error in modal -->
+                        <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
+                            {{ errorMessage }}
+                        </div>
+                    </div>
+
+                    <div class="modal-footer d-flex justify-content-end gap-2">
+                        <button
+                            type="button"
+                            class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-24 py-12 radius-8"
+                            @click="closeEdit"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
+                            @click="saveEdit"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- /EDIT MODAL -->
 
     </div>
-
-
-
 </template>

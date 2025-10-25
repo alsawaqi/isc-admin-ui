@@ -347,7 +347,7 @@ onMounted(async() => {
                           <tr>
                             <th scope="col" class="p-3">
                               <div class="form-check style-check flex items-center">
-                                <input class="form-check-input" id="serial" type="checkbox">
+                              
                                 <label class="ms-2 form-check-label" for="serial">S.L</label>
                               </div>
                             </th>
@@ -377,7 +377,7 @@ onMounted(async() => {
                             <tr v-for="(product, index) in products" :key="product.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
                               <td class="p-3">
                                 <div class="form-check style-check flex items-center">
-                                  <input class="form-check-input" type="checkbox">
+                                
                                   <label class="ms-2 form-check-label">{{ index + 1 }}</label>
                                 </div>
                               </td>
@@ -403,10 +403,8 @@ onMounted(async() => {
                                 <button class="btn btn-sm btn-outline-primary" @click="openImagesModal(product.id)">View Images</button>
                               </td>
                               <td class="p-3 text-center flex gap-1 justify-center">
-                                <a href="javascript:void(0)" class="w-8 h-8 bg-primary-100 text-primary-600 rounded-full inline-flex items-center justify-center">
-                                  <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                                </a>
-                                <a href="javascript:void(0)" class="w-8 h-8 bg-green-100 text-green-600 rounded-full inline-flex items-center justify-center">
+                               
+                                <a href="javascript:void(0)" class="w-10 h-10 bg-green-100 text-green-600 rounded-full inline-flex items-center justify-center">
                                   <iconify-icon icon="lucide:edit"></iconify-icon>
                                 </a>
                                 <a @click.prevent="deleteProduct(product.id)" class="w-8 h-8 bg-red-100 text-red-600 rounded-full inline-flex items-center justify-center">
