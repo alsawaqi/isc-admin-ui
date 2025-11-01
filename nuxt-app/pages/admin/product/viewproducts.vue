@@ -383,7 +383,6 @@ onMounted(async() => {
                               </td>
                               <td class="p-3">
                                 <div class="flex items-center">
-                                  <img src="/public/isc-assets/images/user-list/user-list1.png" alt="" class="w-8 h-8 rounded-lg me-3 object-cover">
                                   {{ product.Product_Name }}
                                 </div>
                               </td>
@@ -403,10 +402,10 @@ onMounted(async() => {
                                 <button class="btn btn-sm btn-outline-primary" @click="openImagesModal(product.id)">View Images</button>
                               </td>
                               <td class="p-3 text-center flex gap-1 justify-center">
-                               
-                                <a href="javascript:void(0)" class="w-10 h-10 bg-green-100 text-green-600 rounded-full inline-flex items-center justify-center">
+
+                                <NuxtLink :to="`/admin/product/${product.id}`" class="w-10 h-10 bg-green-100 text-green-600 rounded-full inline-flex items-center justify-center">
                                   <iconify-icon icon="lucide:edit"></iconify-icon>
-                                </a>
+                                </NuxtLink>
                                 <a @click.prevent="deleteProduct(product.id)" class="w-8 h-8 bg-red-100 text-red-600 rounded-full inline-flex items-center justify-center">
                                   <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                                 </a>
