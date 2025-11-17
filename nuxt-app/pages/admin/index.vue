@@ -1,22 +1,65 @@
 <script setup lang="ts">
-  definePageMeta({
-  layout: 'admin'
+import { definePageMeta, useNuxtApp } from '#imports'
+import { onMounted, onBeforeUnmount } from 'vue'
+
+definePageMeta({
+  layout: 'admin',
 })
 
+const nuxtApp = useNuxtApp()
+ 
 
+let channel: any = null
 
+onMounted(() => {
+  const pusher = nuxtApp.$pusher
+
+ 
+
+  // Connection logs
+  pusher.connection.bind('connected', () => {
+ 
+  })
+
+  pusher.connection.bind('error', (err: any) => {
+ 
+  })
+
+  // 🔴 MUST match broadcastOn(): "orders"
+  channel = pusher.subscribe('orders')
+ 
+
+  // 🔴 MUST match broadcastAs(): "order.placed"
+  channel.bind('order.placed', (data: any) => {
+    console.log('🎉 Pusher event "order.placed" received from Laravel:', data)
+  })
+})
+
+onBeforeUnmount(() => {
+  if (channel) {
+    channel.unbind('order.placed')
+  }
+  const pusher = nuxtApp.$pusher
+  pusher.unsubscribe('orders')
+})
+ 
 </script>
 <template>
     <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
         <h6 class="fw-semibold mb-0">Dashboard</h6>
         <ul class="d-flex align-items-center gap-2">
+              
             <li class="fw-medium">
-                <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
+                <a  class="d-flex align-items-center gap-1 hover-text-primary">
                     <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
                     Dashboard
+
+          
                 </a>
             </li>
+
+         
             <li>-</li>
             <li class="fw-medium">eCommerce</li>
         </ul>

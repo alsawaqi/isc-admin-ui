@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
+import { definePageMeta,useNuxtApp } from '#imports'
 
 definePageMeta({
      layout: 'admin',
@@ -7,7 +8,8 @@ definePageMeta({
      permissions: 'departments'
      
     })
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any);
+
 
     interface Department {
                         id: number

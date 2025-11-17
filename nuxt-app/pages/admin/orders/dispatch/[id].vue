@@ -5,6 +5,7 @@ definePageMeta({
   permissions: 'departments'
 })
 
+ 
 import { ref, onMounted, computed } from 'vue'
 import SignaturePad from '~/components/SignaturePad.vue'
 

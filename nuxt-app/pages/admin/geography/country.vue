@@ -27,7 +27,7 @@ const Country_Name = ref('')
 const Country_Name_Ar = ref('')
 
 // edit modal state
-const showEdit = ref(false)
+const showEdit = ref<boolean>(false)
 const edit_id = ref<number | string | null>(null)
 const edit_Country_Code = ref('')
 const edit_Country_Name = ref('')

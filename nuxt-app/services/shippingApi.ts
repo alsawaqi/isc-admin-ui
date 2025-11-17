@@ -1,6 +1,7 @@
 // services/shippingApi.ts
+import {useNuxtApp} from  '#imports';
 export const useShippingApi = () => {
-  const { $axios } = useNuxtApp()
+    const { $axios } = (useNuxtApp() as any)
 
   // Shipper
   const createShipper = (payload:any) => $axios.post('/api/v1/shipping/shippers', payload)

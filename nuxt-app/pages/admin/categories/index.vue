@@ -5,10 +5,12 @@ definePageMeta({
   permissions: 'departments'
 
 })
-import { ref, onMounted, onUnmounted, reactive } from 'vue'
-import { useDepartment } from '~/data/useDepartment'
+ 
+import { ref, onMounted, reactive, watch } from 'vue'
+import { useDepartment } from '../../../data/useDepartment'
+import { definePageMeta, useNuxtApp } from '#imports'
 
-const { $r2Url, $axios } = useNuxtApp()
+const { $r2Url, $axios } = useNuxtApp() as any
 
 const { createDepartment, getDepartments, DeleteDepartment } = useDepartment()
 
@@ -25,7 +27,7 @@ const uploadedImage = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
 
 const removeCurrentImage = ref<boolean>(false);
- 
+
 
 
 const createImage = ref<File | null>(null)
@@ -45,7 +47,22 @@ const editedDepartment = reactive<EditDepartment>({
   image: null,
 });
 
- 
+
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
 
 
 
@@ -97,15 +114,41 @@ const removeUpdateImage = () => {
 
 
 const getdepartment = async () => {
-  isLoading.value = true;
+  isLoading.value = true
   try {
-    departments.value = await getDepartments();
+    const { data } = await $axios.get('/api/productdepartment', {
+      params: {
+        page: table.page,
+        per_page: table.perPage,
+        search: table.search,
+        sortBy: table.sortBy,
+        sortDir: table.sortDir,
+      }
+    })
+
+
+    departments.value = data.data
+    pagination.value = {
+      total: data.total,
+      from: data.from,
+      to: data.to,
+      last_page: data.last_page,
+    }
   } catch (error) {
-    console.error('Error fetching departments:', error);
+    console.error('Error fetching departments:', error)
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
 }
+
+
+
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  () => {
+    getdepartment()
+  }
+)
 
 const handleSubmit = async (e: Event) => {
   isSubmit.value = true;
@@ -129,7 +172,7 @@ const handleSubmit = async (e: Event) => {
 
 const UpdateSubmit = async (e: Event): Promise<void> => {
 
-    
+
 
   e.preventDefault();
   isSubmit.value = true;
@@ -150,7 +193,7 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
     }
 
 
-  // formData.append('_method', 'PUT');
+    // formData.append('_method', 'PUT');
 
     const response = await $axios.post(
       `/api/productdepartment/${editedDepartment.id}`,
@@ -165,7 +208,7 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
     console.log('Response data:', response.data);
 
     // close modal
-   // isToggle.value = false;
+    // isToggle.value = false;
 
     // refresh list
     await getdepartment();
@@ -224,6 +267,16 @@ const TogglePopup = (dept?: any) => {
 };
 
 
+const toggleSort = (column: string) => {
+  if (table.sortBy === column) {
+    table.sortDir = table.sortDir === 'asc' ? 'desc' : 'asc'
+  } else {
+    table.sortBy = column
+    table.sortDir = 'asc'
+  }
+  table.page = 1
+}
+
 
 
 </script>
@@ -276,7 +329,7 @@ const TogglePopup = (dept?: any) => {
                 bg-neutral-50 bg-hover-neutral-200 d-flex align-items-center flex-column justify-content-center gap-1">
                         <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
                         <span class="fw-semibold text-secondary-light">Upload</span>
-                        <input type="file" hidden accept="image/*" @change="(e) => handleImageChange(e, 'create')" />
+                        <input type="file" hidden accept="image/*" @change="(e: Event) => handleImageChange(e, 'create')" />
                       </label>
                     </div>
 
@@ -327,31 +380,24 @@ const TogglePopup = (dept?: any) => {
           <div class="d-flex flex-wrap align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
               <span>Show</span>
-              <select class="form-select form-select-sm w-auto">
-                <option>10</option>
-                <option>15</option>
-                <option>20</option>
+              <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
               </select>
 
-              <select class="form-select form-select-sm w-auto">
-                <option>status</option>
-                <option>Paid</option>
-                <option>Pending</option>
-              </select>
+
             </div>
             <div class="icon-field">
-              <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
+              <input type="text" class="form-control form-control-sm w-auto" placeholder="Search"
+                v-model="table.search" />
               <span class="icon">
                 <iconify-icon icon="ion:search-outline"></iconify-icon>
               </span>
             </div>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-3">
-            <select class="form-select form-select-sm w-auto">
-              <option>status</option>
-              <option>Paid</option>
-              <option>Pending</option>
-            </select>
+
 
           </div>
         </div>
@@ -377,7 +423,13 @@ const TogglePopup = (dept?: any) => {
                   </div>
                 </th>
 
-                <th scope="col">Name</th>
+                <th scope="col" @click="toggleSort('Product_Department_Name')" style="cursor:pointer">
+                  Name
+                  <iconify-icon v-if="table.sortBy === 'Product_Department_Name' && table.sortDir === 'asc'"
+                    icon="mdi:arrow-up" />
+                  <iconify-icon v-if="table.sortBy === 'Product_Department_Name' && table.sortDir === 'desc'"
+                    icon="mdi:arrow-down" />
+                </th>
 
 
                 <th scope="col">Action</th>
@@ -421,33 +473,39 @@ const TogglePopup = (dept?: any) => {
           </table>
 
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-            <span>Showing 1 to 10 of 12 entries</span>
+            <span>
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries
+            </span>
             <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-              <li class="page-item">
+              <!-- Prev -->
+              <li class="page-item" :class="{ disabled: table.page === 1 }">
                 <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)">
+                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
                   <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
                 </a>
               </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">1</a>
+
+              <!-- Page numbers -->
+              <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                  p === table.page
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-primary-50 text-secondary-light'
+                ]">
+                  {{ p }}
+                </a>
               </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">2</a>
-              </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">3</a>
-              </li>
-              <li class="page-item">
+
+              <!-- Next -->
+              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
                 <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)">
+                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
                   <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
                 </a>
               </li>
             </ul>
+
           </div>
 
 
@@ -494,7 +552,7 @@ const TogglePopup = (dept?: any) => {
                 bg-neutral-50 bg-hover-neutral-200 d-inline-flex align-items-center flex-column justify-content-center gap-1 cursor-pointer">
               <iconify-icon icon="solar:camera-outline" class="text-xl text-secondary-light"></iconify-icon>
               <span class="fw-semibold text-secondary-light">Upload</span>
-              <input type="file" hidden accept="image/*" @change="(e) => handleImageChange(e, 'update')" />
+              <input type="file" hidden accept="image/*" @change="(e : Event) => handleImageChange(e, 'update')" />
             </label>
           </div>
 

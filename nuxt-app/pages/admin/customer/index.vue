@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { definePageMeta,useNuxtApp } from '#imports';
+import { ref, onMounted } from 'vue';
 
 definePageMeta({
     layout: 'admin',
@@ -7,8 +9,7 @@ definePageMeta({
 
 });
 
-const { $axios } = useNuxtApp();
-import { ref, onMounted } from 'vue';
+const { $axios } = (useNuxtApp() as any);
 
 interface Customer {
     id: number;

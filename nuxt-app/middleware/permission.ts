@@ -1,8 +1,9 @@
+import {useNuxtApp,defineAsyncComponent,defineNuxtRouteMiddleware,navigateTo} from  '#imports';
 export default defineNuxtRouteMiddleware(async (to) => {
   // Run only on client side
   if (!process.client) return
 
-  const { $axios } = useNuxtApp()
+    const { $axios } = (useNuxtApp() as any)
   const token = localStorage.getItem('token') // ✅ Safe now because it's wrapped
 
   if (!token) return navigateTo('/')

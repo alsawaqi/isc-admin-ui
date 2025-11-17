@@ -46,10 +46,29 @@ const edit_department_id = ref<string>('');
 // simple error/success message handling (optional UI hook)
 const errorMessage = ref<string | null>(null);
 
+
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
+
+
 const getProductDepartment = async () => {
     try {
-        const response = await $axios.get('/api/productdepartment');
+        const response = await $axios.get('/api/productdepartment/all');
         ProductDepartments.value = response.data;
+        console.log('Product Departments:', response.data);
     } catch (error) {
         console.error('Failed to fetch product departments:', error);
         throw error;
@@ -59,8 +78,25 @@ const getProductDepartment = async () => {
 const getManufactures = async () => {
     loading.value = true;
     try {
-        const response = await $axios.get('/api/productmanufacture');
-        ProductManufactures.value = response.data;
+       const { data } = await $axios.get('/api/productmanufacture', {
+      params: {
+        page: table.page,
+        per_page: table.perPage,
+        search: table.search,
+        sortBy: table.sortBy,
+        sortDir: table.sortDir,
+      }
+    });
+ ProductManufactures.value = data.data;
+
+   pagination.value = {
+      total: data.total,
+      from: data.from,
+      to: data.to,
+      last_page: data.last_page,
+    }
+
+
     } catch (error) {
         console.error('Failed to fetch manufactures:', error);
         throw error;
@@ -68,6 +104,13 @@ const getManufactures = async () => {
         loading.value = false;
     }
 };
+
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  async () => {
+    await getManufactures()
+  }
+)
 
 const resetCreateForm = () => {
     name.value = '';
@@ -182,23 +225,16 @@ onMounted(async () => {
 
                             <!-- Department Select -->
                             <div class="mb-20">
-                                <label
-                                    for="departmentSelect"
+                                <label for="departmentSelect"
                                     class="form-label fw-semibold text-primary-light text-sm mb-8">
                                     Department
                                 </label>
 
-                                <select
-                                    class="form-control radius-8"
-                                    id="departmentSelect"
-                                    v-model="Product_Department_Id"
-                                >
+                                <select class="form-control radius-8" id="departmentSelect"
+                                    v-model="Product_Department_Id">
                                     <option value="" disabled>Select Department</option>
-                                    <option
-                                        v-for="department in ProductDepartments"
-                                        :key="department.id"
-                                        :value="department.id"
-                                    >
+                                    <option v-for="department in ProductDepartments" :key="department.id"
+                                        :value="department.id">
                                         {{ department.Product_Department_Name }}
                                     </option>
                                 </select>
@@ -206,18 +242,12 @@ onMounted(async () => {
 
                             <!-- Name Input -->
                             <div class="mb-20">
-                                <label
-                                    for="manufactureName"
+                                <label for="manufactureName"
                                     class="form-label fw-semibold text-primary-light text-sm mb-8">
                                     Name <span class="text-danger-600">*</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    class="form-control radius-8"
-                                    id="manufactureName"
-                                    v-model="name"
-                                    placeholder="Enter Manufacture Name"
-                                >
+                                <input type="text" class="form-control radius-8" id="manufactureName" v-model="name"
+                                    placeholder="Enter Manufacture Name">
                             </div>
 
                             <!-- Error message (create) -->
@@ -228,18 +258,14 @@ onMounted(async () => {
                         </div>
 
                         <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
-                            <button
-                                type="reset"
+                            <button type="reset"
                                 class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8"
-                                @click.prevent="resetCreateForm()"
-                            >
+                                @click.prevent="resetCreateForm()">
                                 Reset
                             </button>
 
-                            <button
-                                type="submit"
-                                class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
-                            >
+                            <button type="submit"
+                                class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
                                 Save Change
                             </button>
                         </div>
@@ -256,25 +282,17 @@ onMounted(async () => {
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <span>Show</span>
-                            <select class="form-select form-select-sm w-auto">
-                                <option>10</option>
-                                <option>15</option>
-                                <option>20</option>
-                            </select>
+                            <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
+              </select>
 
-                            <select class="form-select form-select-sm w-auto">
-                                <option>status</option>
-                                <option>Paid</option>
-                                <option>Pending</option>
-                            </select>
+
                         </div>
                         <div class="icon-field">
-                            <input
-                                type="text"
-                                name="#0"
-                                class="form-control form-control-sm w-auto"
-                                placeholder="Search"
-                            >
+                           <input type="text" class="form-control form-control-sm w-auto" placeholder="Search"
+                v-model="table.search" />
                             <span class="icon">
                                 <iconify-icon icon="ion:search-outline"></iconify-icon>
                             </span>
@@ -309,21 +327,14 @@ onMounted(async () => {
                             </tr>
 
                             <!-- data rows -->
-                            <tr
-                                v-for="(manufacture, index) in ProductManufactures"
-                                :key="manufacture.id"
-                            >
+                            <tr v-for="(manufacture, index) in ProductManufactures" :key="manufacture.id">
+
+                                 
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            :id="'check-' + manufacture.id"
-                                        />
-                                        <label
-                                            class="form-check-label"
-                                            :for="'check-' + manufacture.id"
-                                        >
+                                        <input class="form-check-input" type="checkbox"
+                                            :id="'check-' + manufacture.id" />
+                                        <label class="form-check-label" :for="'check-' + manufacture.id">
                                             {{ index + 1 }}
                                         </label>
                                     </div>
@@ -347,31 +358,19 @@ onMounted(async () => {
 
                                 <td class="text-end">
                                     <!-- view (placeholder) -->
-                                    <a
-                                        href="javascript:void(0)"
-                                        class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center me-1"
-                                        title="View"
-                                    >
-                                        <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-                                    </a>
+
 
                                     <!-- edit -->
-                                    <a
-                                        href="javascript:void(0)"
+                                    <a href="javascript:void(0)"
                                         class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center me-1"
-                                        title="Edit"
-                                        @click="openEdit(manufacture)"
-                                    >
+                                        title="Edit" @click.prevent="openEdit(manufacture)">
                                         <iconify-icon icon="lucide:edit"></iconify-icon>
                                     </a>
 
                                     <!-- delete -->
-                                    <a
-                                        href="javascript:void(0)"
+                                    <a href="javascript:void(0)"
                                         class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center"
-                                        title="Delete"
-                                        @click="deleteManufacture(manufacture.id)"
-                                    >
+                                        title="Delete" @click="deleteManufacture(manufacture.id)">
                                         <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                                     </a>
                                 </td>
@@ -385,147 +384,131 @@ onMounted(async () => {
                             </tr>
                         </tbody>
                     </table>
+                    
+                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+            <span>
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries
+            </span>
+            <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+              <!-- Prev -->
+              <li class="page-item" :class="{ disabled: table.page === 1 }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                  <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                </a>
+              </li>
 
-                    <div
-                        class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24"
-                    >
-                        <span>Showing 1 to 10 of 12 entries</span>
-                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                            <li class="page-item">
-                                <a
-                                    class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)"
-                                >
-                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a
-                                    class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)"
-                                >1</a>
-                            </li>
-                            <li class="page-item">
-                                <a
-                                    class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)"
-                                >2</a>
-                            </li>
-                            <li class="page-item">
-                                <a
-                                    class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)"
-                                >3</a>
-                            </li>
-                            <li class="page-item">
-                                <a
-                                    class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)"
-                                >
-                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+              <!-- Page numbers -->
+              <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                  p === table.page
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-primary-50 text-secondary-light'
+                ]">
+                  {{ p }}
+                </a>
+              </li>
+
+              <!-- Next -->
+              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
+                  <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                </a>
+              </li>
+            </ul>
+
+          </div>
+                    
                 </div>
             </div>
         </div>
 
         <!-- EDIT MODAL -->
-        <div
-            v-if="showEditModal"
-            class="modal fade show"
-            style="display:block; background:rgba(0,0,0,0.5);"
-            tabindex="-1"
-            role="dialog"
-        >
-            <div
-                class="modal-dialog modal-dialog-centered"
-                role="document"
-            >
-                <div class="modal-content radius-12">
-                    <div class="modal-header d-flex justify-content-between align-items-start">
-                        <div>
-                            <h5 class="modal-title fw-semibold mb-4">Edit Manufacture</h5>
-                            <small class="text-muted d-block">Update name or department</small>
-                        </div>
-                        <button
-                            type="button"
-                            class="btn-close"
-                            aria-label="Close"
-                            @click="closeEdit"
-                        ></button>
-                    </div>
+        <transition name="fade-scale" appear>
 
-                    <div class="modal-body">
-                        <!-- Department -->
-                        <div class="mb-20">
-                            <label
-                                for="editDepartmentSelect"
-                                class="form-label fw-semibold text-primary-light text-sm mb-8"
-                            >
-                                Department
-                            </label>
-
-                            <select
-                                class="form-control radius-8"
-                                id="editDepartmentSelect"
-                                v-model="edit_department_id"
-                            >
-                                <option value="" disabled>Select Department</option>
-                                <option
-                                    v-for="dep in ProductDepartments"
-                                    :key="dep.id"
-                                    :value="dep.id"
-                                >
-                                    {{ dep.Product_Department_Name }}
-                                </option>
-                            </select>
+            <div v-if="showEditModal" class="modal fade show" style="display:block; background:rgba(0,0,0,0.5);"
+                tabindex="-1" role="dialog">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content radius-12">
+                        <div class="modal-header d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="modal-title fw-semibold mb-4">Edit Manufacture</h5>
+                                <small class="text-muted d-block">Update name or department</small>
+                            </div>
+                            <button type="button" class="btn-close" aria-label="Close" @click="closeEdit"></button>
                         </div>
 
-                        <!-- Name -->
-                        <div class="mb-20">
-                            <label
-                                for="editManufactureName"
-                                class="form-label fw-semibold text-primary-light text-sm mb-8"
-                            >
-                                Name <span class="text-danger-600">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                class="form-control radius-8"
-                                id="editManufactureName"
-                                v-model="edit_name"
-                                placeholder="Enter Manufacture Name"
-                            >
+                        <div class="modal-body">
+                            <!-- Department -->
+                            <div class="mb-20">
+                                <label for="editDepartmentSelect"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Department
+                                </label>
+
+                            
+                                <select class="form-control radius-8" id="editDepartmentSelect"
+                                    v-model="edit_department_id">
+                                    <option value="" disabled>Select Department</option>
+                                    <option v-for="dep in ProductDepartments" :key="dep.id" :value="dep.id">
+                                        {{ dep.Product_Department_Name }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- Name -->
+                            <div class="mb-20">
+                                <label for="editManufactureName"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Name <span class="text-danger-600">*</span>
+                                </label>
+                                <input type="text" class="form-control radius-8" id="editManufactureName"
+                                    v-model="edit_name" placeholder="Enter Manufacture Name">
+                            </div>
+
+                            <!-- error in modal -->
+                            <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
+                                {{ errorMessage }}
+                            </div>
                         </div>
 
-                        <!-- error in modal -->
-                        <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
-                            {{ errorMessage }}
+                        <div class="modal-footer d-flex justify-content-end gap-2">
+                            <button type="button"
+                                class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-24 py-12 radius-8"
+                                @click="closeEdit">
+                                Cancel
+                            </button>
+                            <button type="button"
+                                class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
+                                @click="saveEdit">
+                                Save Changes
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="modal-footer d-flex justify-content-end gap-2">
-                        <button
-                            type="button"
-                            class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-24 py-12 radius-8"
-                            @click="closeEdit"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
-                            @click="saveEdit"
-                        >
-                            Save Changes
-                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+
+        </transition>
+
         <!-- /EDIT MODAL -->
 
     </div>
 </template>
+
+
+
+<style scoped>
+/* transition for the dim background + popup "pop" */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.9);
+}
+</style>

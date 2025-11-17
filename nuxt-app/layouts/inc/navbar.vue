@@ -1,9 +1,13 @@
 <script setup lang="ts">
-const { $axios } = useNuxtApp();
+import { useNuxtApp,navigateTo } from '#imports'
 import { useAdminUI } from '~/composables/useAdminUI'
 import {useBootstrapUI} from '~/composables/useBootstrapUI'
 useAdminUI()
 useBootstrapUI()
+
+
+const { $axios } = (useNuxtApp() as any);
+
 
 const logout = async () => {
     

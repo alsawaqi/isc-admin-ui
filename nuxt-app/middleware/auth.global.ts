@@ -1,3 +1,4 @@
+import {defineNuxtRouteMiddleware,useNuxtApp,useAuth,navigateTo} from '#imports';
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!import.meta.client) return
 

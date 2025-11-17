@@ -6,9 +6,9 @@ services:
     container_name: nuxt-admin-ui-dev
     working_dir: /app
     volumes:
-      - ./nuxt-app:/app
-      - /app/node_modules 
-    command: sh -c "npm install && npx nuxt dev"
+      - ./nuxt-app:/app              # your source code
+      - nuxt_admin_node_modules:/app/node_modules  # keep deps in container volume
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
       - "3000:3000"
     networks:
@@ -16,6 +16,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - CHOKIDAR_USEPOLLING=true
+      - BEAMS_INSTANCE_ID=e1944000-0a47-4005-9ac3-1f0480b9ae16
 
   nginx:
     image: nginx:latest
@@ -31,3 +32,6 @@ services:
 
 networks:
   proxy_network:
+
+volumes:
+  nuxt_admin_node_modules:

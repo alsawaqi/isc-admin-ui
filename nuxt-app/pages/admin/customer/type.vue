@@ -22,6 +22,15 @@ const CustomerTypeDescription = ref<string>('');
 const successMessage = ref<boolean>(false);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
+const showEdit = ref<boolean>(false)
+
+const EditCustomer = reactive<CustomerType>({
+    id: 0,
+    Customer_Type_Name: '',
+    Customer_Type_Description: '',
+    created_at: ''
+});
+
 
 
 const getCustomerTypes = async (): Promise<void> => {
@@ -66,6 +75,61 @@ const submitCustomerType = async (): Promise<void> => {
 
 }
 
+
+const closeEdit = () => {
+    showEdit.value = false;
+    errorMessage.value = '';
+    EditCustomer.id =0;
+    EditCustomer.Customer_Type_Name = '';
+    EditCustomer.Customer_Type_Description = '';
+    EditCustomer.created_at = '';
+}
+
+
+const openEdit = (customerType: CustomerType) => {
+    showEdit.value = true;
+    EditCustomer.id = customerType.id;
+    EditCustomer.Customer_Type_Name = customerType.Customer_Type_Name;
+    EditCustomer.Customer_Type_Description = customerType.Customer_Type_Description;
+    EditCustomer.created_at = customerType.created_at;
+
+}
+
+const savingEdit = ref<boolean>(false);
+
+const saveEdit = async () => {
+  
+    savingEdit.value = true;
+    try {
+        const payload = {
+            Customer_Type_Name: EditCustomer.Customer_Type_Name,
+            Customer_Type_Description: EditCustomer.Customer_Type_Description
+        };
+
+        const response = await $axios.put(`/api/customer-types/${EditCustomer.id}`, payload);
+        console.log('Customer type updated:', response.data);
+        await getCustomerTypes();
+        closeEdit();
+    } catch (error) {
+        console.error('Error updating customer type:', error);
+        errorMessage.value = 'Failed to update customer type.';
+    } finally {
+        savingEdit.value = false;
+    }
+};
+
+const deleteCustomerType = async (id: number) => {
+    const confirmed = confirm('Are you sure you want to delete this customer type?');
+    if (!confirmed) return;
+
+    try {
+        await $axios.delete(`/api/customer-types/${id}`);
+        console.log('Customer type deleted');
+        await getCustomerTypes();
+    } catch (error) {
+        console.error('Error deleting customer type:', error);
+    }
+};
 
 onMounted(async (): Promise<void> => {
     await getCustomerTypes();
@@ -219,10 +283,10 @@ onMounted(async (): Promise<void> => {
                                 <td>{{ type.Customer_Type_Description }}</td>
                                 <td>
                                     
-                                    <a href="javascript:void(0)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <a  @click.prevent="openEdit(type)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
                                         <iconify-icon icon="lucide:edit"></iconify-icon>
                                     </a>
-                                    <a class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <a  @click.prevent="deleteCustomerType(type.id)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
                                         <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                                     </a>
                                     </td>
@@ -275,5 +339,80 @@ onMounted(async (): Promise<void> => {
 
 
 
+      <!-- EDIT POPUP WITH TRANSITION -->
+    <transition name="fade-scale" appear>
+        <div v-if="showEdit"
+            class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+            style="background:rgba(0,0,0,0.5); z-index:1050;">
+            <div class="bg-white radius-12 shadow p-24"
+                style="min-width:320px; max-width:420px; width:100%; position:relative;">
+                <!-- header -->
+                <div class="d-flex justify-content-between align-items-start mb-16">
+                    <div>
+                        <h5 class="fw-semibold mb-4">Edit Customer Type</h5>
+
+                    </div>
+                    <button type="button" class="btn-close" aria-label="Close" @click="closeEdit"></button>
+                </div>
+
+                <!-- body -->
+                <div>
+                    <div class="mb-16">
+                        <label for="editCountryName" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Customer Type Name <span class="text-danger-600">*</span>
+                        </label>
+                        <input id="editCountryName" type="text" class="form-control radius-8"
+                            v-model="EditCustomer.Customer_Type_Name" placeholder="Country Name">
+                    </div>
+
+                    <div class="mb-16">
+                        <label for="editCountryNameAr" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Customer Type Description  
+                        </label>
+                        <input id="editCountryNameAr" type="text" class="form-control radius-8"
+                            v-model="EditCustomer.Customer_Type_Description"   dir="auto">
+                    </div>
+
+
+
+                    <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
+                        {{ errorMessage }}
+                    </div>
+                </div>
+
+                <!-- footer -->
+                <div class="d-flex justify-content-end gap-2 mt-24">
+                    <button type="button"
+                        class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-24 py-12 radius-8"
+                        @click="closeEdit">
+                        Cancel
+                    </button>
+
+                    <button type="button" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
+                        :disabled="savingEdit" @click="saveEdit">
+                        <span v-if="savingEdit">Saving...</span>
+                        <span v-else>Save Changes</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+
+
 
 </template>
+
+<style scoped>
+/* transition for the dim background + popup "pop" */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+    opacity: 0;
+    transform: scale(0.9);
+}
+</style>

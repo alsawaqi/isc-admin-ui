@@ -4,11 +4,12 @@ definePageMeta({
 
 });
 
-import { ref, onMounted } from 'vue'
+import { ref, onMounted,computed,watch } from 'vue'
 import { useRoute } from 'vue-router'
  
 import { useProductType } from '~/data/producttype'
 import { useProductsBrands } from '~/data/ProductsBrands';
+import { definePageMeta,useNuxtApp } from '#imports';
 
 
 interface Product {
@@ -66,7 +67,7 @@ const id = computed(() => route.params.id);
 const { getProductType } = useProductType();
 const { getProductBrands } = useProductsBrands();
 
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any);
 
 
 const productBrands = ref<ProductBrand[]>([]);

@@ -1,5 +1,6 @@
+import {useNuxtApp} from  '#imports';
 export const useGeoApi = () => {
-  const { $axios } = useNuxtApp()
+  const { $axios } = (useNuxtApp() as any)
 
   // Countries (for regions & districts context)
   const listCountries = () => $axios.get('/api/regions/countries')

@@ -1,18 +1,27 @@
 <script setup lang="ts">
+import {useRoute,useNuxtApp} from '#imports';
 import { NuxtLink } from '#components';
 import { useAdminUI } from '~/composables/useAdminUI'
 import { useAuth } from '~/stores/auth'
-import { onMounted } from 'vue';
+import { onMounted,computed,ref } from 'vue';
+
  
 useAdminUI()
 
  
 const auth = useAuth()
 
+const nuxtApp = useNuxtApp()
+
+const { $axios } = (nuxtApp as any);
+
 const hasPermission = (perm: string) => auth.permissions.includes(perm)
 
 
 const route = useRoute();
+
+const isDisabling = ref<boolean>(false)
+const disableError = ref<string | null>(null)
 
 const isActive = (path: string) => {
   return route.path === path;
@@ -24,6 +33,7 @@ const isAnyChildActive = (paths: string[]) => {
 };
 
 const getActiveColor = (path: string): string => {
+
 
   const colorMap: Record<string, string> = {
     '/admin/categories': 'color: #6b8629;',
@@ -42,11 +52,272 @@ const getActiveColor = (path: string): string => {
   };
 
   return colorMap[path] || 'color: #17a2b8;';
-
 };
 
-onMounted(() => {
+// Popup state
+const showNotificationDialog = ref(false)
+const isEnabling = ref(false)
+const errorMessage = ref<string | null>(null)
+
+const canUseNotifications = computed(() => {
+  if (process.server) return false
+  return typeof window !== 'undefined' && 'Notification' in window
+})
+
  
+// Collect basic device info from browser
+const parseBrowserInfo = (ua: string) => {
+  ua = ua || ''
+
+  // Order matters (Edge before Chrome, etc.)
+  if (ua.includes('Edg/')) {
+    const match = ua.match(/Edg\/([\d.]+)/)
+    return { name: 'Edge', version: match?.[1] || null }
+  }
+
+  if (ua.includes('OPR/') || ua.includes('Opera')) {
+    const match = ua.match(/OPR\/([\d.]+)/) || ua.match(/Opera\/([\d.]+)/)
+    return { name: 'Opera', version: match?.[1] || null }
+  }
+
+  if (ua.includes('Chrome/')) {
+    const match = ua.match(/Chrome\/([\d.]+)/)
+    return { name: 'Chrome', version: match?.[1] || null }
+  }
+
+  if (ua.includes('Firefox/')) {
+    const match = ua.match(/Firefox\/([\d.]+)/)
+    return { name: 'Firefox', version: match?.[1] || null }
+  }
+
+  if (ua.includes('Safari/') && ua.includes('Version/')) {
+    const match = ua.match(/Version\/([\d.]+)/)
+    return { name: 'Safari', version: match?.[1] || null }
+  }
+
+  return { name: null, version: null }
+}
+
+const parseOSInfo = (ua: string) => {
+  ua = ua || ''
+
+  if (ua.includes('Windows NT 10.0')) {
+    return { name: 'Windows', version: '10' }
+  }
+  if (ua.includes('Windows NT 6.3')) {
+    return { name: 'Windows', version: '8.1' }
+  }
+  if (ua.includes('Windows NT 6.2')) {
+    return { name: 'Windows', version: '8' }
+  }
+  if (ua.includes('Windows NT 6.1')) {
+    return { name: 'Windows', version: '7' }
+  }
+
+  if (ua.includes('Mac OS X')) {
+    const match = ua.match(/Mac OS X ([\d_]+)/)
+    return {
+      name: 'macOS',
+      version: match?.[1]?.replace(/_/g, '.') || null,
+    }
+  }
+
+  if (ua.includes('Android')) {
+    const match = ua.match(/Android ([\d.]+)/)
+    return {
+      name: 'Android',
+      version: match?.[1] || null,
+    }
+  }
+
+  if (ua.includes('iPhone OS') || ua.includes('iPad; CPU OS')) {
+    const match = ua.match(/OS ([\d_]+)/)
+    return {
+      name: 'iOS',
+      version: match?.[1]?.replace(/_/g, '.') || null,
+    }
+  }
+
+  return { name: null, version: null }
+}
+
+const buildDevicePayload = async (deviceId: string) => {
+  if (!process.client) return null
+
+  const ua = navigator.userAgent || ''
+  const platform =
+    // @ts-ignore
+    (navigator.userAgentData && navigator.userAgentData.platform) ||
+    navigator.platform ||
+    'unknown'
+
+  const browser = parseBrowserInfo(ua)
+  const os = parseOSInfo(ua)
+
+  return {
+    device_id: deviceId,
+    device_name: `${browser.name || 'Browser'} on ${os.name || platform}`,
+    browser_name: browser.name,
+    browser_version: browser.version,
+    os_name: os.name || platform,
+    os_version: os.version,
+    user_agent: ua,
+  }
+}
+
+ 
+
+const registerDeviceOnBackend = async (deviceId: string) => {
+  const payload = await buildDevicePayload(deviceId)
+  if (!payload) return
+
+  try {
+    // assuming you have $axios plugin already
+    // adjust URL if your admin API uses prefix
+    // @ts-ignore
+ 
+
+
+    await $axios.post('/api/notification-devices', payload)
+    console.log('📡 Device registered in backend')
+  } catch (err) {
+    console.error('Failed to register notification device', err)
+    // we don't block notifications for this; just log
+  }
+}
+
+const enableNotifications = async () => {
+  if (!hasPermission('orders placed')) {
+    console.warn('User does not have permission to enable notifications')
+    errorMessage.value = 'You do not have permission to enable order notifications.'
+    return
+  }
+
+  if (!canUseNotifications.value) {
+    errorMessage.value = 'This browser does not support notifications.'
+    return
+  }
+
+  const beams = nuxtApp.$beams
+  if (!beams) {
+    console.warn('Beams client not ready')
+    errorMessage.value = 'Notifications system not ready. Please try again later.'
+    return
+  }
+
+  try {
+    isEnabling.value = true
+    errorMessage.value = null
+
+    // Start Beams
+    await beams.start()
+
+    // Get Beams internal device ID
+    const deviceId: string | null = await beams.getDeviceId()
+    if (!deviceId) {
+      console.warn('Beams deviceId is null')
+      errorMessage.value = 'Could not register this device for notifications.'
+      return
+    }
+
+    // Subscribe to interest
+    await beams.addDeviceInterest('admins')
+    console.log('✅ Subscribed to "admins" interest')
+
+    // Register in your own DB
+    await registerDeviceOnBackend(deviceId)
+
+    showNotificationDialog.value = false
+  } catch (error) {
+    console.error('❌ Beams error', error)
+    if (typeof Notification !== 'undefined') {
+      console.log('Notification permission:', Notification.permission)
+    }
+    errorMessage.value = 'Could not enable notifications. Please check browser permissions.'
+  } finally {
+    isEnabling.value = false
+  }
+}
+
+// Dialog button handlers
+const onAcceptClick = async () => {
+  await enableNotifications()
+}
+
+const onDeclineClick = () => {
+  showNotificationDialog.value = false
+  // Optional: call backend to record that user declined, if you want
+}
+ 
+
+
+const disableNotificationsOnThisBrowser = async () => {
+  const beams = nuxtApp.$beams
+  // @ts-ignore
+  
+
+  if (!beams) {
+    console.warn('Beams client not ready')
+    disableError.value = 'Notifications client is not ready.'
+    return
+  }
+
+  if (!canUseNotifications.value) {
+    disableError.value = 'This browser does not support notifications.'
+    return
+  }
+
+  try {
+    isDisabling.value = true
+    disableError.value = null
+
+    // 1) Get the Beams device id for THIS browser
+    const deviceId = await beams.getDeviceId()
+    if (!deviceId) {
+      disableError.value = 'Could not find device id for this browser.'
+      return
+    }
+
+    // 2) Stop Beams on this device (removes state locally and remotely)
+    await beams.stop()
+    console.log('🔕 Beams stopped on this browser')
+
+    // 3) Tell backend to disable / delete this device record
+    await $axios.post('/api/notification-devices/disable', {
+      device_id: deviceId,
+    })
+
+    console.log('📡 Device disabled in backend')
+
+    // Optionally hide the popup / toggle UI
+    showNotificationDialog.value = false
+  } catch (e) {
+    console.error('Failed to disable notifications', e)
+    disableError.value = 'Could not disable notifications on this browser.'
+  } finally {
+    isDisabling.value = false
+  }
+}
+
+
+onMounted(async () => {
+  if (!canUseNotifications.value) return
+
+  // User does NOT have permission anymore
+  if (!hasPermission('orders placed')) {
+    // If this browser was previously registered, clean it up
+    try {
+      await disableNotificationsOnThisBrowser()
+    } catch (e) {
+      console.error('Failed to disable notifications for this browser', e)
+    }
+    return
+  }
+
+  // User *does* have permission -> show popup only if browser hasn't decided yet
+  if (Notification.permission === 'default') {
+    showNotificationDialog.value = true
+  }
 })
 
 </script>
@@ -425,6 +696,232 @@ onMounted(() => {
      
  
     </div>
-  </aside>
+</aside>
 
+
+  <!-- Notifications permission modal -->
+  <div
+    v-if="showNotificationDialog"
+    class="notification-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="notification-modal">
+      <!-- Header -->
+      <div class="notification-modal-header">
+        <h5 class="notification-modal-title">
+          Enable Order Notifications
+        </h5>
+        <button
+          type="button"
+          class="notification-modal-close"
+          @click="onDeclineClick"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="notification-modal-body">
+        <p class="notification-modal-text">
+          We can send you real-time notifications when new orders are placed.
+          You can change this later in your browser’s notification settings.
+        </p>
+
+        <div class="notification-modal-info">
+          <div class="notification-modal-info-icon">🔔</div>
+          <div class="notification-modal-info-text">
+            After you click <strong>Allow</strong>, your browser will also show its
+            own permission prompt to confirm notifications for this site.
+          </div>
+        </div>
+
+        <p v-if="errorMessage" class="notification-modal-error">
+          {{ errorMessage }}
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="notification-modal-footer">
+        <button
+          type="button"
+          class="notification-btn-secondary"
+          @click="onDeclineClick"
+        >
+          Not now
+        </button>
+
+        <button
+          type="button"
+          class="notification-btn-primary"
+          :disabled="isEnabling"
+          @click="onAcceptClick"
+        >
+          <span
+            v-if="isEnabling"
+            class="notification-btn-spinner"
+          ></span>
+          Allow notifications
+        </button>
+      </div>
+    </div>
+  </div>
+
+  
 </template>
+<style scoped>
+.notification-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-modal {
+  background: #ffffff;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.notification-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.notification-modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.notification-modal-close {
+  border: none;
+  background: transparent;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.notification-modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.notification-modal-body {
+  padding: 14px 16px 8px;
+}
+
+.notification-modal-text {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.notification-modal-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #fbbf24;
+  background: #fffbeb;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.notification-modal-info-icon {
+  font-size: 16px;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.notification-modal-info-text strong {
+  font-weight: 600;
+}
+
+.notification-modal-error {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+
+.notification-modal-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #f9fafb;
+}
+
+/* Buttons */
+.notification-btn-secondary {
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.notification-btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+.notification-btn-primary {
+  border-radius: 6px;
+  border: none;
+  background: #059669;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notification-btn-primary:hover {
+  background: #047857;
+}
+
+.notification-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notification-btn-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  border-bottom-color: transparent;
+  display: inline-block;
+  animation: notification-spin 0.6s linear infinite;
+}
+
+@keyframes notification-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

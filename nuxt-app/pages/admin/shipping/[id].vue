@@ -1,13 +1,7 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'admin',
-  middleware: ['permission'],
-  permissions: 'shipping.shippers'
-})
 
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from '#imports'
-
+import { useRoute,definePageMeta, useNuxtApp,navigateTo } from '#imports'
 import Stepper from '@/components/shipping/Stepper.vue'
 import ShipperFormBasic, { type BasicForm } from '@/components/shipping/ShipperFormBasic.vue'
 import ShipperFormContacts, { type ContactRow } from '@/components/shipping/ShipperFormContacts.vue'
@@ -16,7 +10,14 @@ import ShipperFormRates, { type RatesPerDestination } from '@/components/shippin
 import ShipperFormHeavy from '@/components/shipping/ShipperFormHeavy.vue'
 import ShipperFormBoxes, { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
 
-const { $axios } = useNuxtApp()
+
+definePageMeta({
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'shipping.shippers'
+})
+
+const { $axios } = (useNuxtApp() as any)
 const route = useRoute()
 const shipperId = Number(route.params.id)
 

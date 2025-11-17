@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { definePageMeta,useNuxtApp } from '#imports';
  definePageMeta({
      layout: 'admin',
      middleware: ['permission']
      });
 
-import { ref, onMounted } from 'vue'
-const { $axios,$r2Url } = useNuxtApp();
+const { $axios,$r2Url } = (useNuxtApp() as any);
 
 
 interface SubSubDepartment {

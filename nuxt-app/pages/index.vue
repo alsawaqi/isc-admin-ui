@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { definePageMeta, navigateTo, useNuxtApp } from '#imports'
+
 definePageMeta({
   layout: 'login'
 })
@@ -9,7 +11,7 @@ const email = ref<string>('');
 const password = ref<string>('');
 const error = ref<string>('');
 
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any)
 
 const login = async (): Promise<void> => {
 
