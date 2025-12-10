@@ -1,31 +1,36 @@
+// plugins/axios.ts
 import axios from 'axios'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
+import { defineNuxtPlugin, useRuntimeConfig } from '#app'
+import { useAuth } from '~/stores/auth'
+import { useRouter } from 'vue-router'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
 
   const instance = axios.create({
     baseURL: config.public.apiBase as string,
-    withCredentials: true, // Send cookies like XSRF-TOKEN
+    withCredentials: true,
   })
 
-  // Helper to read a cookie value
   function getCookie(name: string): string | null {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-    return match ? match[2] : null
+    return match ? match[2] ?? null : null
   }
 
-  // 🔹 Add progress start on request
   instance.interceptors.request.use((config) => {
     NProgress.start()
 
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-
     if (process.client) {
+      const auth = useAuth()
+      // if first load, hydrate from localStorage
+      if (!auth.token) auth.hydrateFromStorage()
+
+      if (auth.token) {
+        config.headers.Authorization = `Bearer ${auth.token}`
+      }
+
       const csrfToken = getCookie('XSRF-TOKEN')
       if (csrfToken) {
         config.headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken)
@@ -35,21 +40,29 @@ export default defineNuxtPlugin((nuxtApp) => {
     return config
   })
 
-  // 🔹 Stop progress on response or error
   instance.interceptors.response.use(
-    response => {
+    (response) => {
       NProgress.done()
       return response
     },
-    error => {
+    async (error) => {
       NProgress.done()
 
-      if (error.response?.status === 401 || error.response?.status === 419) {
-        localStorage.clear()
-        window.location.href = '/'
-      } else if (error.response?.status === 403) {
-        window.location.href = '/admin'
+      const status = error.response?.status
+      const router = useRouter()
+      const auth = useAuth()
+      
+
+      // session/token invalid → logout & go to login
+      if (status === 401 || status === 419) {
+        auth.logout()
+        await router.push('/') // your login route
       }
+
+ 
+      // if (status === 403) {
+      //   await router.push('/forbidden')
+      // }
 
       return Promise.reject(error)
     }

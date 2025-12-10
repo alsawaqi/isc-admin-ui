@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { useRoute, definePageMeta, useNuxtApp } from '#imports'
+import { ref, onMounted, nextTick, watch  } from 'vue'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'support.tickets'
 })
 
-import { ref, onMounted, nextTick, watch  } from 'vue'
 const route = useRoute()
-const { $axios } = useNuxtApp()
+const { $axios } = useNuxtApp() as any
 
 type Ticket = {
   id: number

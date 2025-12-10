@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-const  { $axios } = useNuxtApp();
+import { useNuxtApp,definePageMeta } from '#imports'
+
+const  { $axios } = (useNuxtApp() as any);
 
 definePageMeta({
      layout: 'admin',
@@ -8,6 +10,9 @@ definePageMeta({
      permissions: 'add new users'
 
     });
+
+
+
 
  const form = ref({
   User_Name: '',
@@ -26,7 +31,7 @@ const roles = ref<Role[]>([]);
 
 const fetchRoles = async () => {
   try {
-    const response = await $axios.get('/api/roles')
+    const response = await $axios.get('/api/roles/all')
     roles.value = response.data
   } catch (error) {
     console.error('Failed to load roles:', error)

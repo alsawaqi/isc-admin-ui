@@ -20,6 +20,7 @@ interface SubDepartment {
   Products_Department_Code: string;
   Products_Departments_Id: number;
   Sub_Department_Name: string;
+  Sub_Department_Name_Ar: string;
   Image_path: string;
   created_at: string;
 }
@@ -34,6 +35,7 @@ interface DepartmentWithSubs extends Department {
 const departments = ref<DepartmentWithSubs[]>([])
 const selectedDepartmentId = ref<string>('')
 const name = ref<string>('')
+const namear = ref<string>('')
 
 const uploadedImage = ref<File | null>(null)
 const previewUrl = ref<string | null>(null)
@@ -50,11 +52,12 @@ const toggleDepartment = (id: number) => {
 /* -----------------
    EDIT modal state
 ------------------*/
-const isEditOpen = ref<boolean>(false)
+const isEditOpen = ref<boolean>(false);
 
-const editSubDeptId = ref<number | null>(null)
-const editParentDeptId = ref<number | null>(null)
-const editName = ref<string>('')
+const editSubDeptId = ref<number | null>(null);
+const editParentDeptId = ref<number | null>(null);
+const editName = ref<string>('');
+const editNamear = ref<string>('');
 
 const updateImageFile = ref<File | null>(null)          // new file user picked (if any)
 const updatePreview = ref<string | null>(null)          // what we display in the modal
@@ -95,6 +98,7 @@ const openEditModal = (subDept: SubDepartment) => {
   editSubDeptId.value = subDept.id
   editParentDeptId.value = subDept.Products_Departments_Id
   editName.value = subDept.Sub_Department_Name
+  editNamear.value = subDept.Sub_Department_Name_Ar
 
   // show existing server image initially
   updateImageFile.value = null
@@ -116,7 +120,8 @@ const closeEditModal = () => {
   updateImageFile.value = null
   editSubDeptId.value = null
   editParentDeptId.value = null
-  editName.value = ''
+  editName.value =  ''
+  editNamear.value =  ''
   removeCurrentImage.value = false
 }
 
@@ -167,7 +172,8 @@ const createSubDepartment = async (e: Event) => {
 
   const formData = new FormData()
   formData.append('product_department_id', selectedDepartmentId.value)
-  formData.append('name', name.value)
+  formData.append('name', name.value);
+  formData.append('namear', namear.value);
 
   if (uploadedImage.value) {
     // NOTE: backend currently expects "file" according to your code
@@ -179,8 +185,8 @@ const createSubDepartment = async (e: Event) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
 
-    // reset create form
     name.value = ''
+    namear.value = ''
     selectedDepartmentId.value = ''
     if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl.value)
@@ -207,6 +213,7 @@ const updateSubDepartment = async (e: Event) => {
 
     // backend fields you'll likely need:
     formData.append('name', editName.value ?? '')
+    formData.append('namear', editNamear.value ?? '')
     formData.append('product_department_id', String(editParentDeptId.value ?? ''))
 
     // If user picked a NEW file
@@ -258,7 +265,7 @@ const updateSubDepartment = async (e: Event) => {
 
 const getDepartments = async () => {
   try {
-    const res = await $axios.get('/api/productdepartment')
+    const res = await $axios.get('/api/productdepartment/all')
     departments.value = res.data
   } catch (error) {
     console.error('Failed to load departments:', error)
@@ -318,7 +325,7 @@ onMounted(async () => {
             <div class="col-sm-12">
 
               <!-- Parent Department -->
-              <div class="mb-5 col-span-2">
+                <div class="mb-20">
                 <label class="form-label">Product Department </label>
                 <select class="form-control rounded-lg form-select" v-model="selectedDepartmentId">
                   <option value="">Select Product Department</option>
@@ -328,12 +335,21 @@ onMounted(async () => {
                 </select>
               </div>
 
-              <!-- Name -->
+      
               <div class="mb-20">
                 <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8">
                   Name <span class="text-danger-600">*</span>
                 </label>
                 <input type="text" class="form-control radius-8" id="address" v-model="name"
+                  placeholder="Enter Your Name" />
+              </div>
+
+
+               <div class="mb-20">
+                <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                  Name  (Arabic)<span class="text-danger-600">*</span>
+                </label>
+                <input type="text" class="form-control radius-8" id="address" v-model="namear"
                   placeholder="Enter Your Name" />
               </div>
 
@@ -548,6 +564,12 @@ onMounted(async () => {
               required />
           </div>
 
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-sm">Name  (Arabic)<span class="text-danger">*</span></label>
+            <input type="text" class="form-control radius-8" placeholder="Enter sub department name" v-model="editNamear"
+              required />
+          </div>
           <!-- Image -->
           <div class="mb-3">
             <div class="mb-2 fw-semibold text-sm">Logo / Image</div>

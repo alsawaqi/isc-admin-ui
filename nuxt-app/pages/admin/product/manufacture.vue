@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports';
+import { ref, onMounted, reactive, watch } from 'vue';
+
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
     permissions: 'departments'
 });
 
-const { $axios } = useNuxtApp();
+const { $axios } = (useNuxtApp() as any);
 
-import { ref, onMounted } from 'vue';
 
 interface ProductDepartments {
     id: number;
@@ -22,6 +24,7 @@ interface Department {
 interface Manufacture {
     id: number;
     Products_Manufacture_Name: string;
+    Products_Manufacture_Name_Ar?: string;
     department: Department;
     created_at?: string;
     updated_at?: string;
@@ -32,6 +35,7 @@ const ProductManufactures = ref<Manufacture[]>([]);
 
 // create form
 const name = ref<string>('');
+const nameAr = ref<string>('');
 const Product_Department_Id = ref<string>('');
 
 // table/list loading
@@ -41,6 +45,7 @@ const loading = ref<boolean>(false);
 const showEditModal = ref<boolean>(false);
 const edit_id = ref<number | null>(null);
 const edit_name = ref<string>('');
+const edit_nameAr = ref<string>('');
 const edit_department_id = ref<string>('');
 
 // simple error/success message handling (optional UI hook)
@@ -48,19 +53,19 @@ const errorMessage = ref<string | null>(null);
 
 
 const table = reactive({
-  page: 1,
-  perPage: 10,
-  search: '',
-  sortBy: 'id',
-  sortDir: 'desc',
+    page: 1,
+    perPage: 10,
+    search: '',
+    sortBy: 'id',
+    sortDir: 'desc',
 })
 
 // paginator info from backend
 const pagination = ref({
-  total: 0,
-  from: 0,
-  to: 0,
-  last_page: 1,
+    total: 0,
+    from: 0,
+    to: 0,
+    last_page: 1,
 })
 
 
@@ -78,23 +83,23 @@ const getProductDepartment = async () => {
 const getManufactures = async () => {
     loading.value = true;
     try {
-       const { data } = await $axios.get('/api/productmanufacture', {
-      params: {
-        page: table.page,
-        per_page: table.perPage,
-        search: table.search,
-        sortBy: table.sortBy,
-        sortDir: table.sortDir,
-      }
-    });
- ProductManufactures.value = data.data;
+        const { data } = await $axios.get('/api/productmanufacture', {
+            params: {
+                page: table.page,
+                per_page: table.perPage,
+                search: table.search,
+                sortBy: table.sortBy,
+                sortDir: table.sortDir,
+            }
+        });
+        ProductManufactures.value = data.data;
 
-   pagination.value = {
-      total: data.total,
-      from: data.from,
-      to: data.to,
-      last_page: data.last_page,
-    }
+        pagination.value = {
+            total: data.total,
+            from: data.from,
+            to: data.to,
+            last_page: data.last_page,
+        }
 
 
     } catch (error) {
@@ -106,14 +111,15 @@ const getManufactures = async () => {
 };
 
 watch(
-  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
-  async () => {
-    await getManufactures()
-  }
+    () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+    async () => {
+        await getManufactures()
+    }
 )
 
 const resetCreateForm = () => {
     name.value = '';
+    nameAr.value = '';
     Product_Department_Id.value = '';
 };
 
@@ -122,6 +128,7 @@ const submit = async () => {
     try {
         await $axios.post('/api/productmanufacture', {
             name: name.value,
+            name_ar: nameAr.value,
             product_department_id: Product_Department_Id.value
         });
 
@@ -141,6 +148,7 @@ const openEdit = (m: Manufacture) => {
     showEditModal.value = true;
     edit_id.value = m.id;
     edit_name.value = m.Products_Manufacture_Name;
+    edit_nameAr.value = m.Products_Manufacture_Name_Ar ?? '';
     // we assume backend expects `product_department_id`
     edit_department_id.value = m.department?.id
         ? String(m.department.id)
@@ -152,6 +160,7 @@ const closeEdit = () => {
     showEditModal.value = false;
     edit_id.value = null;
     edit_name.value = '';
+    edit_nameAr.value = '';
     edit_department_id.value = '';
     errorMessage.value = null;
 };
@@ -165,6 +174,7 @@ const saveEdit = async () => {
     try {
         await $axios.post(`/api/productmanufacture/${edit_id.value}`, {
             name: edit_name.value,
+            name_ar: edit_nameAr.value,
             product_department_id: edit_department_id.value
         });
 
@@ -250,6 +260,16 @@ onMounted(async () => {
                                     placeholder="Enter Manufacture Name">
                             </div>
 
+
+                            <div class="mb-20">
+                                <label for="manufactureName"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Name (Arabic)<span class="text-danger-600">*</span>
+                                </label>
+                                <input type="text" class="form-control radius-8" id="manufactureName" v-model="nameAr"
+                                    placeholder="Enter Manufacture Name in Arabic">
+                            </div>
+
                             <!-- Error message (create) -->
                             <div v-if="errorMessage" class="alert alert-danger py-8 px-12" role="alert">
                                 {{ errorMessage }}
@@ -283,16 +303,16 @@ onMounted(async () => {
                         <div class="d-flex align-items-center gap-2">
                             <span>Show</span>
                             <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
-                <option :value="10">10</option>
-                <option :value="15">15</option>
-                <option :value="20">20</option>
-              </select>
+                                <option :value="10">10</option>
+                                <option :value="15">15</option>
+                                <option :value="20">20</option>
+                            </select>
 
 
                         </div>
                         <div class="icon-field">
-                           <input type="text" class="form-control form-control-sm w-auto" placeholder="Search"
-                v-model="table.search" />
+                            <input type="text" class="form-control form-control-sm w-auto" placeholder="Search"
+                                v-model="table.search" />
                             <span class="icon">
                                 <iconify-icon icon="ion:search-outline"></iconify-icon>
                             </span>
@@ -306,7 +326,7 @@ onMounted(async () => {
                             <tr>
                                 <th scope="col">
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" value="" id="checkAll">
+                                     
                                         <label class="form-check-label" for="checkAll">
                                             S.L
                                         </label>
@@ -329,11 +349,10 @@ onMounted(async () => {
                             <!-- data rows -->
                             <tr v-for="(manufacture, index) in ProductManufactures" :key="manufacture.id">
 
-                                 
+
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox"
-                                            :id="'check-' + manufacture.id" />
+                                     
                                         <label class="form-check-label" :for="'check-' + manufacture.id">
                                             {{ index + 1 }}
                                         </label>
@@ -384,43 +403,45 @@ onMounted(async () => {
                             </tr>
                         </tbody>
                     </table>
-                    
-                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-            <span>
-              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries
-            </span>
-            <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-              <!-- Prev -->
-              <li class="page-item" :class="{ disabled: table.page === 1 }">
-                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
-                  <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                </a>
-              </li>
 
-              <!-- Page numbers -->
-              <li v-for="p in pagination.last_page" :key="p" class="page-item">
-                <a href="javascript:void(0)" @click="table.page = p" :class="[
-                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
-                  p === table.page
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-primary-50 text-secondary-light'
-                ]">
-                  {{ p }}
-                </a>
-              </li>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+                        <span>
+                            Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+                            }} entries
+                        </span>
+                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+                            <!-- Prev -->
+                            <li class="page-item" :class="{ disabled: table.page === 1 }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
 
-              <!-- Next -->
-              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
-                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
-                  <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                </a>
-              </li>
-            </ul>
+                            <!-- Page numbers -->
+                            <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                                    'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                                    p === table.page
+                                        ? 'bg-primary-600 text-white'
+                                        : 'bg-primary-50 text-secondary-light'
+                                ]">
+                                    {{ p }}
+                                </a>
+                            </li>
 
-          </div>
-                    
+                            <!-- Next -->
+                            <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)"
+                                    @click="table.page < pagination.last_page && (table.page += 1)">
+                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
+                        </ul>
+
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -448,7 +469,7 @@ onMounted(async () => {
                                     Department
                                 </label>
 
-                            
+
                                 <select class="form-control radius-8" id="editDepartmentSelect"
                                     v-model="edit_department_id">
                                     <option value="" disabled>Select Department</option>
@@ -466,6 +487,18 @@ onMounted(async () => {
                                 </label>
                                 <input type="text" class="form-control radius-8" id="editManufactureName"
                                     v-model="edit_name" placeholder="Enter Manufacture Name">
+                            </div>
+
+
+
+
+                            <div class="mb-20">
+                                <label for="editManufactureNameAr"
+                                    class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Name (Arabic)<span class="text-danger-600">*</span>
+                                </label>
+                                <input type="text" class="form-control radius-8" id="editManufactureNameAr"
+                                    v-model="edit_nameAr" placeholder="Enter Manufacture Name in Arabic">
                             </div>
 
                             <!-- error in modal -->

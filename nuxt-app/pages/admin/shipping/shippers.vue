@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports'
+import { ref, onMounted, watch } from 'vue'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'shipping.shippers'
 })
 
-import { ref, onMounted, watch } from 'vue'
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any)
 
 interface Shipper {
   id: number

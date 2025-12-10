@@ -33,26 +33,45 @@ const isAnyChildActive = (paths: string[]) => {
 };
 
 const getActiveColor = (path: string): string => {
-
-
   const colorMap: Record<string, string> = {
+    // Categories / Products Features
     '/admin/categories': 'color: #6b8629;',
     '/admin/categories/subcategory': 'color: #73da1b;',
     '/admin/categories/subsubcategory': 'color: #41a5e3;',
     '/admin/categories/addproductsdescription': 'color: #4345e3;',
+    '/admin/categories/viewproductdescription': 'color: #14b8a6;', // NEW
+
+    // Product section
     '/admin/product/producttype': 'color: #f97316;',
     '/admin/product/brands': 'color: #eab308;',
     '/admin/product/manufacture': 'color: #10b981;',
     '/admin/product': 'color: #8b5676;',
     '/admin/product/viewproducts': 'color: #ef4444;',
+
+    // Orders
+    '/admin/orders/ordersplaced': 'color: #a855f7;', // NEW
+
+    // Admin / Roles / Users
     '/admin/roles/createadmin': 'color: #6366f1;',
     '/admin/roles/roles-permission': 'color: #f43f5e;',
     '/admin/roles/': 'color: #0ea5e9;',
     '/admin/users': 'color: #22c55e;',
-  };
 
-  return colorMap[path] || 'color: #17a2b8;';
-};
+    // Geography
+    '/admin/geography/country': 'color: #facc15;',   // NEW
+    '/admin/geography/region': 'color: #4ade80;',    // NEW
+    '/admin/geography/districts': 'color: #7c3aed;', // NEW
+    '/admin/geography/city': 'color: #fb7185;',      // NEW
+
+    // Shipping
+    '/admin/shipping/shippers-create': 'color: #0f766e;', // NEW
+    '/admin/shipping/shippers': 'color: #fbbf24;',        // NEW
+  }
+
+  // fallback color
+  return colorMap[path] || 'color: #17a2b8;'
+}
+
 
 // Popup state
 const showNotificationDialog = ref(false)
@@ -638,6 +657,23 @@ onMounted(async () => {
                   >
 
                     City
+
+                      
+                  </NuxtLink>
+                </li>
+
+
+
+
+                <li >
+
+                  <NuxtLink
+                    to="/admin/geography/location"  
+                    :style="isActive('/admin/geography/location') ? getActiveColor('/admin/geography/location') : ''"
+                      
+                  >
+
+                    Locations
 
                       
                   </NuxtLink>

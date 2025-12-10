@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useParam, useNuxtApp, navigateTo, definePageMeta } from '#imports';
+
+
 definePageMeta({
      layout: 'admin',
      middleware: ['permission'],
@@ -7,7 +10,7 @@ definePageMeta({
     });
 
     import {ref , onMounted} from 'vue';
-   const { $axios } = useNuxtApp();
+   const { $axios } = (useNuxtApp() as any);
 
     const Orders_Id = useParam('id');
 
@@ -32,7 +35,7 @@ definePageMeta({
 
        const response = await $axios.post(`/api/orders-placed/complete/${Orders_Id}`);
          console.log('Order completed successfully:', response.data);
-         navigateTo('/admin/orders/ordersdeliveried')
+         navigateTo('/admin/orders/ordersshipment')
       }catch(error){
          console.error('Failed to complete order:', error);
       }
@@ -83,18 +86,7 @@ definePageMeta({
     <!-- Actions -->
     <div class="card-header bg-white border-0 py-3">
       <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
-        <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
-          <iconify-icon icon="pepicons-pencil:paper-plane" class="fs-5"></iconify-icon>
-          Send Invoice
-        </button>
-        <button type="button" class="btn btn-sm btn-warning text-white d-inline-flex align-items-center gap-1">
-          <iconify-icon icon="solar:download-linear" class="fs-5"></iconify-icon>
-          Download
-        </button>
-        <button type="button" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1">
-          <iconify-icon icon="uil:edit" class="fs-5"></iconify-icon>
-          Edit
-        </button>
+        
         <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1" onclick="printInvoice()">
           <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon>
           Print

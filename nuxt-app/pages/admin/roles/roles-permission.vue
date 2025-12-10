@@ -1,7 +1,8 @@
 <script setup lang="ts">
-   import { ref, onMounted,watch } from 'vue'
- const { $axios } = useNuxtApp();
-definePageMeta({
+  import  {definePageMeta, useNuxtApp } from  '#imports'
+  import  { ref, onMounted,watch,computed } from 'vue'
+  
+  definePageMeta({
      layout: 'admin'
     })
 
@@ -9,6 +10,8 @@ definePageMeta({
 const loading = ref<boolean>(false);
 const roleName = ref<string>('')
 const selectedPermissions = ref<string[]>([])
+const { $axios } = (useNuxtApp() as any);
+
 
 const allPermissions = [
   // Products

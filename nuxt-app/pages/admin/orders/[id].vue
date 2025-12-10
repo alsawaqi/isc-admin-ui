@@ -1,26 +1,33 @@
 <script setup lang="ts">
+import { definePageMeta, useRoute, useNuxtApp, navigateTo } from '#imports';
+import { ref, onMounted, computed } from 'vue'
+
+
+import SignaturePad from '~/components/SignaturePad.vue'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'departments'
 })
 
-import { ref, onMounted, computed } from 'vue'
 
-
-import SignaturePad from '~/components/SignaturePad.vue'
+const { $axios } = (useNuxtApp() as any);
+const route = useRoute();
 
 // state + refs
 const showSignature = ref(false)
 const submitting = ref(false)
 const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
+const sigCancelRef = ref<InstanceType<typeof SignaturePad> | null>(null)  
 const signNote = ref<string>('')   // add this line to define signNote
 
 
 
-const showCancel = ref(false)
-const cancelling = ref(false)
+const showCancel = ref<boolean>(false)
+const cancelling = ref<boolean>(false)
 const cancelNote = ref<string>('')
+const selected = ref<number[]>([])
 
 
 // open/close
@@ -30,25 +37,26 @@ const closeSignatureModal = () => {
   sigRef.value?.clear()
 }
 
-const { $axios } = useNuxtApp()
-const route = useRoute()
-
-
-
- 
 
 const Orders_Id = computed(() => String(route.params.id || ''))
 
 // start as an object so template bindings are safe pre-fetch
 const orders = ref<any>({ orderlist: [], transaction: null })
 
+
+const getorders = async (): Promise<void> => {
+  try {
+    const { data } = await $axios.get(`/api/orders-placed/${Orders_Id.value}`)
+    orders.value = data
+    console.log('Orders fetched successfully:', orders.value)
+  } catch (error) {
+    console.error('Failed to fetch order details:', error)
+  }
+}
+
+
 // computed subtotal for the invoice table
-const subtotal = computed(() =>
-  (orders.value?.orderlist || []).reduce(
-    (s: number, l: any) => s + Number(l?.Subtotal || 0),
-    0
-  )
-)
+ 
 
 
 
@@ -64,11 +72,18 @@ const submitCancellation = async () => {
   }
   cancelling.value = true
   try {
-    await $axios.post(`/api/orders-placed/${Orders_Id.value}/cancel`, {
+     await $axios.post(`/api/orders-placed/${Orders_Id.value}/cancel`, {
       note: cancelNote.value.trim(),
+      signature: sigCancelRef.value?.isEmpty() ? null : sigCancelRef.value?.toDataURL('image/png'),
+      selected_lines: selected.value.length > 0 ? selected.value : null,
     })
+
+
+ 
+
     closeCancelModal()
-    navigateTo('/admin/orders/ordersplaced') // adjust destination if you have a different page
+    
+   navigateTo('/admin/orders/ordersplaced')  
   } catch (e) {
     console.error('Cancellation failed:', e)
     alert('Failed to cancel the order.')
@@ -77,37 +92,52 @@ const submitCancellation = async () => {
   }
 }
 
-const getorders = async (): Promise<void> => {
-  try {
-    const { data } = await $axios.get(`/api/orders-placed/${Orders_Id.value}`)
-    orders.value = data
-    console.log('Orders fetched successfully:', orders.value)
-  } catch (error) {
-    console.error('Failed to fetch order details:', error)
-  }
-}
+
 
 const submitPacking = async () => {
   if (!sigRef.value || sigRef.value.isEmpty()) {
     alert('Please add your signature first.')
     return
   }
+
   submitting.value = true
   try {
+    // 1) Get data URL from SignaturePad
     const dataUrl = sigRef.value.toDataURL('image/png')
-    await $axios.post(`/api/orders-placed/${Orders_Id.value}/pack`, {
-      signature: dataUrl,
-      note: signNote.value || null,
+
+    // 2) Convert data URL -> Blob
+    const res = await fetch(dataUrl)
+    const blob = await res.blob()
+
+    // 3) Wrap into a File (Laravel will see this as an uploaded file)
+    const file = new File([blob], `signature-${Orders_Id.value}.png`, {
+      type: 'image/png',
     })
+
+    // 4) Build FormData
+    const fd = new FormData()
+    fd.append('signature', file)
+    if (signNote.value) {
+      fd.append('note', signNote.value)
+    }
+
+    // 5) POST as multipart/form-data
+    await $axios.post(
+      `/api/orders-placed/${Orders_Id.value}/pack`,
+      fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+
     closeSignatureModal()
-    navigateTo('/admin/orders/orderspacking')
-  } catch (e) {
-    console.error('Pack failed:', e)
-    alert('Failed to confirm packing.')
+    navigateTo('/admin/orders/ordersplaced')
+  } catch (e: any) {
+    console.error('Pack failed:', e?.response?.data ?? e)
+    alert(e?.response?.data?.message ?? 'Failed to confirm packing.')
   } finally {
     submitting.value = false
   }
 }
+
 
 
 const printA5 = (orientation: 'portrait' | 'landscape' = 'portrait') => {
@@ -124,6 +154,24 @@ const printA5 = (orientation: 'portrait' | 'landscape' = 'portrait') => {
     document.head.appendChild(s)
   }
   window.print()
+}
+
+
+const  puthold = async () => {
+  alert('On Hold functionality is not implemented yet.')
+   
+    try{
+
+      await $axios.post(`/api/orders-placed/${Orders_Id.value}/on-hold`, {
+        note: 'Order put on hold via admin UI'  // you can enhance this to take user input
+      })
+        
+
+
+    }catch(error){
+      console.error('Failed to put order on hold:', error);
+    }
+ 
 }
 
  
@@ -144,19 +192,53 @@ onMounted(async()=> await getorders())
       <!-- Actions -->
       <div class="card-header bg-white border-0 py-3 no-print">
         <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
-          <a href="javascript:void(0)" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
+          <!-- <a href="javascript:void(0)" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1">
             <iconify-icon icon="pepicons-pencil:paper-plane" class="fs-5"></iconify-icon> Send Invoice
           </a>
           <a href="javascript:void(0)" class="btn btn-sm btn-warning text-white d-inline-flex align-items-center gap-1">
             <iconify-icon icon="solar:download-linear" class="fs-5"></iconify-icon> Download
-          </a>
-
+          </a> -->
+              {{ orders.Status }}
           <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1"
              @click="printA5()">
             <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon> Print
           </button>
-          <button type="button" class="btn btn-sm btn-outline-success" @click.prevent="openSignatureModal">Packing</button>
-          <button type="button" class="btn btn-sm btn-outline-danger" @click.prevent="openCancelModal">Cancel</button>
+  <button
+  type="button"
+  class="btn btn-sm btn-outline-success"
+  @click.prevent="openSignatureModal"
+  v-if="orders.Status !== 'cancelled' && orders.Status !== 'on-hold'"
+>
+  Packing
+</button>
+
+<!-- <button
+  type="button"
+  class="btn btn-sm btn-outline-success"
+  @click.prevent="puthold"
+  v-if="orders.Status !== 'cancelled' && orders.Status !== 'on-hold'"
+>
+  On Hold
+</button> -->
+
+<!-- <button
+  type="button"
+  class="btn btn-sm btn-outline-success"
+  @click.prevent="puthold"
+  v-if="orders.Status === 'on-hold'"
+>
+  Pending
+</button>
+
+<button
+  type="button"
+  class="btn btn-sm btn-outline-danger"
+  @click.prevent="openCancelModal"
+  v-if="orders.Status !== 'cancelled' && orders.Status !== 'on-hold'"
+>
+  Cancel
+</button> -->
+
         </div>
       </div>
 
@@ -253,15 +335,34 @@ onMounted(async()=> await getorders())
                           <th class="text-center">Qty</th>
                           <th class="text-end">Unit Price</th>
                           <th class="text-end">Subtotal</th>
+                          <th class="text-end">Status</th>
                         </tr>
                       </thead>
                       <tbody>
+                           
+                        
+
+                         
+
                         <tr v-for="(line, i) in orders.orderlist" :key="line.id">
-                          <td class="text-muted">{{ i + 1 }}</td>
+                          <td class="text-muted">
+                             {{ i + 1 }}
+                          </td>
                           <td>{{ line.product?.Product_Name || '-' }}</td>
                           <td class="text-center">{{ line.Quantity }}</td>
                           <td class="text-end">OMR {{ Number(line.Price || 0).toFixed(3) }}</td>
                           <td class="text-end">OMR {{ Number(line.Subtotal || 0).toFixed(3) }}</td>
+                          <td class="text-end">
+                            <span class="badge rounded-pill" :class="{
+                              'bg-secondary': line.Status === 'pending',
+                              'bg-info': line.Status === 'processing',
+                              'bg-success': line.Status === 'shipped',
+                              'bg-danger': line.Status === 'cancelled',
+                              'bg-warning text-dark': !line.Status
+                            }">
+                              {{ line.Status || 'pending' }}
+                            </span>
+                          </td>
                         </tr>
                       </tbody>
                     </table>
@@ -270,7 +371,7 @@ onMounted(async()=> await getorders())
                   <!-- Totals -->
                   <div class="row align-items-start g-3">
                     <div class="col-md-6">
-                      <div class="small text-muted">Thank you for your business.</div>
+                     
                     </div>
                     <div class="col-md-6">
                       <table class="table table-sm mb-0">
@@ -293,6 +394,9 @@ onMounted(async()=> await getorders())
                             <th>Total</th>
                             <th class="text-end">OMR {{ Number(orders.Total_Price || 0).toFixed(3) }}</th>
                           </tr>
+
+                         
+
                         </tbody>
                       </table>
                     </div>
@@ -303,7 +407,7 @@ onMounted(async()=> await getorders())
                 <div class="px-4 py-3 bg-light border-top small text-muted">
                   <div class="d-flex justify-content-between flex-wrap gap-2">
                     <div>Invoice was created electronically and is valid without a signature or seal.</div>
-                    <div>Kasr Althqt LTljart EST</div>
+                    <div>ISC </div>
                   </div>
                 </div>
               </div>
@@ -423,6 +527,11 @@ onMounted(async()=> await getorders())
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Cancel order</h6>
       <button type="button" class="btn btn-sm btn-light" @click="closeCancelModal">×</button>
+    </div>
+
+    <div class="mb-2">
+      <SignaturePad ref="sigCancelRef" :height="220" :lineWidth="2" penColor="#111" backgroundColor="#fff" />
+
     </div>
 
     <div class="mb-2">

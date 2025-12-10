@@ -5,43 +5,7 @@ import { onMounted, onBeforeUnmount } from 'vue'
 definePageMeta({
   layout: 'admin',
 })
-
-const nuxtApp = useNuxtApp()
  
-
-let channel: any = null
-
-onMounted(() => {
-  const pusher = nuxtApp.$pusher
-
- 
-
-  // Connection logs
-  pusher.connection.bind('connected', () => {
- 
-  })
-
-  pusher.connection.bind('error', (err: any) => {
- 
-  })
-
-  // 🔴 MUST match broadcastOn(): "orders"
-  channel = pusher.subscribe('orders')
- 
-
-  // 🔴 MUST match broadcastAs(): "order.placed"
-  channel.bind('order.placed', (data: any) => {
-    console.log('🎉 Pusher event "order.placed" received from Laravel:', data)
-  })
-})
-
-onBeforeUnmount(() => {
-  if (channel) {
-    channel.unbind('order.placed')
-  }
-  const pusher = nuxtApp.$pusher
-  pusher.unsubscribe('orders')
-})
  
 </script>
 <template>

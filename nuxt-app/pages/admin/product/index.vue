@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -11,9 +12,9 @@ import { useProductsBrands } from '~/data/ProductsBrands';
 
 
 
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any);
 
 const { getProductType } = useProductType();
 const { getProductBrands } = useProductsBrands();
@@ -209,7 +210,10 @@ const isStep1Valid = computed(() => {
 
 
 const fetchDepartments = async () => {
-  const res = await $axios.get('/api/productdepartment')
+  const res = await $axios.get('/api/productdepartment/all')
+
+  console.log('Departments fetched:', res.data);
+
   departments.value = res.data
 }
 
@@ -248,7 +252,7 @@ const getproductspecifications = async (subSubDeptId: number) => {
 const getManufactures = async () => {
 
   try {
-    const response = await $axios.get('/api/productmanufacture');
+    const response = await $axios.get('/api/productmanufacture/all');
     ProductManufactures.value = response.data;
   } catch (error) {
     console.error('Failed to fetch manufactures:', error);
@@ -396,9 +400,6 @@ const submitForm = async () => {
 }
 
 
-
-
-
 const submitSpecs = async () => {
   // only send rows where the user actually chose a value
   const chosen = productSpecificationProducts.value
@@ -427,12 +428,6 @@ const submitSpecs = async () => {
     alert('Failed to save product specs')
   }
 }
-
-
-
-
-
-
 
 watch(() => barcodes.value[0], (newVal) => {
   if (newVal === '') {
@@ -487,7 +482,8 @@ onMounted(async () => {
         <div class="card">
           <div class="card-header">
             <h5 class="card-title mb-0">Create a product for id number <span v-if="loadingProducts">loading...</span>
-              <span v-else>{{ product_id }}</span></h5>
+              <span v-else>{{ product_id }}</span>
+            </h5>
           </div>
 
 

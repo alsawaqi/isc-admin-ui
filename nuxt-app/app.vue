@@ -53,6 +53,7 @@ useHead({
 <template>
 
   <NuxtLayout>
+    <FullScreenFlash />
     <NuxtPage />
   </NuxtLayout>
   

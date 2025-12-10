@@ -1,4 +1,5 @@
  <script setup lang="ts">
+import { useNuxtApp,  definePageMeta } from '#imports'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -6,7 +7,7 @@ definePageMeta({
 })
 
 import { ref, onMounted, watch, computed } from 'vue'
-const { $axios } = useNuxtApp()
+const { $axios } = useNuxtApp() as any
 
 type TicketRow = {
   id: number

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { definePageMeta, useNuxtApp } from '#imports';
-import { ref, onMounted } from 'vue'
+import { definePageMeta, useNuxtApp  } from '#imports'
+import { ref, onMounted,  watch, reactive } from 'vue'
 
 definePageMeta({
   layout: 'admin',
@@ -10,6 +10,7 @@ definePageMeta({
 });
 
 const { $axios, $r2Url } = (useNuxtApp() as any);
+
 
 interface CustomerContact {
   id: number;
@@ -23,6 +24,9 @@ interface CustomerContact {
 interface Shipper {
   id: number;
   Shippers_Name: string;
+
+
+
 }
 
 interface Order {
@@ -40,23 +44,69 @@ interface Order {
 }
 
 
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+  status: ''
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
+
+
+
 const orders = ref<Order[]>([]);
 
 const fetchOrders = async () => {
   try {
-    const response = await $axios.get('/api/orders-placed/delivered');
-    orders.value = response.data;
+    const { data } = await $axios.get('/api/orders-placed/delivered', {
+      params: {
+        page: table.page,
+        per_page: table.perPage,
+        search: table.search,
+        sortBy: table.sortBy,
+        sortDir: table.sortDir,
+        status: table.status
+      }
+    });
 
-    console.log(response.data)
+
+
+    orders.value = data.data;
+    pagination.value = {
+      total: data.total,
+      from: data.from,
+      to: data.to,
+      last_page: data.last_page,
+    }
+
 
   } catch (error) {
     console.error('Failed to fetch orders:', error);
   }
 };
 
-onMounted(async() => {
+
+
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir, table.status],
+  async () => {
+    await fetchOrders()
+  }
+)
+
+onMounted(async () => {
   await fetchOrders();
 });
+
 </script>
 <template>
 
@@ -78,37 +128,54 @@ onMounted(async() => {
     </div>
 
 
-
     <div class="card h-100 p-0 radius-12 overflow-hidden">
       <div class="card">
         <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
           <div class="d-flex flex-wrap align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
               <span>Show</span>
-              <select class="form-select form-select-sm w-auto">
-                <option>10</option>
-                <option>15</option>
-                <option>20</option>
+              <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
               </select>
 
-              <select class="form-select form-select-sm w-auto">
-                <option>Status</option>
-                <option>Paid</option>
-                <option>Pending</option>
-              </select>
             </div>
             <div class="icon-field">
-              <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
+              <input type="text" class="form-control form-control-sm w-auto" placeholder="Search"
+                v-model="table.search" />
               <span class="icon">
                 <iconify-icon icon="ion:search-outline"></iconify-icon>
               </span>
             </div>
+
+
+            <div class="icon-field">
+
+              <select v-model="table.status" class="form-select form-select-sm w-auto">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="packed">Packed</option>
+                <option value="dispatched">Dispatched</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="returned">Returned</option>
+                <option value="on-hold">On Hold</option>
+
+              </select>
+            </div>
+
+
+
+
+
+
           </div>
 
         </div>
         <div class="card-body">
-
-
 
           <div class="table-responsive table-scroll rounded-3 border shadow-sm">
             <table class="table table-hover table-striped align-middle mb-0 table-sticky">
@@ -116,8 +183,8 @@ onMounted(async() => {
                 <tr class="text-uppercase small">
                   <th class="py-3 px-3">
                     <div class="form-check m-0 d-flex align-items-center gap-2">
-                      <input class="form-check-input" id="select-all-packing" type="checkbox" />
-                      <label class="form-check-label fw-semibold" for="select-all-packing">S.L</label>
+                  
+                      <label class="form-check-label fw-semibold" for="select-all">S.L</label>
                     </div>
                   </th>
                   <th class="py-3 px-3">Order Code</th>
@@ -138,9 +205,8 @@ onMounted(async() => {
                   <!-- checkbox + serial -->
                   <td class="py-2 px-3">
                     <div class="form-check m-0 d-flex align-items-center gap-2">
-                      <input class="form-check-input" :id="`check-pack-${order.id}`" type="checkbox" />
-                      <label class="form-check-label text-muted small" :for="`check-pack-${order.id}`">{{ index + 1
-                      }}</label>
+                   <label class="form-check-label text-muted small" :for="`check-${order.id}`">{{ index + 1
+                        }}</label>
                     </div>
                   </td>
 
@@ -188,15 +254,19 @@ onMounted(async() => {
 
                   <!-- date -->
                   <td class="py-2 px-3 text-nowrap">
-                    {{ order.created_at }}
+
+                    {{ order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short', year: 'numeric'
+                    }) : '-' }}
+
                   </td>
 
                   <!-- actions -->
                   <td class="py-2 px-3">
                     <div class="d-flex justify-content-center gap-2">
-                      <NuxtLink :to="`/admin/orders/completed/${order.id}`" class="btn btn-sm btn-success px-3">View
-                      </NuxtLink>
-                      <button type="button" class="btn btn-sm btn-primary px-3">Print</button>
+                      <NuxtLink :to="`/admin/orders/completed/${order.id}`" class="btn btn-sm btn-success px-3">View</NuxtLink>
+
                     </div>
                   </td>
                 </tr>
@@ -208,33 +278,39 @@ onMounted(async() => {
 
 
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-            <span>Showing 1 to 10 of 12 entries</span>
+            <span>
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries
+            </span>
             <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-              <li class="page-item">
+              <!-- Prev -->
+              <li class="page-item" :class="{ disabled: table.page === 1 }">
                 <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)">
+                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
                   <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
                 </a>
               </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">1</a>
+
+              <!-- Page numbers -->
+              <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                  p === table.page
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-primary-50 text-secondary-light'
+                ]">
+                  {{ p }}
+                </a>
               </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">2</a>
-              </li>
-              <li class="page-item">
-                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                  href="javascript:void(0)">3</a>
-              </li>
-              <li class="page-item">
+
+              <!-- Next -->
+              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
                 <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)">
+                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
                   <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
                 </a>
               </li>
             </ul>
+
           </div>
         </div>
       </div>

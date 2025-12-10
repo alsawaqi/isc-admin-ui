@@ -8,9 +8,9 @@ export const useProductsBrands = () => {
 
   const getProductBrands = async () => {
     try {
-      const response = await $axios.get('/api/productbrands');
+      const response = await $axios.get('/api/productbrands/all');
       return response.data;
-      console.log(response.data);
+      
     } catch (error) {
       console.error('Failed to fetch product brands:', error);
       throw error;

@@ -1,23 +1,24 @@
 <script setup lang="ts">
+import { useParam, useNuxtApp, navigateTo, definePageMeta } from '#imports';
 definePageMeta({
-     layout: 'admin',
-     middleware: ['permission'],
-     permissions: 'departments'
-     
-    });
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'departments'
 
-    import {ref , onMounted , computed} from 'vue';
+});
+
+import { ref, onMounted, computed } from 'vue';
 
 
-    import SignaturePad from '@/components/SignaturePad.vue'
+import SignaturePad from '@/components/SignaturePad.vue'
 
-    const { $axios } = useNuxtApp();
+const { $axios } = (useNuxtApp() as any);
 
-    const Orders_Id = useParam('id');
+const Orders_Id = useParam('id');
 
-    const orders = ref<any>([]);
+const orders = ref<any>([]);
 
-    /** Photos keyed by order detail id */
+/** Photos keyed by order detail id */
 const linePhotos = ref<Record<number, File[]>>({})
 const uploading = ref(false)
 const showSignature = ref(false)
@@ -25,21 +26,21 @@ const submitting = ref(false)
 const signNote = ref('')
 const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
 
- 
 
-    type OrderLine = {
-            id: number
-            Quantity: number
-            product: {
-              Product_Name: string
-              Length_cm?:   number | null
-              Width_cm?:    number | null
-              Height_cm?:   number | null
-              Volume_Cbm?:  number | null
-              Weight_Kg?:   number | null
-        
-            }
-      }
+
+type OrderLine = {
+  id: number
+  Quantity: number
+  product: {
+    Product_Name: string
+    Length_cm?: number | null
+    Width_cm?: number | null
+    Height_cm?: number | null
+    Volume_Cbm?: number | null
+    Weight_Kg?: number | null
+
+  }
+}
 
 
 type BoxSize = {
@@ -119,7 +120,7 @@ async function startDispatch() {
   }
 }
 
- 
+
 // boxes for the selected shipper
 const boxes = ref<BoxSize[]>([])
 
@@ -134,10 +135,10 @@ const loadBoxesForShipper = async () => {
 
 
 /* Helpers */
-const volFromDimsCbm = (L?: number|null, W?: number|null, H?: number|null) => {
-  const l = Number(L||0), w = Number(W||0), h = Number(H||0)
+const volFromDimsCbm = (L?: number | null, W?: number | null, H?: number | null) => {
+  const l = Number(L || 0), w = Number(W || 0), h = Number(H || 0)
   if (!l || !w || !h) return null
-  return (l*w*h) / 1_000_000 // cm³ → m³
+  return (l * w * h) / 1_000_000 // cm³ → m³
 }
 
 const normBoxes = computed(() =>
@@ -180,7 +181,7 @@ function bestForItem(item: OrderLine) {
       (kgPerUnit <= b._maxKg || b._maxKg === 0 || kgPerUnit === 0) && // allow 0 meaning “not set”
       (volPerUnit <= b._volCbm || b._volCbm === 0 || volPerUnit === 0)
     )
-    .sort((a,b) => a._volCbm - b._volCbm) // prefer the smallest usable box by volume
+    .sort((a, b) => a._volCbm - b._volCbm) // prefer the smallest usable box by volume
 
   if (!candidates.length) return null
 
@@ -188,16 +189,16 @@ function bestForItem(item: OrderLine) {
 
   // Required boxes by volume/weight (per product, respecting Quantity)
   const totalVol = volPerUnit * Number(item.Quantity || 0)
-  const totalKg  = kgPerUnit  * Number(item.Quantity || 0)
+  const totalKg = kgPerUnit * Number(item.Quantity || 0)
 
   const byVol = chosen._volCbm > 0 ? Math.ceil(totalVol / chosen._volCbm) : 0
-  const byKg  = chosen._maxKg  > 0 ? Math.ceil(totalKg  / chosen._maxKg)  : 0
+  const byKg = chosen._maxKg > 0 ? Math.ceil(totalKg / chosen._maxKg) : 0
 
   const boxesNeeded = Math.max(byVol || 0, byKg || 0, item.Quantity > 0 ? 1 : 0)
 
   // fill % for ONE box (useful for the progress bars preview)
-  const fillVolPct = volPerUnit > 0 && chosen._volCbm > 0 ? Math.min(100, (volPerUnit/ chosen._volCbm)*100) : 0
-  const fillKgPct  = kgPerUnit  > 0 && chosen._maxKg  > 0 ? Math.min(100, (kgPerUnit / chosen._maxKg )*100) : 0
+  const fillVolPct = volPerUnit > 0 && chosen._volCbm > 0 ? Math.min(100, (volPerUnit / chosen._volCbm) * 100) : 0
+  const fillKgPct = kgPerUnit > 0 && chosen._maxKg > 0 ? Math.min(100, (kgPerUnit / chosen._maxKg) * 100) : 0
 
   return {
     chosen,
@@ -212,62 +213,81 @@ function bestForItem(item: OrderLine) {
 const sOf = (it: OrderLine) => bestForItem(it)
 
 
-    const getorders = async () => {
-      try {
-      
-        const response = await $axios.get(`/api/orders-placed/${Orders_Id}`);
-        orders.value = response.data;
-        console.log('Orders fetched successfully:', orders.value);
-      } catch (error) {
-        console.error('Failed to fetch order details:', error);
-        return null;
-      }
-    };
+const getorders = async () => {
+  try {
+
+    const response = await $axios.get(`/api/orders-placed/${Orders_Id}`);
+    orders.value = response.data;
+    console.log('Orders fetched successfully:', orders.value);
+  } catch (error) {
+    console.error('Failed to fetch order details:', error);
+    return null;
+  }
+};
 
 
  async function confirmDispatch() {
-          if (!sigRef.value || sigRef.value.isEmpty()) {
-            alert('Please sign before confirming.')
-            return
-          }
-          submitting.value = true
-          try {
-            const fd = new FormData()
-            // append photos
-            for (const row of items.value) {
-              const files = linePhotos.value[row.id] || []
-              for (const f of files) {
-                fd.append(`files[${row.id}][]`, f)
-              }
-            }
-            // signature as data URL
-            fd.append('signature', sigRef.value.toDataURL('image/png'))
-            if (signNote.value) fd.append('note', signNote.value)
+  if (!sigRef.value || sigRef.value.isEmpty()) {
+    alert('Please sign before confirming.')
+    return
+  }
+  submitting.value = true
+  try {
+    const fd = new FormData()
 
-            await $axios.post(`/api/orders-placed/${Orders_Id}/dispatch`, fd, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            })
+    // 🔹 1) Append photos per row (same as before)
+    for (const row of items.value) {
+      const files = linePhotos.value[row.id] || []
+      for (const f of files) {
+        fd.append(`files[${row.id}][]`, f)
+      }
+    }
 
-            showSignature.value = false
-            navigateTo('/admin/orders/ordersdispatch')
-          } catch (e) {
-            console.error(e)
-            alert('Failed to dispatch order.')
-          } finally {
-            submitting.value = false
-          }
+    // 🔹 2) SignaturePad → dataURL → Blob → File
+    const dataUrl = sigRef.value.toDataURL('image/png')
+    const res = await fetch(dataUrl)
+    const blob = await res.blob()
+
+    const file = new File(
+      [blob],
+      `dispatch-signature-${Orders_Id}.png`,
+      { type: 'image/png' }
+    )
+
+    // now Laravel sees it as UploadedFile under "signature"
+    fd.append('signature', file)
+
+    // 🔹 3) Optional note
+    if (signNote.value) {
+      fd.append('note', signNote.value)
+    }
+
+    // 🔹 4) Send as multipart/form-data
+    await $axios.post(`/api/orders-placed/${Orders_Id}/dispatch`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    showSignature.value = false
+    navigateTo('/admin/orders/ordersdispatch')
+  } catch (e: any) {
+    console.error('Dispatch failed:', e?.response?.data ?? e)
+    alert(e?.response?.data?.message ?? 'Failed to dispatch order.')
+  } finally {
+    submitting.value = false
+  }
 }
 
 
-    onMounted(async()=>{
-       await getorders();
-     });
+
+onMounted(async () => {
+  await getorders();
+});
 </script>
 <template>
   <div class="dashboard-main-body">
 
 
-    
+
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
       <h6 class="fw-semibold mb-0">Invoice</h6>
       <ul class="d-flex align-items-center gap-2 small mb-0">
@@ -283,18 +303,14 @@ const sOf = (it: OrderLine) => bestForItem(it)
     </div>
 
 
-      
+
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white">
         <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
-         <button
-  type="button"
-  class="btn btn-sm btn-outline-success"
-  :disabled="!allRowsHavePhotos || submitting || uploading"
-  @click.prevent="showSignature = true"   
->
-  Dispatch
-</button>
+          <button type="button" class="btn btn-sm btn-outline-success"
+            :disabled="!allRowsHavePhotos || submitting || uploading" @click.prevent="showSignature = true">
+            Dispatch
+          </button>
 
         </div>
       </div>
@@ -318,7 +334,8 @@ const sOf = (it: OrderLine) => bestForItem(it)
                 <div class="col-md-6">
                   <h6 class="text-uppercase text-muted small mb-2">Issued For</h6>
                   <ul class="list-unstyled small mb-0">
-                    <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-' }}</li>
+                    <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-' }}
+                    </li>
                     <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.Designation || '-' }}</li>
                     <li><span class="text-muted">Phone:</span> {{ orders.customer_contact?.Telephone || '-' }}</li>
                   </ul>
@@ -354,24 +371,25 @@ const sOf = (it: OrderLine) => bestForItem(it)
                       <td class="text-end">OMR {{ Number(row.Subtotal || 0).toFixed(3) }}</td>
                       <td>{{ row.product?.Volume_Cbm ?? '—' }} CBM</td>
                       <td>{{ row.product?.Weight_Kg ?? '—' }} KG</td>
-                       <td>
+                      <td>
                         <label class="btn btn-outline-secondary btn-sm mb-0">
                           <iconify-icon icon="ion:camera-outline" class="me-1"></iconify-icon>
-                          Upload
-                          <input type="file" class="d-none" accept="image/*" multiple
-                            :id="`file-${index}`"
+                          Take Photo
+                          <input type="file" class="d-none" accept="image/*" capture="environment" :id="`file-${index}`"
                             @change="onPhotoChange(row.id, $event)" />
                         </label>
+
                         <div class="small text-muted mt-1">
-                          {{ (linePhotos[row.id]?.length || 0) }} file(s) selected
+                          {{ (linePhotos[row.id]?.length || 0) }} photo(s) selected
                         </div>
                       </td>
+
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-             
+
             </div>
 
             <div class="px-4 py-3 bg-light border-top small text-muted d-flex justify-content-between flex-wrap gap-2">
@@ -387,34 +405,32 @@ const sOf = (it: OrderLine) => bestForItem(it)
 
 
   <!-- Signature overlay -->
-<div
-  v-if="showSignature"
-  class="position-fixed top-0 start-0 w-100 h-100"
-  style="z-index: 1050; background: rgba(0,0,0,.5);"
->
-  <div class="position-absolute top-50 start-50 translate-middle bg-white rounded-3 shadow p-3"
-       style="width: min(680px, 95vw);">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="mb-0">Confirm Dispatch – Signature</h6>
-      <button type="button" class="btn-close" aria-label="Close"
-              :disabled="submitting" @click="showSignature=false"></button>
-    </div>
+  <div v-if="showSignature" class="position-fixed top-0 start-0 w-100 h-100"
+    style="z-index: 1050; background: rgba(0,0,0,.5);">
+    <div class="position-absolute top-50 start-50 translate-middle bg-white rounded-3 shadow p-3"
+      style="width: min(680px, 95vw);">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Confirm Dispatch – Signature</h6>
+        <button type="button" class="btn-close" aria-label="Close" :disabled="submitting"
+          @click="showSignature = false"></button>
+      </div>
 
-    <SignaturePad ref="sigRef" :height="220" :width="null" pen-color="#111" background-color="#fff" />
+      <SignaturePad ref="sigRef" :height="220" :width="null" pen-color="#111" background-color="#fff" />
 
-    <div class="mt-2">
-      <label class="form-label small mb-1">Note (optional)</label>
-      <textarea v-model="signNote" rows="2" class="form-control" placeholder="Add a note…"></textarea>
-    </div>
+      <div class="mt-2">
+        <label class="form-label small mb-1">Note (optional)</label>
+        <textarea v-model="signNote" rows="2" class="form-control" placeholder="Add a note…"></textarea>
+      </div>
 
-    <div class="d-flex justify-content-end gap-2 mt-3">
-      <button type="button" class="btn btn-light" :disabled="submitting" @click="showSignature=false">Cancel</button>
-      <button type="button" class="btn btn-success" :disabled="submitting" @click="confirmDispatch">
-        {{ submitting ? 'Submitting…' : 'Sign & Dispatch' }}
-      </button>
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-light" :disabled="submitting"
+          @click="showSignature = false">Cancel</button>
+        <button type="button" class="btn btn-success" :disabled="submitting" @click="confirmDispatch">
+          {{ submitting ? 'Submitting…' : 'Sign & Dispatch' }}
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
 </template>
 <style scoped>
@@ -422,8 +438,16 @@ const sOf = (it: OrderLine) => bestForItem(it)
   animation: float 2.4s ease-in-out infinite;
   will-change: transform;
 }
+
 @keyframes float {
-  0%,100% { transform: translateY(0) }
-  50%     { transform: translateY(-4px) }
+
+  0%,
+  100% {
+    transform: translateY(0)
+  }
+
+  50% {
+    transform: translateY(-4px)
+  }
 }
 </style>

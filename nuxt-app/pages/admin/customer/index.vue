@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { definePageMeta,useNuxtApp } from '#imports';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, reactive, watch } from 'vue'
 
 definePageMeta({
     layout: 'admin',
@@ -19,20 +19,98 @@ interface Customer {
     Customer_Address: string;
     Loyalty_Points: number;
     created_at: string;
+    loyalty: Array<{
+      Points_Earned: number;
+    }>;
+    users: {
+      id: number;
+      No_Login: number | string;
+    };
 }
-
 
 const customers = ref<Customer[]>([]);
 
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
+
 const fetchCustomers = async (): Promise<void> => {
     try {
-        const response = await $axios.get('/api/customers');
-        customers.value = response.data;
-        console.log('Fetched customers:', customers.value);
+        const {data} = await $axios.get('/api/customers', {
+          params: {
+            page: table.page,
+            per_page: table.perPage,
+            search: table.search,
+            sort_by: table.sortBy,
+            sort_dir: table.sortDir,
+          },
+        });
+
+        customers.value = data.data;
+        console.log(customers.value);
+        pagination.value = {
+          total: data.total,
+          from: data.from,
+          to: data.to,
+          last_page: data.last_page,
+        };
     } catch (error) {
         console.error('Failed to fetch customers:', error);
     }
 };
+
+
+
+const blocking = ref<number | null>(null) // which user is being processed
+
+const blockUser = async (userId: number) => {
+    if (!confirm('Are you sure you want to block this user?')) return
+
+    try {
+        blocking.value = userId
+        await $axios.post(`/api/customers/${userId}/block`) // 👈 adjust URL if needed
+        await fetchCustomers() // refresh list
+    } catch (error) {
+        console.error('Error blocking user:', error)
+        alert('Failed to block user')
+    } finally {
+        blocking.value = null
+    }
+}
+
+const unblockUser = async (userId: number) => {
+    if (!confirm('Unblock this user?')) return
+
+    try {
+        blocking.value = userId
+        await $axios.post(`/api/customers/${userId}/unblock`) // 👈 adjust URL if needed
+        await fetchCustomers()
+    } catch (error) {
+        console.error('Error unblocking user:', error)
+        alert('Failed to unblock user')
+    } finally {
+        blocking.value = null
+    }
+}
+
+
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  fetchCustomers,
+  { immediate: true }
+);  
 
 onMounted(async () => {
     await fetchCustomers();
@@ -69,21 +147,17 @@ onMounted(async () => {
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <span>Show</span>
-                            <select class="form-select form-select-sm w-auto">
-                                <option>10</option>
-                                <option>15</option>
-                                <option>20</option>
-                            </select>
+                           
 
-                            <select class="form-select form-select-sm w-auto">
-                                <option>status</option>
-                                <option>Paid</option>
-                                <option>Pending</option>
-                            </select>
+                            <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
+              </select>
                         </div>
                         <div class="icon-field">
                             <input type="text" name="#0" class="form-control form-control-sm w-auto"
-                                placeholder="Search">
+                                placeholder="Search" v-model="table.search">
                             <span class="icon">
                                 <iconify-icon icon="ion:search-outline"></iconify-icon>
                             </span>
@@ -97,7 +171,7 @@ onMounted(async () => {
                             <tr>
                                 <th scope="col">
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" value="" id="checkAll">
+                                       
                                         <label class="form-check-label" for="checkAll">
                                             S.L
                                         </label>
@@ -109,6 +183,10 @@ onMounted(async () => {
                                 <th scope="col">Telephone</th>
                                 <th scope="col">Email Address</th>
                                 <th scope="col">Loyality Points</th>
+                                <th scope="col">View Orders</th>
+                                <th scope="col">View Cart</th>
+                                <th scope="col">View Favorites</th>
+                                <th scope="col">Block</th>
 
 
                              
@@ -119,8 +197,7 @@ onMounted(async () => {
                             <tr v-for="(customer, index) in customers" :key="customer.id">
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                        <input class="form-check-input" type="checkbox" :value="customer.id"
-                                            :id="'check' + customer.id">
+                                      
                                         <label class="form-check-label" :for="'check' + customer.id">
                                             {{ index + 1 }}
                                         </label>            
@@ -129,7 +206,22 @@ onMounted(async () => {
                                         <td>{{ customer.Customer_Full_Name }}</td>
                                         <td>{{ customer.Telephone }}</td>
                                         <td>{{ customer.Email_Address }}</td>
-                                        <td>{{ customer.Loyalty_Points }}</td>
+                                        <td>{{ customer.loyalty[0]?.Points_Earned }}</td>
+                                        <td><NuxtLink :to="`/admin/orders/customer/${customer.id}`">View Orders</NuxtLink></td>
+                                        <td><NuxtLink :to="`/admin/customer/cart/${customer.id}`">View Carts</NuxtLink></td>
+                                        <td><NuxtLink :to="`/admin/customer/favorites/${customer.id}`">View Favorites</NuxtLink></td>
+                                        <td>
+
+                                            <button type="button" class="btn btn-sm"
+                                        :class="customer.users?.No_Login === '1.0' ? 'btn-success' : 'btn-danger'"
+                                        :disabled="blocking === customer.users?.id"
+                                        @click="customer.users?.No_Login === '1.0' ? unblockUser(customer.users?.id) : blockUser(customer.users?.id)">
+                                        <span v-if="blocking === customer.users?.id" class="spinner-border spinner-border-sm me-1"
+                                            role="status" aria-hidden="true"></span>
+                                        {{ customer.users?.No_Login === '1.0' ? 'Unblock' : 'Block' }}
+                                    </button>
+
+                                        </td>
                                     </tr>
 
 
@@ -137,35 +229,42 @@ onMounted(async () => {
                         </tbody>
                     </table>
 
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-                        <span>Showing 1 to 10 of 12 entries</span>
-                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                            <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
-                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">1</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">2</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">3</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
-                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+            <span>
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+              }} entries
+            </span>
+            <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+              <!-- Prev -->
+              <li class="page-item" :class="{ disabled: table.page === 1 }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                  <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                </a>
+              </li>
+
+              <!-- Page numbers -->
+              <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                  p === table.page
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-primary-50 text-secondary-light'
+                ]">
+                  {{ p }}
+                </a>
+              </li>
+
+              <!-- Next -->
+              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
+                  <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                </a>
+              </li>
+            </ul>
+
+          </div>
                 </div>
             </div>
         </div>

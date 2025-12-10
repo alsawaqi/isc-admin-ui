@@ -1,10 +1,5 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'admin',
-  middleware: ['permission'],
-  permissions: 'shipping.shippers'
-})
-
+import { definePageMeta, useNuxtApp, navigateTo } from '#imports'
 import { ref, computed } from 'vue'
 import Stepper from '@/components/shipping/Stepper.vue'
 import ShipperFormBasic, { type BasicForm } from '@/components/shipping/ShipperFormBasic.vue'
@@ -14,7 +9,15 @@ import ShipperFormHeavy from '@/components/shipping/ShipperFormHeavy.vue'
 import ShipperFormRates, { type RatesPerDestination } from '@/components/shipping/ShipperFormRates.vue'
 import ShipperFormBoxes, { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
 
-const { $axios } = useNuxtApp()
+definePageMeta({
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'shipping.shippers'
+})
+
+
+
+const { $axios } = (useNuxtApp() as any)
 
 const stepsBase = ['Basic Details', 'Contacts', 'Destinations & Flags', 'Rates (Volume/Weight)', 'Review & Save']
 const active = ref(1)
@@ -25,6 +28,13 @@ const boxes = ref<StandardBox[]>([])
 
 const destinations = ref<DestinationRow[]>([])
 const rates = ref<RatesPerDestination[]>([]) // aligned by destination index
+
+
+const imageFile = ref<File | null>(null)
+
+const onImageSelected = (file: File | null) => {
+  imageFile.value = file
+}
 
 const basic = ref<BasicForm>({
   Shippers_Code: '', // generated server-side (not required client-side)
@@ -38,7 +48,13 @@ const basic = ref<BasicForm>({
   Shippers_Scope: 'local',
   Shippers_Type: '',
   Shippers_Rate_Mode: 'weight',
-  Shippers_Is_Active: true
+  Shippers_Is_Active: true,
+  Shippers_Image_Path: '',
+  Shippers_Size: '',
+  Shippers_Extenstion: '',
+  Shippers_Image_Type: '',
+  Shippers_COD: false
+
 })
 
 // Heavy step local state
@@ -114,7 +130,42 @@ const num = (v?: number | null, d = 3) =>
 const yesno = (b?: boolean) => (b ? 'Yes' : 'No')
 const dash = (v?: string | null) => (v && String(v).trim() ? v : '—')
 
+const appendFormData = (fd: FormData, data: any, parentKey = '') => {
+  if (data === null || data === undefined) return
 
+  if (Array.isArray(data)) {
+    data.forEach((value, index) => {
+      const key = parentKey ? `${parentKey}[${index}]` : String(index)
+      appendFormData(fd, value, key)
+    })
+  } else if (
+    typeof data === 'object' &&
+    !(data instanceof File) &&
+    !(data instanceof Blob)
+  ) {
+    Object.entries(data).forEach(([key, value]) => {
+      const fullKey = parentKey ? `${parentKey}[${key}]` : key
+      appendFormData(fd, value, fullKey)
+    })
+  } else {
+    if (!parentKey) return
+
+    // ✅ Files stay as File/Blob
+    if (data instanceof File || data instanceof Blob) {
+      fd.append(parentKey, data)
+      return
+    }
+
+    // ✅ Booleans → '1' / '0' so Laravel boolean rule always accepts them
+    if (typeof data === 'boolean') {
+      fd.append(parentKey, data ? '1' : '0')
+      return
+    }
+
+    // ✅ Numbers / strings → string
+    fd.append(parentKey, String(data))
+  }
+}
 
 
 const saveAll = async () => {
@@ -162,6 +213,7 @@ const saveAll = async () => {
         Shippers_Type: basic.value.Shippers_Type,
         Shippers_Rate_Mode: basic.value.Shippers_Rate_Mode,
         Shippers_Is_Active: !!basic.value.Shippers_Is_Active,
+        Shippers_COD: !!basic.value.Shippers_COD,      // ⭐ NEW
         Shippers_Meta: null
       },
 
@@ -200,9 +252,9 @@ const saveAll = async () => {
 
         return {
           basic: {
-             Shippers_Destination_Country_Id: d.Shippers_Destination_Country_Id ?? null,
-              Shippers_Destination_Region_Id:  d.Shippers_Destination_Region_Id ?? null,
-              Shippers_Destination_District_Id:d.Shippers_Destination_District_Id ?? null,
+            Shippers_Destination_Country_Id: d.Shippers_Destination_Country_Id ?? null,
+            Shippers_Destination_Region_Id: d.Shippers_Destination_Region_Id ?? null,
+            Shippers_Destination_District_Id: d.Shippers_Destination_District_Id ?? null,
             Shippers_Destination_Country: d.Shippers_Destination_Country || null,
             Shippers_Destination_Region: d.Shippers_Destination_Region || null,
             Shippers_Destination_District: d.Shippers_Destination_District || null,
@@ -244,9 +296,24 @@ const saveAll = async () => {
       }))
     }
 
-    await $axios.post('/api/v1/shipping/shippers', payload)
 
-    //console.log('Save response:', response.data)
+    const fd = new FormData()
+
+    appendFormData(fd, payload)
+
+    if (imageFile.value) {
+
+      fd.append('file', imageFile.value)
+    }
+
+
+    await $axios.post('/api/v1/shipping/shippers', fd, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+
 
     alert('Shipper setup saved successfully.')
     navigateTo('/admin/shipping/shippers')
@@ -281,43 +348,42 @@ const saveAll = async () => {
       <div class="card-body p-40">
 
         <!-- STEP 1 -->
-        <div v-if="active === 1">
-          <ShipperFormBasic v-model="basic" />
+        <div v-show="active === 1">
+          <ShipperFormBasic v-model="basic" @image-selected="onImageSelected" />
         </div>
 
         <!-- STEP 2 -->
-        <div v-else-if="active === 2">
+        <div v-show="active === 2">
           <ShipperFormContacts v-model="contacts" />
         </div>
 
 
-        <div v-else-if="active === 3">
+        <div v-show="active === 3">
           <ShipperFormDestinations v-model="destinations" />
         </div>
 
         <!-- 4: Rates -->
-        <div v-else-if="active === 4">
+        <div v-show="active === 4">
           <ShipperFormRates v-model="rates" :destinations="destinations" />
         </div>
 
 
 
         <!-- 5: Heavy (only when heavy) -->
-        <div v-else-if="basic.Shippers_Type === 'heavy' && active === 5">
+        <div v-show="basic.Shippers_Type === 'heavy' && active === 5">
           <ShipperFormHeavy v-model="heavy" :destinations="destinations" />
         </div>
 
 
-        <div v-else-if="
-          (basic.Shippers_Type !== 'heavy' && active === 5) ||
+        <div v-show="(basic.Shippers_Type !== 'heavy' && active === 5) ||
           (basic.Shippers_Type === 'heavy' && active === 6)
-        ">
+          ">
           <ShipperFormBoxes v-model="boxes" />
         </div>
 
 
 
-        <div v-else-if="active === steps.length">
+        <div v-show="active === steps.length">
           <div class="col-12 mb-16">
             <h6 class="fw-semibold mb-12">Review</h6>
 
@@ -329,7 +395,7 @@ const saveAll = async () => {
                   <tbody>
                     <tr>
                       <th class="w-25">Name</th>
-                      <td>{{ dash(basic.Shippers_Name) }}</td>
+                      <td>{{ dash(basic.Shippers_Image_Path) }}</td>
                     </tr>
                     <tr>
                       <th>Scope</th>

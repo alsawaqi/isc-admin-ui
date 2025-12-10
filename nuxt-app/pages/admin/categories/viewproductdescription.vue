@@ -117,7 +117,7 @@ const removedValueIds = ref<number[]>([])
 
 /** Fetch masters **/
 const fetchDepartments = async () => {
-  const res = await $axios.get('/api/productdepartment')
+  const res = await $axios.get('/api/productdepartment/all')
   departments.value = res.data
 }
 

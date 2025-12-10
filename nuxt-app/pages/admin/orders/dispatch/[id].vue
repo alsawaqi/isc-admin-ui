@@ -1,34 +1,38 @@
- <script setup lang="ts">
-definePageMeta({
-  layout: 'admin',
-  middleware: ['permission'],
-  permissions: 'departments'
-})
-
- 
+<script setup lang="ts">
+import { definePageMeta, useRoute, navigateTo, useNuxtApp } from '#imports'
 import { ref, onMounted, computed } from 'vue'
 import SignaturePad from '~/components/SignaturePad.vue'
 
-const { $axios } = useNuxtApp()
+definePageMeta({
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'departments',
+})
+
+const { $axios } = useNuxtApp() as any
 const route = useRoute()
 
-// id
+// ---- State ----
 const Orders_Id = computed(() => String(route.params.id || ''))
 
-// data
 const orders = ref<any>({ orderlist: [] })
 
-// signature modal ctrl
 const showSignature = ref(false)
 const submitting = ref(false)
 const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
 const signNote = ref('')
 
-// open/close
-const openSignatureModal = () => { showSignature.value = true }
-const closeSignatureModal = () => { showSignature.value = false; sigRef.value?.clear() }
+// ---- Modal handlers ----
+const openSignatureModal = () => {
+  showSignature.value = true
+}
 
-// fetch
+const closeSignatureModal = () => {
+  showSignature.value = false
+  sigRef.value?.clear()
+}
+
+// ---- Load order ----
 const getorders = async () => {
   try {
     const { data } = await $axios.get(`/api/orders-placed/${Orders_Id.value}`)
@@ -38,46 +42,70 @@ const getorders = async () => {
   }
 }
 
-// submit to /pack (route unchanged)
-const submitShippment = async () => {
+// ---- Submit shipment (SignaturePad → data URL → JSON) ----
+const submitShipment = async () => {
   if (!sigRef.value || sigRef.value.isEmpty()) {
     alert('Please add your signature first.')
     return
   }
+
   submitting.value = true
   try {
     const dataUrl = sigRef.value.toDataURL('image/png')
-    await $axios.post(`/api/orders-placed/${Orders_Id.value}/shipment`, {
-      signature: dataUrl,
-      note: signNote.value || null,
+
+
+        const res = await fetch(dataUrl)
+    const blob = await res.blob()
+
+
+    // 3) Wrap into a File (Laravel will see this as an uploaded file)
+    const file = new File([blob], `signature-${Orders_Id.value}.png`, {
+      type: 'image/png',
     })
+
+    // 4) Build FormData
+    const fd = new FormData()
+    fd.append('signature', file)
+    if (signNote.value) {
+      fd.append('note', signNote.value)
+    }
+
+    await $axios.post(`/api/orders-placed/${Orders_Id.value}/shipment`,  fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+
     closeSignatureModal()
-    navigateTo('/admin/orders/ordersshipment')
+    navigateTo('/admin/orders/ordersdispatch')
   } catch (e) {
-    console.error('Pack failed:', e)
-    alert('Failed to confirm shipment')
+    console.error('Shipment failed:', e)
+    alert('Failed to confirm shipment.')
   } finally {
     submitting.value = false
   }
 }
 
-// optional: print A5
+// ---- Print A5 ----
 const printA5 = (orientation: 'portrait' | 'landscape' = 'portrait') => {
   const id = 'a5-orientation-style'
   let s = document.getElementById(id) as HTMLStyleElement | null
   const css = `@page{size:A5 ${orientation}; margin:8mm;}`
-  if (s) s.innerHTML = css
-  else {
+
+  if (s) {
+    s.innerHTML = css
+  } else {
     s = document.createElement('style')
     s.id = id
     s.media = 'print'
     s.innerHTML = css
     document.head.appendChild(s)
   }
+
   window.print()
 }
 
-onMounted(async()=>{ await getorders() })
+onMounted(async () => {
+  await getorders()
+})
 </script>
 
 
@@ -92,12 +120,21 @@ onMounted(async()=>{ await getorders() })
       <!-- Actions -->
       <div class="card-header bg-white border-0 py-3 no-print">
         <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
-          <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1"
-                  @click="printA5()">
-            <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon> Print
+          <button
+            type="button"
+            class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1"
+            @click="printA5()"
+          >
+            <iconify-icon icon="basil:printer-outline" class="fs-5"></iconify-icon>
+            Print
           </button>
-          <button type="button" class="btn btn-sm btn-outline-success" @click.prevent="openSignatureModal">
-            Shippment
+
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-success"
+            @click.prevent="openSignatureModal"
+          >
+            Shipment
           </button>
         </div>
       </div>
@@ -110,15 +147,23 @@ onMounted(async()=>{ await getorders() })
               <div class="d-flex justify-content-between align-items-start gap-3">
                 <div>
                   <h3 class="h5 mb-1 fw-semibold">
-                    Invoice <span class="text-muted">#{{ orders.Transaction_Number }}
+                    Invoice
+                    <span class="text-muted">
+                      #{{ orders.Transaction_Number }}
                       <Qrcode :value="Orders_Id" variant="pixelated" :height="70" :scale="2" />
                     </span>
                   </h3>
-                  <div class="small text-muted">Date Issued: {{ new Date(orders.created_at).toLocaleString() }}</div>
+                  <div class="small text-muted">
+                    Date Issued: {{ new Date(orders.created_at).toLocaleString() }}
+                  </div>
                 </div>
                 <div class="text-end">
-                  <img :src="'https://isc-depot.com/images/logonew1.jpg'" alt="Logo"
-                       class="img-fluid mb-1" style="max-height:48px;">
+                  <img
+                    :src="'https://isc-depot.com/images/logonew1.jpg'"
+                    alt="Logo"
+                    class="img-fluid mb-1"
+                    style="max-height:48px;"
+                  >
                   <div class="small text-muted">ISC</div>
                 </div>
               </div>
@@ -130,17 +175,36 @@ onMounted(async()=>{ await getorders() })
                 <div class="col-md-6">
                   <h6 class="text-uppercase text-muted small mb-2">Issued For</h6>
                   <ul class="list-unstyled small mb-0">
-                    <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-' }}</li>
-                    <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.Designation || '-' }}</li>
-                    <li><span class="text-muted">Phone:</span> {{ orders.customer_contact?.Telephone || '-' }}</li>
+                    <li>
+                      <span class="text-muted">Name:</span>
+                      {{ orders.customer_contact?.Contact_Person_Name || '-' }}
+                    </li>
+                    <li>
+                      <span class="text-muted">Address:</span>
+                      {{ orders.customer_contact?.Designation || '-' }}
+                    </li>
+                    <li>
+                      <span class="text-muted">Phone:</span>
+                      {{ orders.customer_contact?.Telephone || '-' }}
+                    </li>
                   </ul>
                 </div>
+
                 <div class="col-md-6">
                   <h6 class="text-uppercase text-muted small mb-2">Invoice Info</h6>
                   <ul class="list-unstyled small mb-0">
-                    <li><span class="text-muted">Order Code:</span> {{ orders.Order_Code }}</li>
-                    <li><span class="text-muted">Issue Date:</span> {{ new Date(orders.created_at).toLocaleDateString() }}</li>
-                    <li><span class="text-muted">Shipper:</span> {{ orders.shipper?.Shippers_Name || '-' }}</li>
+                    <li>
+                      <span class="text-muted">Order Code:</span>
+                      {{ orders.Order_Code }}
+                    </li>
+                    <li>
+                      <span class="text-muted">Issue Date:</span>
+                      {{ new Date(orders.created_at).toLocaleDateString() }}
+                    </li>
+                    <li>
+                      <span class="text-muted">Shipper:</span>
+                      {{ orders.shipper?.Shippers_Name || '-' }}
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -162,8 +226,12 @@ onMounted(async()=>{ await getorders() })
                       <td class="text-muted">{{ i + 1 }}</td>
                       <td>{{ line.product?.Product_Name || '-' }}</td>
                       <td class="text-center">{{ line.Quantity }}</td>
-                      <td class="text-end">OMR {{ Number(line.Price || 0).toFixed(3) }}</td>
-                      <td class="text-end">OMR {{ Number(line.Subtotal || 0).toFixed(3) }}</td>
+                      <td class="text-end">
+                        OMR {{ Number(line.Price || 0).toFixed(3) }}
+                      </td>
+                      <td class="text-end">
+                        OMR {{ Number(line.Subtotal || 0).toFixed(3) }}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -179,7 +247,9 @@ onMounted(async()=>{ await getorders() })
                     <tbody>
                       <tr class="table-light">
                         <th>Total</th>
-                        <th class="text-end">OMR {{ Number(orders.Total_Price || 0).toFixed(3) }}</th>
+                        <th class="text-end">
+                          OMR {{ Number(orders.Total_Price || 0).toFixed(3) }}
+                        </th>
                       </tr>
                     </tbody>
                   </table>
@@ -203,17 +273,42 @@ onMounted(async()=>{ await getorders() })
     <div v-if="showSignature" class="sig-modal-backdrop">
       <div class="sig-modal" role="dialog" aria-modal="true" aria-label="Signature dialog">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="mb-0">Sign to confirm packing</h6>
-          <button type="button" class="btn btn-sm btn-light" @click="closeSignatureModal">×</button>
+          <h6 class="mb-0">Sign to confirm shipment</h6>
+          <button
+            type="button"
+            class="btn btn-sm btn-light"
+            @click="closeSignatureModal"
+          >
+            ×
+          </button>
         </div>
 
-        <SignaturePad ref="sigRef" :height="220" :lineWidth="2" penColor="#111" backgroundColor="#fff" />
+        <SignaturePad
+          ref="sigRef"
+          :height="220"
+          :lineWidth="2"
+          penColor="#111"
+          backgroundColor="#fff"
+        />
 
         <div class="d-flex gap-2 mt-3">
-          <input v-model="signNote" class="form-control form-control-sm" placeholder="Note (optional)" />
-          <button type="button" class="btn btn-sm btn-light" @click="sigRef?.clear()">Clear</button>
-          <button type="button" class="btn btn-sm btn-secondary" @click="closeSignatureModal">Cancel</button>
-          <button type="button" class="btn btn-sm btn-success" :disabled="submitting" @click="submitShippment">
+          <input
+            v-model="signNote"
+            class="form-control form-control-sm"
+            placeholder="Note (optional)"
+          />
+          <button type="button" class="btn btn-sm btn-light" @click="sigRef?.clear()">
+            Clear
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" @click="closeSignatureModal">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-success"
+            :disabled="submitting"
+            @click="submitShipment"
+          >
             <span v-if="submitting" class="spinner-border spinner-border-sm me-1"></span>
             Confirm & Sign
           </button>
@@ -222,3 +317,4 @@ onMounted(async()=>{ await getorders() })
     </div>
   </div>
 </template>
+

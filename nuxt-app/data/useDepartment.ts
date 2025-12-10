@@ -1,11 +1,13 @@
+import { useNuxtApp } from '#app';
 export const useDepartment = () => {
-  const { $axios } = useNuxtApp();
+  const { $axios } = (useNuxtApp() as any);
 
-  const createDepartment = async (name: string, uploadedImage: File | null) => {
+  const createDepartment = async (name: string, namear: string, uploadedImage: File | null) => {
   try {
     const formData = new FormData();
     formData.append('name', name);
-
+    formData.append('namear', namear);
+    
     if (uploadedImage) {
       formData.append('file', uploadedImage); // ✅ Now sending actual File
     }

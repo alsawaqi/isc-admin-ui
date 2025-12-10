@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports';
+import { ref, onMounted, watch } from 'vue'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'cities'
 })
 
-import { ref, onMounted, watch } from 'vue'
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any);
 
 interface Country {
   id: number;
@@ -83,7 +85,7 @@ const editDistricts = ref<District[]>([])
 
 /* ---------- API helpers ---------- */
 const fetchCountries = async () => {
-  const { data } = await $axios.get('/api/geo/countries')
+  const { data } = await $axios.get('/api/geo/countries/all')
   countries.value = data
 }
 

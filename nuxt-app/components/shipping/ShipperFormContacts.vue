@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-const { $axios } = useNuxtApp();
+import { useNuxtApp } from '#imports'
+const { $axios } = (useNuxtApp() as any);
 
 export interface ContactRow {
   Shippers_Contact_Name: string
@@ -48,7 +49,7 @@ const setPrimary = (i: number) => {
 
 const getDepartments = async () => {
   try {
-    const response = await $axios.get('/api/contact/departments');
+    const response = await $axios.get('/api/contact/departments/all');
     departments.value = response.data;
   } catch (error) {
     console.error('Failed to fetch departments:', error);
@@ -77,7 +78,9 @@ onMounted(async () => {
 
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Contact Designation <span class="text-danger-600">*</span></label>
-         
+            
+
+       
 
             <select v-model="rows[i].Contact_Department_Id" class="form-select radius-8">
               <option value="" disabled selected>Select Department</option>

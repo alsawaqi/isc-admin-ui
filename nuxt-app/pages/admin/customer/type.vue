@@ -1,16 +1,20 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports';
+import { ref, onMounted, reactive, watch } from 'vue';
+
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
     permissions: 'departments'
 
 });
-import { ref, onMounted } from 'vue';
-const { $axios } = useNuxtApp();
+
+const { $axios } = (useNuxtApp() as any);
 
 interface CustomerType {
     id: number;
     Customer_Type_Name: string;
+    Customer_Type_Name_Ar: string;
     Customer_Type_Description: string;
     created_at: string;
 }
@@ -18,15 +22,36 @@ interface CustomerType {
 const customerTypes = ref<CustomerType[]>([]);
 const isLoading = ref<boolean>(false);
 const CustomerTypeName = ref<string>('');
+const CustomerTypeNameAr = ref<string>('');
 const CustomerTypeDescription = ref<string>('');
 const successMessage = ref<boolean>(false);
 const errorMessage = ref<string>('');
 const isSubmitting = ref<boolean>(false);
-const showEdit = ref<boolean>(false)
+const showEdit = ref<boolean>(false);
+const savingEdit = ref<boolean>(false);
+
+
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
+
 
 const EditCustomer = reactive<CustomerType>({
     id: 0,
     Customer_Type_Name: '',
+    Customer_Type_Name_Ar: '',
     Customer_Type_Description: '',
     created_at: ''
 });
@@ -36,13 +61,26 @@ const EditCustomer = reactive<CustomerType>({
 const getCustomerTypes = async (): Promise<void> => {
     isLoading.value = true;
     try {
-        const response = await $axios.get('/api/customer-types');
-        console.log('Fetched customer types:', response.data);
+        const { data } = await $axios.get('/api/customer-types', {
+            params: {
+                page: table.page,
+                per_page: table.perPage,
+                search: table.search,
+                sort_by: table.sortBy,
+                sort_dir: table.sortDir,
+            },
+        });
 
-        customerTypes.value = response.data;
+        customerTypes.value = data.data;
+        pagination.value = {
+            total: data.total,
+            from: data.from,
+            to: data.to,
+            last_page: data.last_page,
+        };
     } catch (error) {
-        console.error('Failed to fetch customer types:', error);
-    }finally {
+    
+    } finally {
         isLoading.value = false;
     }
 };
@@ -54,14 +92,16 @@ const submitCustomerType = async (): Promise<void> => {
     try {
         const payload = {
             Customer_Type_Name: CustomerTypeName.value,
+            Customer_Type_Name_Ar: CustomerTypeNameAr.value,
             Customer_Type_Description: CustomerTypeDescription.value
         };
 
         const response = await $axios.post('/api/customer-types', payload);
-        console.log('Customer type created:', response.data);
+      
         successMessage.value = true;
         errorMessage.value = '';
         CustomerTypeName.value = '';
+        CustomerTypeNameAr.value = '';
         CustomerTypeDescription.value = '';
         await getCustomerTypes();
 
@@ -79,8 +119,9 @@ const submitCustomerType = async (): Promise<void> => {
 const closeEdit = () => {
     showEdit.value = false;
     errorMessage.value = '';
-    EditCustomer.id =0;
+    EditCustomer.id = 0;
     EditCustomer.Customer_Type_Name = '';
+    EditCustomer.Customer_Type_Name_Ar = '';
     EditCustomer.Customer_Type_Description = '';
     EditCustomer.created_at = '';
 }
@@ -90,24 +131,26 @@ const openEdit = (customerType: CustomerType) => {
     showEdit.value = true;
     EditCustomer.id = customerType.id;
     EditCustomer.Customer_Type_Name = customerType.Customer_Type_Name;
+    EditCustomer.Customer_Type_Name_Ar = customerType.Customer_Type_Name_Ar;
     EditCustomer.Customer_Type_Description = customerType.Customer_Type_Description;
     EditCustomer.created_at = customerType.created_at;
 
 }
 
-const savingEdit = ref<boolean>(false);
+
 
 const saveEdit = async () => {
-  
+
     savingEdit.value = true;
     try {
         const payload = {
             Customer_Type_Name: EditCustomer.Customer_Type_Name,
+            Customer_Type_Name_Ar: EditCustomer.Customer_Type_Name_Ar,
             Customer_Type_Description: EditCustomer.Customer_Type_Description
         };
 
         const response = await $axios.put(`/api/customer-types/${EditCustomer.id}`, payload);
-        console.log('Customer type updated:', response.data);
+     
         await getCustomerTypes();
         closeEdit();
     } catch (error) {
@@ -131,11 +174,19 @@ const deleteCustomerType = async (id: number) => {
     }
 };
 
+
+
+
 onMounted(async (): Promise<void> => {
     await getCustomerTypes();
 });
 
-
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  async () => {
+    await getCustomerTypes();
+  }
+);
 
 </script>
 <template>
@@ -169,6 +220,18 @@ onMounted(async (): Promise<void> => {
                                     Customer Type Name* <span class="text-danger-600">*</span></label>
                                 <input type="text" v-model="CustomerTypeName" class="form-control radius-8" id="address"
                                     placeholder="Enter Customer Type Name" required>
+                            </div>
+
+
+
+                        </div>
+
+                        <div class="col-sm-12">
+                            <div class="mb-20">
+                                <label for="address" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                    Customer Type Name Arabic* <span class="text-danger-600">*</span></label>
+                                <input type="text" v-model="CustomerTypeNameAr" class="form-control radius-8"
+                                    id="address" placeholder="Enter Customer Type Name Arabic" required>
                             </div>
 
 
@@ -221,27 +284,24 @@ onMounted(async (): Promise<void> => {
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <div class="d-flex align-items-center gap-2">
                             <span>Show</span>
-                            <select class="form-select form-select-sm w-auto">
-                                <option>10</option>
-                                <option>15</option>
-                                <option>20</option>
-                            </select>
+                            <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
+              </select>
 
-                            <select class="form-select form-select-sm w-auto">
-                                <option>status</option>
-                                <option>Paid</option>
-                                <option>Pending</option>
-                            </select>
+
+                            
                         </div>
                         <div class="icon-field">
                             <input type="text" name="#0" class="form-control form-control-sm w-auto"
-                                placeholder="Search">
+                                placeholder="Search" v-model="table.search">
                             <span class="icon">
                                 <iconify-icon icon="ion:search-outline"></iconify-icon>
                             </span>
                         </div>
                     </div>
-                  
+
                 </div>
                 <div class="card-body">
 
@@ -258,73 +318,82 @@ onMounted(async (): Promise<void> => {
                             <tr>
                                 <th scope="col">
                                     <div class="form-check style-check d-flex align-items-center">
-                                       
+
                                         <label class="form-check-label" for="checkAll">
                                             S.L
                                         </label>
                                     </div>
                                 </th>
 
-                               <th scope="col">Customer Type Name</th>
-                               <th scope="col">Customer Type Description</th>
+                                <th scope="col">Customer Type Name</th>
+                                <th scope="col">Customer Type Description</th>
 
 
                                 <th scope="col">Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                           <tr v-for="(type, index) in customerTypes" :key="type.id">
+                            <tr v-for="(type, index) in customerTypes" :key="type.id">
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                         {{ index + 1 }}
+                                        {{ index + 1 }}
                                     </div>
                                 </td>
                                 <td>{{ type.Customer_Type_Name }}</td>
                                 <td>{{ type.Customer_Type_Description }}</td>
                                 <td>
-                                    
-                                    <a  @click.prevent="openEdit(type)" class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
+
+                                    <a @click.prevent="openEdit(type)"
+                                        class="w-32-px h-32-px bg-success-focus text-success-main rounded-circle d-inline-flex align-items-center justify-content-center">
                                         <iconify-icon icon="lucide:edit"></iconify-icon>
                                     </a>
-                                    <a  @click.prevent="deleteCustomerType(type.id)" class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    <a @click.prevent="deleteCustomerType(type.id)"
+                                        class="w-32-px h-32-px bg-danger-focus text-danger-main rounded-circle d-inline-flex align-items-center justify-content-center">
                                         <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
                                     </a>
-                                    </td>
+                                </td>
 
 
-                           </tr>
+                            </tr>
                         </tbody>
                     </table>
 
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-                        <span>Showing 1 to 10 of 12 entries</span>
-                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                            <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
-                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">1</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">2</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px"
-                                    href="javascript:void(0)">3</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                                    href="javascript:void(0)">
-                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+            <span>
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+              }} entries
+            </span>
+            <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+              <!-- Prev -->
+              <li class="page-item" :class="{ disabled: table.page === 1 }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                  <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                </a>
+              </li>
+
+              <!-- Page numbers -->
+              <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                  p === table.page
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-primary-50 text-secondary-light'
+                ]">
+                  {{ p }}
+                </a>
+              </li>
+
+              <!-- Next -->
+              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
+                  <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                </a>
+              </li>
+            </ul>
+
+          </div>
 
 
                 </div>
@@ -339,7 +408,7 @@ onMounted(async (): Promise<void> => {
 
 
 
-      <!-- EDIT POPUP WITH TRANSITION -->
+    <!-- EDIT POPUP WITH TRANSITION -->
     <transition name="fade-scale" appear>
         <div v-if="showEdit"
             class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
@@ -365,12 +434,21 @@ onMounted(async (): Promise<void> => {
                             v-model="EditCustomer.Customer_Type_Name" placeholder="Country Name">
                     </div>
 
+
+                    <div class="mb-16">
+                        <label for="editCountryName" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Customer Type Name <span class="text-danger-600">*</span>
+                        </label>
+                        <input id="editCountryName" type="text" class="form-control radius-8"
+                            v-model="EditCustomer.Customer_Type_Name_Ar" placeholder="Country Name">
+                    </div>
+
                     <div class="mb-16">
                         <label for="editCountryNameAr" class="form-label fw-semibold text-primary-light text-sm mb-8">
-                            Customer Type Description  
+                            Customer Type Description
                         </label>
                         <input id="editCountryNameAr" type="text" class="form-control radius-8"
-                            v-model="EditCustomer.Customer_Type_Description"   dir="auto">
+                            v-model="EditCustomer.Customer_Type_Description" dir="auto">
                     </div>
 
 

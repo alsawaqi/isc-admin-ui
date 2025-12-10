@@ -1,19 +1,24 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports'
+import { ref, onMounted, reactive, watch } from 'vue'
+import { useProductType } from '~/data/producttype'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'departments'
 })
 
-import { ref, onMounted } from 'vue'
-import { useProductType } from '~/data/producttype'
+ 
+
+
 
 const { getProductType } = useProductType()
-const { $axios } = useNuxtApp()
+const { $axios } = (useNuxtApp() as any)
 
 interface ProductType {
   id: number | string;
   Product_Types_Name: string;
+  Product_Types_Name_Ar: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -22,6 +27,7 @@ interface ProductType {
    CREATE FORM STATE
 -------------------------*/
 const name = ref<string>('')            // create form input
+const nameAr = ref<string>('')          // create form input for Arabic name
 const isSubmit = ref<boolean>(false)    // for disabling buttons / spinner (optional)
 
 /* list */
@@ -34,6 +40,8 @@ const isEditOpen = ref<boolean>(false)
 
 const editId = ref<number | string | null>(null)
 const editName = ref<string>('')
+const editNameAr = ref<string>('')
+
 
 
 const table = reactive({
@@ -60,12 +68,14 @@ const submitForm = async () => {
   try {
     await $axios.post('/api/producttype', {
       name: name.value,
+      name_ar: nameAr.value
     })
 
     alert('Product Type created successfully')
 
     // clear form
     name.value = ''
+    nameAr.value = ''
 
     // refresh list
     productTypes.value = await getProductType()
@@ -86,6 +96,7 @@ const openEditModal = (pt: ProductType) => {
   isEditOpen.value = true
   editId.value = pt.id
   editName.value = pt.Product_Types_Name
+  editNameAr.value = pt.Product_Types_Name_Ar
 }
 
 /* ------------------------
@@ -149,6 +160,7 @@ const updateProductType = async (e: Event) => {
     // send the updated name
     const payload = {
       name: editName.value,
+      name_ar: editNameAr.value
     }
 
     // If your backend expects PUT:
@@ -247,6 +259,26 @@ onMounted(async () => {
               </div>
             </div>
 
+
+              <div class="col-sm-12">
+              <div class="mb-20">
+                <label
+                  for="new-product-type"
+                  class="form-label fw-semibold text-primary-light text-sm mb-8"
+                >
+                  Name (Arabic)<span class="text-danger-600">*</span>
+                </label>
+                <input
+                  id="new-product-type"
+                  type="text"
+                  class="form-control radius-8"
+                  v-model="nameAr"
+                  placeholder="Enter product type name in arabic"
+                  required
+                />
+              </div>
+            </div>
+
             <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
               <button
                 type="reset"
@@ -314,7 +346,7 @@ onMounted(async () => {
               <tr>
                 <th scope="col">
                   <div class="form-check style-check d-flex align-items-center">
-                    <input class="form-check-input" type="checkbox" value="" id="checkAll" />
+                     
                     <label class="form-check-label" for="checkAll">S.L</label>
                   </div>
                 </th>
@@ -332,11 +364,7 @@ onMounted(async () => {
               >
                 <td>
                   <div class="form-check style-check d-flex align-items-center">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      :id="'check-' + producttype.id"
-                    />
+                    
                     <label
                       class="form-check-label"
                       :for="'check-' + producttype.id"
@@ -455,6 +483,20 @@ onMounted(async () => {
               class="form-control radius-8"
               placeholder="Enter product type name"
               v-model="editName"
+              required
+            />
+          </div>
+
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-sm">
+              Name (Arabic) <span class="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              class="form-control radius-8"
+              placeholder="Enter product type name in arabic"
+              v-model="editNameAr"
               required
             />
           </div>

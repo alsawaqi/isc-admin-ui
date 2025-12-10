@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
+
+const props = defineProps<{ modelValue: boolean }>()
+const emit = defineEmits(['update:modelValue', 'confirm'])
+
+function emitClose() {
+  emit('update:modelValue', false)
+}
+
+function emitConfirm() {
+  emit('confirm')
+  emitClose()
+}
+</script>
 <template>
   <TransitionRoot as="template" :show="modelValue">
     <Dialog as="div" class="relative z-50" @close="emitClose">
@@ -18,19 +33,3 @@
     </Dialog>
   </TransitionRoot>
 </template>
-
-<script setup lang="ts">
-import { Dialog, DialogPanel, DialogTitle, TransitionRoot } from '@headlessui/vue'
-
-const props = defineProps<{ modelValue: boolean }>()
-const emit = defineEmits(['update:modelValue', 'confirm'])
-
-function emitClose() {
-  emit('update:modelValue', false)
-}
-
-function emitConfirm() {
-  emit('confirm')
-  emitClose()
-}
-</script>

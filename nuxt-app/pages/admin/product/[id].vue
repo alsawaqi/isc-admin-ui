@@ -118,7 +118,7 @@ const volumeUnitOptions = [
 
 
 const fetchDepartments = async () => {
-  const res = await $axios.get('/api/productdepartment')
+  const res = await $axios.get('/api/productdepartment/all')
   departments.value = res.data
 }
 
@@ -138,7 +138,7 @@ const fetchSubSubDepartments = async () => {
 const getManufactures = async () => {
 
   try {
-    const response = await $axios.get('/api/productmanufacture');
+    const response = await $axios.get('/api/productmanufacture/all');
     ProductManufactures.value = response.data;
   } catch (error) {
     console.error('Failed to fetch manufactures:', error);

@@ -2,7 +2,7 @@
 import { ref, watch, onBeforeUnmount, toRaw } from 'vue'
 
 export interface DestLite {
-  id?: number
+  id?: number | null
   Shippers_Destination_Country?: string | null
   Shippers_Destination_Region?: string | null
   Shippers_Destination_District?: string | null

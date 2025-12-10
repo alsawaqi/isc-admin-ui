@@ -157,6 +157,48 @@ const syncTestLength = () => {
 }
 watch(() => props.destinations.length, syncTestLength, { immediate: true })
 
+
+// helper to coerce rule fields to numbers
+const ruleNum = (v: any, fallback: number | null = null): number | null => {
+  if (v === null || v === undefined) return fallback
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+// hydrate tests[] from volumetricRule once data arrives
+const hydrateTestsFromRule = () => {
+  const n = rows.value.length
+
+  for (let i = 0; i < n; i++) {
+    const rule = rows.value[i]?.volumetricRule
+    if (!tests.value[i]) {
+      tests.value[i] = {
+        grossKg: null,
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
+        divisor: 4000
+      }
+    }
+
+    if (rule) {
+      const t = tests.value[i]
+
+      // only fill if still empty so we don't overwrite user-typed values
+      if (t.lengthCm == null) t.lengthCm = ruleNum(rule.maxL_cm)
+      if (t.widthCm  == null) t.widthCm  = ruleNum(rule.maxW_cm)
+      if (t.heightCm == null) t.heightCm = ruleNum(rule.maxH_cm)
+
+      // keep divisor in sync with the rule
+      t.divisor = ruleNum(rule.divisor, 4000) ?? 4000
+    }
+  }
+}
+
+// run once and on changes
+watch(rows, hydrateTestsFromRule, { deep: true, immediate: true })
+
+
 /** --- Helpers --- */
 const toNum = (v: any): number | null => {
   const n = Number(v)
@@ -260,6 +302,7 @@ const addBand = (i: number) => {
   </div>
 
   <div v-for="(d, i) in props.destinations" :key="i" class="border radius-12 p-3 mb-16">
+ 
     <h6 class="fw-semibold mb-12">
       Destination #{{ i+1 }} —
       {{ d.Shippers_Destination_Country || '-' }} /

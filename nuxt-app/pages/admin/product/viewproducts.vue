@@ -1,13 +1,33 @@
 <script setup lang="ts">
+import { definePageMeta, useNuxtApp } from '#imports';
 definePageMeta({
-     layout: 'admin',
-     middleware: ['permission'],
-     permissions: 'departments'
-     
-    });
- 
-import { ref, onMounted ,defineEmits, defineProps, watch,nextTick } from 'vue'
-const { $axios, $r2Url } = useNuxtApp();
+  layout: 'admin',
+  middleware: ['permission'],
+  permissions: 'departments'
+
+});
+
+import { ref, onMounted, defineEmits, defineProps, watch, nextTick, reactive } from 'vue'
+const { $axios, $r2Url } = (useNuxtApp() as any);
+
+
+
+const table = reactive({
+  page: 1,
+  perPage: 10,
+  search: '',
+  sortBy: 'id',
+  sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+  total: 0,
+  from: 0,
+  to: 0,
+  last_page: 1,
+})
+
 
 
 const showSpecModal = ref(false)
@@ -24,15 +44,15 @@ type SpecRow = {
 
 
 
-interface Products{
-    id: number;
-    Product_Name: string;
-    created_at: string;
-    Product_Price: number;
+interface Products {
+  id: number;
+  Product_Name: string;
+  created_at: string;
+  Product_Price: number;
 }
 
 interface ProductSpec {
-  id?: number; 
+  id?: number;
   product_specification_description_id: number;
   Product_Specification_Description_Name: string;
   value: string;
@@ -88,7 +108,7 @@ const props = defineProps<{
   existingImages: string[]
 }>()
 
- 
+
 
 const files = ref<File[]>([])
 const previews = ref<string[]>([])
@@ -171,33 +191,33 @@ const openSpecModal = async (productId: number) => {
 
 
     productSpecs.value = res.data.map((s: any) => {
-  const options = (s.options || []).map((v: any) => ({
-    id: String(v.id),
-    value: v.value
-  }))
+      const options = (s.options || []).map((v: any) => ({
+        id: String(v.id),
+        value: v.value
+      }))
 
-  // If null, choose first option (or '' if none)
-  let selected = s.product_specification_value_id != null
-    ? String(s.product_specification_value_id)
-    : (options[0]?.id ?? '')
+      // If null, choose first option (or '' if none)
+      let selected = s.product_specification_value_id != null
+        ? String(s.product_specification_value_id)
+        : (options[0]?.id ?? '')
 
-  // (If the saved id isn’t in options, inject placeholder)
-  if (selected && !options.some((o: { id: any; }) => o.id === selected)) {
-    const label = s.selected_label ?? `(Saved) #${selected}`
-    options.unshift({ id: selected, value: label })
-  }
+      // (If the saved id isn’t in options, inject placeholder)
+      if (selected && !options.some((o: { id: any; }) => o.id === selected)) {
+        const label = s.selected_label ?? `(Saved) #${selected}`
+        options.unshift({ id: selected, value: label })
+      }
 
-  return {
-    id: s.id ?? null,
-    product_specification_description_id: Number(s.product_specification_description_id),
-    Product_Specification_Description_Name: s.Product_Specification_Description_Name,
-    options,
-    product_specification_value_id: selected
-  }
-})
+      return {
+        id: s.id ?? null,
+        product_specification_description_id: Number(s.product_specification_description_id),
+        Product_Specification_Description_Name: s.Product_Specification_Description_Name,
+        options,
+        product_specification_value_id: selected
+      }
+    })
 
 
-    
+
 
     // Debug: confirm types/values
     console.table(productSpecs.value.map(x => ({
@@ -238,12 +258,12 @@ const saveSpecifications = async () => {
   console.table(specsPayload)
 
   try {
-   const { data } =  await $axios.post('/api/product-specifications-update', {
+    const { data } = await $axios.post('/api/product-specifications-update', {
       product_id: currentProductId,
       specifications: specsPayload
     })
 
-       // pull summary for UI
+    // pull summary for UI
     saveResult.value = {
       created: data?.summary?.created ?? 0,
       updated: data?.summary?.updated ?? 0,
@@ -254,7 +274,7 @@ const saveSpecifications = async () => {
 
 
     showSpecModal.value = false
-     showSummaryModal.value = true
+    showSummaryModal.value = true
   } catch (err) {
     console.error('Failed to save specs', err)
   }
@@ -262,193 +282,235 @@ const saveSpecifications = async () => {
 
 
 const fetchProducts = async () => {
-    try {
-        const response = await $axios.get('/api/productmaster');
-        products.value = response.data;
-        console.log('Products fetched successfully:', response.data);
-    } catch (error) {
-        console.error('Error fetching products:', error);
+  try {
+    const { data } = await $axios.get('/api/productmaster', {
+
+      params: {
+        page: table.page,
+        per_page: table.perPage,
+        search: table.search,
+        sort_by: table.sortBy,
+        sort_dir: table.sortDir,
+      },
+    });
+    products.value = data.data;
+
+
+    pagination.value = {
+      total: data.total,
+      from: data.from,
+      to: data.to,
+      last_page: data.last_page,
     }
+
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  }
 };
 
+
+watch(
+  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  async () => {
+    await fetchProducts()
+  }
+)
 
 const deleteProduct = async (id: number) => {
   alert('Are you sure you want to delete this product?');
-    if (!confirm('Are you sure you want to delete this product?')) {
-        return; // Exit if the user cancels the deletion
-    }
-    try {
-         await $axios.delete(`/api/productmaster/${id}`);
-         await fetchProducts(); // Refresh the product list after deletion
-    } catch (error) {
-        console.error('Error deleting product:', error);
-    }
+  if (!confirm('Are you sure you want to delete this product?')) {
+    return; // Exit if the user cancels the deletion
+  }
+  try {
+    await $axios.delete(`/api/productmaster/${id}`);
+    await fetchProducts(); // Refresh the product list after deletion
+  } catch (error) {
+    console.error('Error deleting product:', error);
+  }
 };
 
 
-onMounted(async() => {
-    await fetchProducts();
+onMounted(async () => {
+  await fetchProducts();
 });
 
 </script>
 <template>
 
-    <div class="dashboard-main-body">
+  <div class="dashboard-main-body">
 
 
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-              <h6 class="fw-semibold mb-0" style="color: #ef4444">View Products</h6>
-              <ul class="d-flex align-items-center gap-2">
-                  <li class="fw-medium">
-                      <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
-                          <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
-                          Dashboard
-                      </a>
-                  </li>
-                  <li>-</li>
-                  <li class="fw-medium">View Products</li>
-              </ul>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+      <h6 class="fw-semibold mb-0" style="color: #ef4444">View Products</h6>
+      <ul class="d-flex align-items-center gap-2">
+        <li class="fw-medium">
+          <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
+            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+            Dashboard
+          </a>
+        </li>
+        <li>-</li>
+        <li class="fw-medium">View Products</li>
+      </ul>
+    </div>
+
+
+
+
+    <div class="card h-100 p-0 radius-12 overflow-hidden border-0 shadow-sm">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 bg-light">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted">Show</span>
+            <select v-model="table.perPage" class="form-select form-select-sm w-auto">
+               <option :value="10">10</option>
+                <option :value="15">15</option>
+                <option :value="20">20</option>
+            </select>
+
+           
           </div>
 
-
- 
-
-          <div class="card h-100 p-0 radius-12 overflow-hidden">
-              <div class="card">
-                  <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
-                      <div class="d-flex flex-wrap align-items-center gap-3">
-                          <div class="d-flex align-items-center gap-2">
-                              <span>Show</span>
-                              <select class="form-select form-select-sm w-auto">
-                                  <option>10</option>
-                                  <option>15</option>
-                                  <option>20</option>
-                              </select>
-
-                              <select class="form-select form-select-sm w-auto">
-                                  <option>Status</option>
-                                  <option>Paid</option>
-                                  <option>Pending</option>
-                              </select>
-                          </div>
-                          <div class="icon-field">
-                              <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
-                              <span class="icon">
-                                  <iconify-icon icon="ion:search-outline"></iconify-icon>
-                              </span>
-                          </div>
-                      </div>
-                    
-                  </div>
-                  <div class="card-body">
-
-                    <table class="table w-full text-sm text-left text-gray-700 dark:text-gray-300 table-bordered shadow-sm border mb-0">
-                        <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white">
-                          <tr>
-                            <th scope="col" class="p-3">
-                              <div class="form-check style-check flex items-center">
-                              
-                                <label class="ms-2 form-check-label" for="serial">S.L</label>
-                              </div>
-                            </th>
-                            <th scope="col" class="p-3">
-                              <div class="flex items-center gap-1">Name
-                                
-                              </div>
-                            </th>
-                            <th scope="col" class="p-3">
-                              <div class="flex items-center gap-1">Created Date
-                                
-                              </div>
-                            </th>
-                            <th scope="col" class="p-3">
-                              <div class="flex items-center gap-1">Amount
-                                
-                              </div>
-                            </th>
-                            <th scope="col" class="p-3 text-center">Edit Specifications</th>
-                            <th scope="col" class="p-3 text-center">Edit Barcodes</th>
-                            <th scope="col" class="p-3 text-center">Edit Image</th>
-                            <th scope="col" class="p-3 text-center">Action</th>
-                          </tr>
-                        </thead>
-
-                          <tbody>
-                            <tr v-for="(product, index) in products" :key="product.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                              <td class="p-3">
-                                <div class="form-check style-check flex items-center">
-                                
-                                  <label class="ms-2 form-check-label">{{ index + 1 }}</label>
-                                </div>
-                              </td>
-                              <td class="p-3">
-                                <div class="flex items-center">
-                                  {{ product.Product_Name }}
-                                </div>
-                              </td>
-                              <td class="p-3">{{ product.created_at }}</td>
-                              <td class="p-3">OMR {{ product.Product_Price }}</td>
-                              <td class="p-3 text-center">
-                                <a @click.prevent="openSpecModal(product.id)" class="w-8 h-8 bg-yellow-100 text-yellow-600 rounded-full inline-flex items-center justify-center">
-                                  <iconify-icon icon="mdi:format-list-bulleted-type"></iconify-icon>
-                                </a>
-                              </td>
-                              <td class="p-3 text-center">
-                                <a @click.prevent="openBarcodeModal(product.id)" class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full inline-flex items-center justify-center">
-                                  <iconify-icon icon="mdi:barcode-scan"></iconify-icon>
-                                </a>
-                              </td>
-                              <td class="p-3 text-center">
-                                <button class="btn btn-sm btn-outline-primary" @click="openImagesModal(product.id)">View Images</button>
-                              </td>
-                              <td class="p-3 text-center flex gap-1 justify-center">
-
-                                <NuxtLink :to="`/admin/product/${product.id}`" class="w-10 h-10 bg-green-100 text-green-600 rounded-full inline-flex items-center justify-center">
-                                  <iconify-icon icon="lucide:edit"></iconify-icon>
-                                </NuxtLink>
-                                <a @click.prevent="deleteProduct(product.id)" class="w-8 h-8 bg-red-100 text-red-600 rounded-full inline-flex items-center justify-center">
-                                  <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
-                                </a>
-                              </td>
-                            </tr>
-                          </tbody>
-                    </table>
-
-                    
-
-                      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-                          <span>Showing 1 to 10 of 12 entries</span>
-                          <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                              <li class="page-item">
-                                  <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                      <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                                  </a>
-                              </li>
-                              <li class="page-item">
-                                  <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">1</a>
-                              </li>
-                              <li class="page-item">
-                                  <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">2</a>
-                              </li>
-                              <li class="page-item">
-                                  <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">3</a>
-                              </li>
-                              <li class="page-item">
-                                  <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                      <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                                  </a>
-                              </li>
-                          </ul>
-                      </div>
-                  </div>
-              </div>
+          <div class="icon-field d-flex align-items-center position-relative">
+            <input type="text" name="#0" class="form-control form-control-sm ps-5" v-model="table.search"  placeholder="Search products...">
+            <span class="icon position-absolute start-0 ps-2 d-flex align-items-center h-100 text-muted">
+              <iconify-icon icon="ion:search-outline" class="fs-5"></iconify-icon>
+            </span>
           </div>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <table class="table mb-0 align-middle text-sm text-gray-700 dark:text-gray-300 table-bordered">
+          <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white">
+            <tr>
+              <th scope="col" class="p-3">
+                <div class="form-check style-check d-flex align-items-center gap-2">
+                  <label class="form-check-label fw-semibold small" for="serial">S.L</label>
+                </div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Name</div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Created Date</div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Amount</div>
+              </th>
+              <th scope="col" class="p-3 text-center fw-semibold">Edit Specifications</th>
+              <th scope="col" class="p-3 text-center fw-semibold">Edit Barcodes</th>
+              <th scope="col" class="p-3 text-center fw-semibold">Edit Image</th>
+              <th scope="col" class="p-3 text-center fw-semibold">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="(product, index) in products" :key="product.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
+              <td class="p-3">
+                <div class="d-flex align-items-center">
+                  <span class="text-muted small">{{ index + 1 }}</span>
+                </div>
+              </td>
+
+              <td class="p-3">
+                <div class="d-flex flex-column">
+                  <span class="fw-semibold">{{ product.Product_Name }}</span>
+                </div>
+              </td>
+
+              <td class="p-3">
+                <span class="text-muted small">{{ product.created_at }}</span>
+              </td>
+
+              <td class="p-3">
+                <span class="fw-semibold">OMR {{ product.Product_Price }}</span>
+              </td>
+
+              <!-- Edit Specifications -->
+              <td class="p-3 text-center">
+                <button type="button" @click.prevent="openSpecModal(product.id)"
+                  class="btn-icon-lg bg-yellow-100 text-yellow-700">
+                  <iconify-icon icon="mdi:format-list-bulleted-type" class="fs-5"></iconify-icon>
+                </button>
+              </td>
+
+              <!-- Edit Barcodes -->
+              <td class="p-3 text-center">
+                <button type="button" @click.prevent="openBarcodeModal(product.id)"
+                  class="btn-icon-lg bg-blue-100 text-blue-700">
+                  <iconify-icon icon="mdi:barcode-scan" class="fs-5"></iconify-icon>
+                </button>
+              </td>
+
+              <!-- Edit Image -->
+              <td class="p-3 text-center">
+                <button type="button"
+                  class="btn btn-sm btn-outline-primary px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1"
+                  @click="openImagesModal(product.id)">
+                  <iconify-icon icon="mdi:image-multiple-outline" class="fs-5"></iconify-icon>
+                  <span>View Images</span>
+                </button>
+              </td>
+
+              <!-- Actions -->
+              <td class="p-3 text-center">
+                <div class="d-flex justify-content-center gap-2 table-action-group">
+                  <NuxtLink :to="`/admin/product/${product.id}`" class="btn-icon-lg bg-green-100 text-green-700">
+                    <iconify-icon icon="lucide:edit" class="fs-5"></iconify-icon>
+                  </NuxtLink>
+
+                  <button type="button" @click.prevent="deleteProduct(product.id)"
+                    class="btn-icon-lg bg-red-100 text-red-700">
+                    <iconify-icon icon="mingcute:delete-2-line" class="fs-5"></iconify-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-3 px-3">
+          <span class="text-muted small">
+            
+              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+                            }} entries
+          
+          </span>
+          <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center mb-0">
+            <li class="page-item" :class="{ disabled: table.page === 1 }">
+              <a class="page-link pagination-btn" href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                <iconify-icon icon="ep:d-arrow-left" class="fs-5"></iconify-icon>
+              </a>
+            </li>
+            <li v-for="p in pagination.last_page" :key="p" class="page-item">
+              <a  :class="['page-link pagination-btn',
+
+                            p=== table.page ? 'active' : ''
+              ] 
+                           " @click="table.page = p" href="javascript:void(0)">
+                
+                {{ p }}
+              
+              </a>
+            </li>
+          
+            <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+              <a class="page-link pagination-btn" href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
+                <iconify-icon icon="ep:d-arrow-right" class="fs-5"></iconify-icon>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
 
 
-   </div>
+
+  </div>
 
 
- <teleport to="body">
+  <teleport to="body">
     <div v-if="showSpecModal">
       <div class="modal-backdrop fade show"></div>
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
@@ -460,18 +522,16 @@ onMounted(async() => {
             </div>
 
             <div class="modal-body">
-              <div v-for="(spec, index) in productSpecs" :key="spec.product_specification_description_id" class="row mb-3 align-items-center">
+              <div v-for="(spec, index) in productSpecs" :key="spec.product_specification_description_id"
+                class="row mb-3 align-items-center">
                 <label class="form-label mb-0 col-3">{{ spec.Product_Specification_Description_Name }}</label>
                 <div class="col-9">
-                 
 
 
-              <select
-                    class="form-select"
+
+                  <select class="form-select"
                     :key="`${spec.product_specification_description_id}:${spec.product_specification_value_id}`"
-                    v-model="spec.product_specification_value_id" 
-                    :disabled="spec.options.length === 0"
-                  >
+                    v-model="spec.product_specification_value_id" :disabled="spec.options.length === 0">
                     <option value="" disabled>Select a value</option> <!-- empty string -->
                     <option v-for="opt in spec.options" :key="opt.id" :value="opt.id">
                       {{ opt.value }}
@@ -491,37 +551,38 @@ onMounted(async() => {
         </div>
       </div>
     </div>
-</teleport>
+  </teleport>
 
-<teleport to="body">
-  <div v-if="showBarcodeModal">
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Manage Barcodes</h5>
-            <button type="button" class="btn-close" @click="showBarcodeModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <div v-for="(barcode, index) in productBarcodes" :key="index" class="d-flex align-items-center gap-2 mb-2">
-              <input v-model="productBarcodes[index]" type="text" class="form-control" placeholder="Enter Barcode" />
-              <button class="btn btn-sm btn-danger" @click="removeBarcode(index)">×</button>
+  <teleport to="body">
+    <div v-if="showBarcodeModal">
+      <div class="modal-backdrop fade show"></div>
+      <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Manage Barcodes</h5>
+              <button type="button" class="btn-close" @click="showBarcodeModal = false"></button>
             </div>
-            <button class="btn btn-outline-primary" @click="addBarcode">Add Barcode</button>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" @click="showBarcodeModal = false">Close</button>
-            <button class="btn btn-primary" @click="saveBarcodes">Save</button>
+            <div class="modal-body">
+              <div v-for="(barcode, index) in productBarcodes" :key="index"
+                class="d-flex align-items-center gap-2 mb-2">
+                <input v-model="productBarcodes[index]" type="text" class="form-control" placeholder="Enter Barcode" />
+                <button class="btn btn-sm btn-danger" @click="removeBarcode(index)">×</button>
+              </div>
+              <button class="btn btn-outline-primary" @click="addBarcode">Add Barcode</button>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" @click="showBarcodeModal = false">Close</button>
+              <button class="btn btn-primary" @click="saveBarcodes">Save</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</teleport>
+  </teleport>
 
 
-<teleport to="body">
+  <teleport to="body">
     <div v-if="show" class="modal-backdrop fade show"></div>
     <div v-if="show" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
       <div class="modal-dialog modal-lg">
@@ -534,19 +595,11 @@ onMounted(async() => {
             <input type="file" multiple @change="handleFiles" class="form-control" />
 
             <div class="d-flex flex-wrap mt-3 gap-3">
-              <div
-                v-for="(image, index) in existingImages"
-                :key="'existing-' + index"
-                class="border p-2"
-              >
+              <div v-for="(image, index) in existingImages" :key="'existing-' + index" class="border p-2">
                 <img :src="`${$r2Url}/` + image" class="img-thumbnail" width="100" height="100" />
               </div>
 
-              <div
-                v-for="(preview, index) in previews"
-                :key="'preview-' + index"
-                class="border p-2"
-              >
+              <div v-for="(preview, index) in previews" :key="'preview-' + index" class="border p-2">
                 <img :src="preview" class="img-thumbnail" width="100" height="100" />
               </div>
             </div>
@@ -562,68 +615,119 @@ onMounted(async() => {
 
 
   <teleport to="body">
-  <div v-if="showSummaryModal">
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              Specification Update Summary
-              <small class="ms-2 text-muted" v-if="saveResult">
-                (created: {{ saveResult.created }}, updated: {{ saveResult.updated }}, unchanged: {{ saveResult.unchanged }})
-              </small>
-            </h5>
-            <button type="button" class="btn-close" @click="showSummaryModal = false"></button>
-          </div>
-          <div class="modal-body">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Product</th>
-                  <th>Specification</th>
-                  <th>Action</th>
-                  <th class="text-nowrap">Old Value</th>
-                  <th class="text-nowrap">New/Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(r, i) in saveResult?.enriched_rows || []" :key="i">
-                  <td>{{ r.index + 1 }}</td>
-                  <td>{{ r.product_name }}</td>
-                  <td>{{ r.spec_name }}</td>
-                  <td class="text-capitalize">{{ r.action }}</td>
+    <div v-if="showSummaryModal">
+      <div class="modal-backdrop fade show"></div>
+      <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                Specification Update Summary
+                <small class="ms-2 text-muted" v-if="saveResult">
+                  (created: {{ saveResult.created }}, updated: {{ saveResult.updated }}, unchanged: {{
+                  saveResult.unchanged }})
+                </small>
+              </h5>
+              <button type="button" class="btn-close" @click="showSummaryModal = false"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Product</th>
+                    <th>Specification</th>
+                    <th>Action</th>
+                    <th class="text-nowrap">Old Value</th>
+                    <th class="text-nowrap">New/Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(r, i) in saveResult?.enriched_rows || []" :key="i">
+                    <td>{{ r.index + 1 }}</td>
+                    <td>{{ r.product_name }}</td>
+                    <td>{{ r.spec_name }}</td>
+                    <td class="text-capitalize">{{ r.action }}</td>
 
-                  <!-- For updated: show from -> to; for others: show value -->
-                  <td>
-                    <template v-if="r.action === 'updated'">
-                      {{ r.from_label ?? '—' }}
-                    </template>
-                    <template v-else>—</template>
-                  </td>
-                  <td>
-                    <template v-if="r.action === 'updated'">
-                      {{ r.to_label ?? '—' }}
-                    </template>
-                    <template v-else>
-                      {{ r.value_label ?? '—' }}
-                    </template>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-primary" @click="showSummaryModal = false">OK</button>
+                    <!-- For updated: show from -> to; for others: show value -->
+                    <td>
+                      <template v-if="r.action === 'updated'">
+                        {{ r.from_label ?? '—' }}
+                      </template>
+                      <template v-else>—</template>
+                    </td>
+                    <td>
+                      <template v-if="r.action === 'updated'">
+                        {{ r.to_label ?? '—' }}
+                      </template>
+                      <template v-else>
+                        {{ r.value_label ?? '—' }}
+                      </template>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-primary" @click="showSummaryModal = false">OK</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</teleport>
+  </teleport>
 
 
 
 
 </template>
+
+<style scoped>
+.btn-icon-lg {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.btn-icon-lg:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+  filter: brightness(1.03);
+}
+
+.icon-field input.form-control {
+  min-width: 220px;
+  border-radius: 999px;
+}
+
+.table-action-group {
+  gap: 0.5rem;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.pagination-btn.active,
+.pagination-btn:hover {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+</style>

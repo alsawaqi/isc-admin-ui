@@ -4,7 +4,8 @@ import { useGeoApi } from '@/services/geoApi'
 
 // What parent (wizard) stores per row (names + flags)
 export interface DestinationRow {
- // NEW: IDs you’ll persist
+  // NEW: IDs you’ll persist
+   id?: number | null 
   Shippers_Destination_Country_Id?: number | null
   Shippers_Destination_Region_Id?: number | null
   Shippers_Destination_District_Id?: number | null
@@ -14,7 +15,7 @@ export interface DestinationRow {
   Shippers_Destination_Region?: string | null
   Shippers_Destination_District?: string | null
 
-  Shippers_Destination_Rate_Applicability?: 'weight'|'volume'|'both'|'special'|''|null
+  Shippers_Destination_Rate_Applicability?: 'weight' | 'volume' | 'both' | 'special' | '' | null
   Shippers_Destination_Country_Preference?: string | null
   Shippers_Destination_Region_Preference?: string | null
   Shippers_Destination_District_Preference?: string | null
@@ -22,6 +23,7 @@ export interface DestinationRow {
   Shippers_Destination_Rate_Weight?: boolean
   Shippers_Destination_Rate_Applicable?: boolean
   Shippers_Destination_Rate_Box?: boolean
+  rate_mode?: 'weight' | 'volume' | 'both'
 }
 
 /**
@@ -31,22 +33,22 @@ export interface DestinationRow {
 const rows = defineModel<DestinationRow[]>({ default: [] })
 
 // Lookup DTOs
-interface Country { id:number; Country_Name:string }
-interface Region  { id:number; Country_Id:number; Region_Name:string }
-interface District{ id:number; Region_Id:number; District_Name:string }
+interface Country { id: number; Country_Name: string }
+interface Region { id: number; Country_Id: number; Region_Name: string }
+interface District { id: number; Region_Id: number; District_Name: string }
 
 // ----- lookups & caches -----
-const countries    = ref<Country[]>([])
-const regionsMap   = ref<Record<number, Region[]>>({})     // key: countryId
+const countries = ref<Country[]>([])
+const regionsMap = ref<Record<number, Region[]>>({})     // key: countryId
 const districtsMap = ref<Record<string, District[]>>({})   // key: `${countryId}-${regionId}`
 
 // per-row *ID* selections (UI) while rows store *names* (payload)
-type Sel = { countryId:number|''; regionId:number|''; districtId:number|'' }
+type Sel = { countryId: number | ''; regionId: number | ''; districtId: number | '' }
 const selections = ref<Sel[]>([])
 
 const ensureSelRows = () => {
   while (selections.value.length < rows.value.length)
-    selections.value.push({ countryId:'', regionId:'', districtId:'' })
+    selections.value.push({ countryId: '', regionId: '', districtId: '' })
   if (selections.value.length > rows.value.length)
     selections.value.splice(rows.value.length)
 }
@@ -60,18 +62,18 @@ const loadCountries = async () => {
   countries.value = data || []
 }
 
-const loadRegions = async (countryId:number) => {
+const loadRegions = async (countryId: number) => {
   if (!countryId) return
   if (regionsMap.value[countryId]) return
   const { data } = await listRegions(countryId)
   regionsMap.value[countryId] = data || []
 }
 
-const loadDistricts = async (countryId:number, regionId:number) => {
+const loadDistricts = async (countryId: number, regionId: number) => {
   if (!countryId || !regionId) return
   const key = `${countryId}-${regionId}`
   if (districtsMap.value[key]) return
-  const { data } = await listDistricts({ country_id: countryId, region_id: regionId })
+  const { data } = await listDistricts({ region_id: regionId })
   districtsMap.value[key] = data || []
 }
 
@@ -126,7 +128,7 @@ const hydrateSelectionsFromRows = async () => {
 }
 
 // ----- UI handlers (map IDs -> names on the rows array) -----
-const onCountryChange = async (i:number) => {
+const onCountryChange = async (i: number) => {
   const sel = selections.value[i]
   const name = countries.value.find(c => c.id === sel.countryId)?.Country_Name || null
 
@@ -144,7 +146,7 @@ const onCountryChange = async (i:number) => {
   if (sel.countryId) await loadRegions(sel.countryId as number)
 }
 
-const onRegionChange = async (i:number) => {
+const onRegionChange = async (i: number) => {
   const sel = selections.value[i]
   const regs = regionsMap.value[sel.countryId as number] || []
   const name = regs.find(r => r.id === sel.regionId)?.Region_Name || null
@@ -162,7 +164,7 @@ const onRegionChange = async (i:number) => {
   }
 }
 
-const onDistrictChange = (i:number) => {
+const onDistrictChange = (i: number) => {
   const sel = selections.value[i]
   const key = `${sel.countryId}-${sel.regionId}`
   const ds = districtsMap.value[key] || []
@@ -173,7 +175,7 @@ const onDistrictChange = (i:number) => {
 }
 // ----- add/remove -----
 const addRow = () => {
-   rows.value.push({
+  rows.value.push({
     Shippers_Destination_Country_Id: null,   // NEW
     Shippers_Destination_Region_Id: null,    // NEW
     Shippers_Destination_District_Id: null,  // NEW
@@ -192,7 +194,7 @@ const addRow = () => {
   ensureSelRows()
 }
 
-const removeRow = (i:number) => {
+const removeRow = (i: number) => {
   rows.value.splice(i, 1)
   selections.value.splice(i, 1)
 }
@@ -212,7 +214,7 @@ onMounted(async () => {
 
     <div v-if="rows.length === 0" class="text-muted">No destinations added.</div>
 
-    <div v-for="(r,i) in rows" :key="i" class="border p-3 radius-8 mb-12">
+    <div v-for="(r, i) in rows" :key="i" class="border p-3 radius-8 mb-12">
       <div class="row">
         <!-- Country -->
         <div class="col-sm-4 mb-12">
@@ -226,18 +228,10 @@ onMounted(async () => {
         <!-- Region -->
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">Region</label>
-          <select
-            v-model="selections[i].regionId"
-            class="form-control radius-8"
-            :disabled="!selections[i].countryId"
-            @change="onRegionChange(i)"
-          >
+          <select v-model="selections[i].regionId" class="form-control radius-8" :disabled="!selections[i].countryId"
+            @change="onRegionChange(i)">
             <option value="">-- Select Region --</option>
-            <option
-              v-for="rg in (regionsMap[selections[i].countryId as number] || [])"
-              :key="rg.id"
-              :value="rg.id"
-            >
+            <option v-for="rg in (regionsMap[selections[i].countryId as number] || [])" :key="rg.id" :value="rg.id">
               {{ rg.Region_Name }}
             </option>
           </select>
@@ -246,18 +240,11 @@ onMounted(async () => {
         <!-- District -->
         <div class="col-sm-4 mb-12">
           <label class="form-label text-sm">District</label>
-          <select
-            v-model="selections[i].districtId"
-            class="form-control radius-8"
-            :disabled="!selections[i].regionId"
-            @change="onDistrictChange(i)"
-          >
+          <select v-model="selections[i].districtId" class="form-control radius-8" :disabled="!selections[i].regionId"
+            @change="onDistrictChange(i)">
             <option value="">-- Select District --</option>
-            <option
-              v-for="d in (districtsMap[`${selections[i].countryId}-${selections[i].regionId}`] || [])"
-              :key="d.id"
-              :value="d.id"
-            >
+            <option v-for="d in (districtsMap[`${selections[i].countryId}-${selections[i].regionId}`] || [])"
+              :key="d.id" :value="d.id">
               {{ d.District_Name }}
             </option>
           </select>
@@ -280,13 +267,16 @@ onMounted(async () => {
           <label class="form-label text-sm">Preferences (optional)</label>
           <div class="row">
             <div class="col-sm-4 mb-8">
-              <input v-model="r.Shippers_Destination_Country_Preference" class="form-control radius-8" placeholder="Country preference"/>
+              <input v-model="r.Shippers_Destination_Country_Preference" class="form-control radius-8"
+                placeholder="Country preference" />
             </div>
             <div class="col-sm-4 mb-8">
-              <input v-model="r.Shippers_Destination_Region_Preference" class="form-control radius-8" placeholder="Region preference"/>
+              <input v-model="r.Shippers_Destination_Region_Preference" class="form-control radius-8"
+                placeholder="Region preference" />
             </div>
             <div class="col-sm-4 mb-8">
-              <input v-model="r.Shippers_Destination_District_Preference" class="form-control radius-8" placeholder="District preference"/>
+              <input v-model="r.Shippers_Destination_District_Preference" class="form-control radius-8"
+                placeholder="District preference" />
             </div>
           </div>
         </div>
@@ -296,21 +286,25 @@ onMounted(async () => {
           <label class="form-label text-sm">Rate Flags</label>
           <div class="d-flex gap-4">
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Volume" :id="'v-'+i" class="form-check-input"/>
-              <label class="form-check-label" :for="'v-'+i">Volume</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Volume" :id="'v-' + i"
+                class="form-check-input" />
+              <label class="form-check-label" :for="'v-' + i">Volume</label>
             </div>
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Weight" :id="'w-'+i" class="form-check-input"/>
-              <label class="form-check-label" :for="'w-'+i">Weight</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Weight" :id="'w-' + i"
+                class="form-check-input" />
+              <label class="form-check-label" :for="'w-' + i">Weight</label>
             </div>
             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-'+i" class="form-check-input"/>
-              <label class="form-check-label" :for="'a-'+i">Applicable</label>
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-' + i"
+                class="form-check-input" />
+              <label class="form-check-label" :for="'a-' + i">Applicable</label>
             </div>
 
-             <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Box" :id="'b-'+i" class="form-check-input"/>
-              <label class="form-check-label" :for="'b-'+i">Box: Yes/No</label>
+            <div class="form-check">
+              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Box" :id="'b-' + i"
+                class="form-check-input" />
+              <label class="form-check-label" :for="'b-' + i">Box: Yes/No</label>
             </div>
           </div>
         </div>

@@ -17,12 +17,14 @@ const { createDepartment, getDepartments, DeleteDepartment } = useDepartment()
 interface EditDepartment {
   id: number | null;
   name: string;
+  namear: string;
   image: File | null;
 }
 
 
 const departments = ref<any[]>([])
 const departmentName = ref<string>('')
+const departmentNamear = ref<string>('')
 const uploadedImage = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
 
@@ -44,6 +46,7 @@ const department = ref<any>(null);
 const editedDepartment = reactive<EditDepartment>({
   id: null,
   name: '',
+  namear: '',
   image: null,
 });
 
@@ -156,8 +159,9 @@ const handleSubmit = async (e: Event) => {
 
   try {
 
-    await createDepartment(departmentName.value, uploadedImage.value);
+    await createDepartment(departmentName.value, departmentNamear.value , uploadedImage.value);
     departmentName.value = '';
+    departmentNamear.value = '';
     uploadedImage.value = null;
     previewUrl.value = null;
     await getdepartment();
@@ -171,9 +175,6 @@ const handleSubmit = async (e: Event) => {
 
 
 const UpdateSubmit = async (e: Event): Promise<void> => {
-
-
-
   e.preventDefault();
   isSubmit.value = true;
 
@@ -181,6 +182,7 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
     const formData = new FormData();
 
     formData.append('name', editedDepartment.name ?? '');
+    formData.append('namear', editedDepartment.namear ?? '');
 
     // If user chose a new file, send it
     if (editedDepartment.image instanceof File) {
@@ -252,6 +254,7 @@ const TogglePopup = (dept?: any) => {
 
     editedDepartment.id = dept?.id ?? null;
     editedDepartment.name = dept?.Product_Department_Name ?? '';
+    editedDepartment.namear = dept?.Product_Department_Name_Ar ?? '';
     editedDepartment.image = null; // reset new upload
 
     // show current department image from DB or null
@@ -309,6 +312,13 @@ const toggleSort = (column: string) => {
                   placeholder="Enter Your Name" required>
               </div>
 
+
+              <div class="mb-20">
+                <label for="addressar" class="form-label fw-semibold text-primary-light text-sm mb-8"> Name (Arabic)* <span
+                    class="text-danger-600">*</span></label>
+                <input type="text" v-model="departmentNamear" class="form-control radius-8" id="addressar"
+                  placeholder="Enter Your Name in Arabic" required>
+              </div>
 
               <div class="mb-20">
 
@@ -436,6 +446,8 @@ const toggleSort = (column: string) => {
               </tr>
             </thead>
             <tbody>
+ 
+
               <tr v-for="(dept, index) in departments" :key="dept.id">
                 <td>
                   <div class="form-check style-check d-flex align-items-center">
@@ -533,9 +545,15 @@ const toggleSort = (column: string) => {
         <!-- Body (your form) -->
         <form @submit.prevent="UpdateSubmit">
           <div class="mb-3">
-            <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold text-sm">Name Arabic<span class="text-danger">*</span></label>
             <input type="text" class="form-control radius-8" placeholder="Enter department name"
               v-model="editedDepartment.name" required />
+          </div>
+
+           <div class="mb-3">
+            <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control radius-8" placeholder="Enter department name"
+              v-model="editedDepartment.namear" required />
           </div>
 
           <div class="mb-3">

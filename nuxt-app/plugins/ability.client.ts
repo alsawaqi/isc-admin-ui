@@ -1,5 +1,5 @@
 import { AbilityBuilder, createMongoAbility } from '@casl/ability' // 👈 also fixes deprecation warning
-
+import { defineNuxtPlugin, useRuntimeConfig } from '#app'
 export default defineNuxtPlugin(() => {
   if (!process.client) return // ✅ ensures it runs only in browser
 

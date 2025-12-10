@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { ref, computed, onMounted } from 'vue'
-import { useRoute,definePageMeta, useNuxtApp,navigateTo } from '#imports'
+import { useRoute, definePageMeta, useNuxtApp, navigateTo } from '#imports'
 import Stepper from '@/components/shipping/Stepper.vue'
 import ShipperFormBasic, { type BasicForm } from '@/components/shipping/ShipperFormBasic.vue'
 import ShipperFormContacts, { type ContactRow } from '@/components/shipping/ShipperFormContacts.vue'
@@ -88,11 +88,32 @@ function ensureRatesAligned() {
   const need = destinations.value.length
   const have = rates.value.length
   if (need > have) {
-    for (let i = have; i < need; i++) rates.value.push({ volumeBands: [], weightBands: [] })
+    for (let i = have; i < need; i++) {
+      rates.value.push({
+        volumeBands: [],
+        weightBands: [],
+        volumetricRule: {
+          enabled: false,
+          divisor: null,
+          maxL_cm: null,
+          maxW_cm: null,
+          maxH_cm: null,
+        },
+      })
+    }
   } else if (need < have) {
     rates.value.splice(need)
   }
 }
+
+const imageFile = ref<File | null>(null)
+
+// pass a handler down to ShipperFormBasic:
+// <ShipperFormBasic v-model="basic" @image-change="onImageChange" />
+const onImageChange = (file: File | null) => {
+  imageFile.value = file
+}
+
 
 // Minimal validation
 const validateBasic = () => {
@@ -110,6 +131,8 @@ const goNext = () => {
   }
   if (active.value < steps.value.length) active.value++
 }
+
+
 const goPrev = () => { if (active.value > 1) active.value-- }
 
 // -------- Load existing shipper --------
@@ -117,6 +140,8 @@ async function loadShipper() {
   busy.value = true
   try {
     const { data } = await $axios.get(`/api/v1/shipping/shippers/${shipperId}`)
+
+ 
 
     // Basic
     basic.value = {
@@ -131,7 +156,14 @@ async function loadShipper() {
       Shippers_Scope: data.shipper.Shippers_Scope,
       Shippers_Type: data.shipper.Shippers_Type,
       Shippers_Rate_Mode: data.shipper.Shippers_Rate_Mode,
-      Shippers_Is_Active: !!data.shipper.Shippers_Is_Active
+      Shippers_Is_Active: !!data.shipper.Shippers_Is_Active,
+      Shippers_COD: !!data.shipper.Shippers_COD,
+      // 🔴 Shippers_COD missing here
+
+        Shippers_Image_Path: data.shipper.Shippers_Image_Path ?? null,
+  Shippers_Size: data.shipper.Shippers_Size ?? null,
+  Shippers_Extenstion: data.shipper.Shippers_Extenstion ?? null,
+  Shippers_Image_Type: data.shipper.Shippers_Image_Type ?? null,
     }
 
     // Contacts
@@ -141,29 +173,65 @@ async function loadShipper() {
       Shippers_Contact_Office_No: c.Shippers_Contact_Office_No,
       Shippers_Contact_GSM_No: c.Shippers_Contact_GSM_No,
       Shippers_Contact_Email_Address: c.Shippers_Contact_Email_Address,
-      Shippers_Is_Primary: !!c.Shippers_Is_Primary
+      Shippers_Is_Primary: !!c.Shippers_Is_Primary,
+      Contact_Department_Id: c.Contact_Department_Id ?? null,
     }))
 
     // Destinations (+flags embedded)
-    const dests = (data.destinations ?? [])
-    destinations.value = dests.map((d: any) => ({
-      Shippers_Destination_Country: d.Shippers_Destination_Country,
-      Shippers_Destination_Region: d.Shippers_Destination_Region,
-      Shippers_Destination_District: d.Shippers_Destination_District,
-      Shippers_Destination_Rate_Applicability: d.Shippers_Destination_Rate_Applicability,
-      Shippers_Destination_Country_Preference: d.Shippers_Destination_Country_Preference,
-      Shippers_Destination_Region_Preference: d.Shippers_Destination_Region_Preference,
-      Shippers_Destination_District_Preference: d.Shippers_Destination_District_Preference,
-      Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
-      Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
-      Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
-      Shippers_Destination_Rate_Box: !!d.Shippers_Destination_Rate_Box, // NEW flag
-    }))
+    const dests = data.destinations ?? []
+
+  destinations.value = dests.map((d: any) => ({
+  id: d.id,   // 👈 keep PK
+
+  Shippers_Destination_Country_Id: d.basic?.Shippers_Destination_Country_Id ?? null,
+  Shippers_Destination_Region_Id:  d.basic?.Shippers_Destination_Region_Id ?? null,
+  Shippers_Destination_District_Id:d.basic?.Shippers_Destination_District_Id ?? null,
+
+  Shippers_Destination_Country:
+    d.basic?.Shippers_Destination_Country
+    ?? d.country?.Country_Name
+    ?? null,
+
+  Shippers_Destination_Region:
+    d.basic?.Shippers_Destination_Region
+    ?? d.region?.Region_Name
+    ?? null,
+
+  Shippers_Destination_District:
+    d.basic?.Shippers_Destination_District
+    ?? d.district?.District_Name
+    ?? null,
+
+  Shippers_Destination_Rate_Applicability:
+    d.basic?.Shippers_Destination_Rate_Applicability ?? null,
+  Shippers_Destination_Country_Preference:
+    d.basic?.Shippers_Destination_Country_Preference ?? null,
+  Shippers_Destination_Region_Preference:
+    d.basic?.Shippers_Destination_Region_Preference ?? null,
+  Shippers_Destination_District_Preference:
+    d.basic?.Shippers_Destination_District_Preference ?? null,
+
+  Shippers_Destination_Rate_Volume: !!d.flags?.Shippers_Destination_Rate_Volume,
+  Shippers_Destination_Rate_Weight: !!d.flags?.Shippers_Destination_Rate_Weight,
+  Shippers_Destination_Rate_Applicable:
+    d.flags?.Shippers_Destination_Rate_Applicable ?? true,
+  Shippers_Destination_Rate_Box: !!d.flags?.Shippers_Destination_Rate_Box,
+
+  rate_mode: d.rate_mode ?? 'weight',
+}))
+
 
     // Rates per destination
     rates.value = dests.map((d: any) => ({
       volumeBands: d.volume_bands ?? [],
-      weightBands: d.weight_bands ?? []
+      weightBands: d.weight_bands ?? [],
+      volumetricRule: {
+        enabled: !!d.volumetric_rule?.enabled,
+        divisor: d.volumetric_rule?.divisor ?? null,
+        maxL_cm: d.volumetric_rule?.maxL_cm ?? null,
+        maxW_cm: d.volumetric_rule?.maxW_cm ?? null,
+        maxH_cm: d.volumetric_rule?.maxH_cm ?? null,
+      },
     }))
     ensureRatesAligned()
 
@@ -216,8 +284,6 @@ async function loadShipper() {
   }
 }
 
-onMounted(loadShipper)
-
 // -------- Save (PUT) --------
 const saveAll = async () => {
   const err = validateBasic()
@@ -239,38 +305,74 @@ const saveAll = async () => {
         Shippers_Type: basic.value.Shippers_Type,
         Shippers_Rate_Mode: basic.value.Shippers_Rate_Mode,
         Shippers_Is_Active: !!basic.value.Shippers_Is_Active,
-        Shippers_Meta: null
+        Shippers_COD: !!basic.value.Shippers_COD,
+        Shippers_Meta: null,
       },
-      contacts: contacts.value,
-      destinations: destinations.value.map((d, i) => ({
-        basic: {
-          Shippers_Destination_Country: d.Shippers_Destination_Country || null,
-          Shippers_Destination_Region: d.Shippers_Destination_Region || null,
-          Shippers_Destination_District: d.Shippers_Destination_District || null,
-          Shippers_Destination_Rate_Applicability: d.Shippers_Destination_Rate_Applicability ?? d.Shippers_Destination_Rate_Applicability ?? null,
-          Shippers_Destination_Country_Preference: d.Shippers_Destination_Country_Preference || null,
-          Shippers_Destination_Region_Preference: d.Shippers_Destination_Region_Preference || null,
-          Shippers_Destination_District_Preference: d.Shippers_Destination_District_Preference || null
-        },
-        flags: {
-          Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
-          Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
-          Shippers_Destination_Rate_Applicable: d.Shippers_Destination_Rate_Applicable !== false,
-          Shippers_Destination_Rate_Box: !!(d as any).Shippers_Destination_Rate_Box, // NEW flag
-        },
-        volume_bands: (rates.value[i]?.volumeBands || []),
-        weight_bands: (rates.value[i]?.weightBands || []),
-        heavy_rates:
-          (basic.value.Shippers_Type === 'heavy' ? (heavy.value.heavyRates || []) : [])
-            .filter(hr => hr.destinationIndex === i)
-            .map(hr => ({
-              vehicle_type: hr.vehicleType,
-              Shippers_Flat_Rate: hr.Shippers_Flat_Rate ?? null,
-              Shippers_Hourly_Rate: hr.Shippers_Hourly_Rate ?? null,
-              Shippers_Min_Hours: hr.Shippers_Min_Hours ?? 0,
-              Shippers_Currency: hr.Shippers_Currency || 'OMR'
-            }))
-      })),
+      contacts: contacts.value, 
+      
+      destinations: destinations.value.map((d, i) => {
+        const r = rates.value[i] || {}
+
+        return {
+
+            id: (d as any).id ?? null,     
+            
+          basic: {
+            Shippers_Destination_Country_Id: (d as any).Shippers_Destination_Country_Id ?? null,
+            Shippers_Destination_Region_Id: (d as any).Shippers_Destination_Region_Id ?? null,
+            Shippers_Destination_District_Id: (d as any).Shippers_Destination_District_Id ?? null,
+
+            Shippers_Destination_Country: d.Shippers_Destination_Country || null,
+            Shippers_Destination_Region: d.Shippers_Destination_Region || null,
+            Shippers_Destination_District: d.Shippers_Destination_District || null,
+            Shippers_Destination_Rate_Applicability:
+              d.Shippers_Destination_Rate_Applicability ?? null,
+            Shippers_Destination_Country_Preference:
+              d.Shippers_Destination_Country_Preference || null,
+            Shippers_Destination_Region_Preference:
+              d.Shippers_Destination_Region_Preference || null,
+            Shippers_Destination_District_Preference:
+              d.Shippers_Destination_District_Preference || null,
+          },
+
+          // important: send rate_mode (per-dest or fallback)
+          rate_mode: (d as any).rate_mode || basic.value.Shippers_Rate_Mode || 'weight',
+
+          flags: {
+            Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
+            Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
+            Shippers_Destination_Rate_Applicable:
+              d.Shippers_Destination_Rate_Applicable !== false,
+            Shippers_Destination_Rate_Box: !!(d as any).Shippers_Destination_Rate_Box,
+          },
+
+          volume_bands: r.volumeBands || [],
+          weight_bands: r.weightBands || [],
+
+          // 🔴 NEW: send volumetric_rule for update()
+          volumetric_rule: r.volumetricRule
+            ? {
+              enabled: !!r.volumetricRule.enabled,
+              divisor: r.volumetricRule.divisor ?? null,
+              maxL_cm: r.volumetricRule.maxL_cm ?? null,
+              maxW_cm: r.volumetricRule.maxW_cm ?? null,
+              maxH_cm: r.volumetricRule.maxH_cm ?? null,
+            }
+            : null,
+
+          heavy_rates:
+            (basic.value.Shippers_Type === 'heavy' ? (heavy.value.heavyRates || []) : [])
+              .filter(hr => hr.destinationIndex === i)
+              .map(hr => ({
+                vehicle_type: hr.vehicleType,
+                Shippers_Flat_Rate: hr.Shippers_Flat_Rate ?? null,
+                Shippers_Hourly_Rate: hr.Shippers_Hourly_Rate ?? null,
+                Shippers_Min_Hours: hr.Shippers_Min_Hours ?? 0,
+                Shippers_Currency: hr.Shippers_Currency || 'OMR',
+              })),
+        }
+      }),
+
       vehicles: (basic.value.Shippers_Type === 'heavy' ? (heavy.value.vehicles || []) : []),
       standard_boxes: boxes.value.map(b => ({
         Box_Code: b.Box_Code || null,
@@ -284,7 +386,22 @@ const saveAll = async () => {
       }))
     }
 
-    await $axios.put(`/api/v1/shipping/shippers/${shipperId}`, payload)
+    const formData = new FormData()
+    formData.append('payload', JSON.stringify(payload))
+
+    if (imageFile.value) {
+      formData.append('file', imageFile.value)
+    }
+
+
+    formData.append('_method', 'PUT')
+
+
+    await $axios.post(
+      `/api/v1/shipping/shippers/${shipperId}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
     alert('Shipper updated successfully.')
     navigateTo('/admin/shipping/shippers')
   } catch (e: any) {
@@ -293,6 +410,11 @@ const saveAll = async () => {
     busy.value = false
   }
 }
+
+
+
+onMounted(loadShipper)
+
 </script>
 
 <template>
@@ -317,11 +439,13 @@ const saveAll = async () => {
       <div class="card-body p-40">
         <!-- STEP 1 -->
         <div v-if="active === 1">
-          <ShipperFormBasic v-model="basic" />
+          <ShipperFormBasic v-model="basic" @image-selected="onImageChange" />
         </div>
 
         <!-- STEP 2 -->
         <div v-else-if="active === 2">
+
+        
           <ShipperFormContacts v-model="contacts" />
         </div>
 

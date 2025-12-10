@@ -1,11 +1,13 @@
 <script lang="ts" setup>
+import { useNuxtApp, definePageMeta } from '#imports';
+import { ref, onMounted,reactive, watch } from 'vue';
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
   permissions: 'departments'
 })
-import { ref, onMounted } from 'vue';
-const { $axios } = useNuxtApp();
+const { $axios } = (useNuxtApp() as any);
 
 interface Department {
   id: number;
@@ -21,13 +23,46 @@ const isSubmit = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
 
 
+const table = reactive({
+    page: 1,
+    perPage: 10,
+    search: '',
+    sortBy: 'id',
+    sortDir: 'desc',
+})
+
+// paginator info from backend
+const pagination = ref({
+    total: 0,
+    from: 0,
+    to: 0,
+    last_page: 1,
+})
+
+
 
 const getDepartments = async () => {
     isLoading.value = true;
   try {
-    const response = await $axios.get('/api/contact/departments');
-    departments.value = response.data;
-    console.log('Departments fetched successfully:', departments.value);
+    const { data } = await $axios.get('/api/contact/departments', {
+
+            params: {
+                page: table.page,
+                per_page: table.perPage,
+                search: table.search,
+                sort_by: table.sortBy,
+                sort_dir: table.sortDir,
+            },
+        })
+
+    departments.value = data.data;
+    pagination.value = {
+        total: data.total,
+        from: data.from,
+        to: data.to,
+        last_page: data.last_page,
+    }
+ 
   } catch (error) {
     console.error('Failed to fetch departments:', error);
   } finally {
@@ -53,6 +88,14 @@ const Submit = async () => {
     isSubmit.value = false;
   }
 };
+
+
+watch(
+    () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+    async () => {
+        await getDepartments();
+    }
+);
 
 
 
@@ -135,33 +178,22 @@ onMounted(async () => {
                 <div class="d-flex flex-wrap align-items-center gap-3">
                     <div class="d-flex align-items-center gap-2">
                         <span>Show</span>
-                        <select class="form-select form-select-sm w-auto">
-                            <option>10</option>
-                            <option>15</option>
-                            <option>20</option>
-                        </select>
+                        <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
+                                <option :value="10">10</option>
+                                <option :value="15">15</option>
+                                <option :value="20">20</option>
+                            </select>
 
-                        <select class="form-select form-select-sm w-auto">
-                            <option>status</option>
-                            <option>Paid</option>
-                            <option>Pending</option>
-                        </select>
+                       
                     </div>
                     <div class="icon-field">
-                        <input type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
+                        <input v-model="table.search" type="text" name="#0" class="form-control form-control-sm w-auto" placeholder="Search">
                         <span class="icon">
                             <iconify-icon icon="ion:search-outline"></iconify-icon>
                         </span>
                     </div>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-3">
-                    <select class="form-select form-select-sm w-auto">
-                        <option>status</option>
-                        <option>Paid</option>
-                        <option>Pending</option>
-                    </select>
-
-                </div>
+               
             </div>
             <div class="card-body">
  
@@ -224,30 +256,43 @@ onMounted(async () => {
                       </tbody>
                 </table>
 
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-                    <span>Showing 1 to 10 of 12 entries</span>
-                    <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-                        <li class="page-item">
-                            <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-600 text-white fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">1</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">2</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link bg-primary-50 text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px" href="javascript:void(0)">3</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base" href="javascript:void(0)">
-                                <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+                        <span>
+                            Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+                            }} entries
+                        </span>
+                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+                            <!-- Prev -->
+                            <li class="page-item" :class="{ disabled: table.page === 1 }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
+
+                            <!-- Page numbers -->
+                            <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                                    'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                                    p === table.page
+                                        ? 'bg-primary-600 text-white'
+                                        : 'bg-primary-50 text-secondary-light'
+                                ]">
+                                    {{ p }}
+                                </a>
+                            </li>
+
+                            <!-- Next -->
+                            <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)"
+                                    @click="table.page < pagination.last_page && (table.page += 1)">
+                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
+                        </ul>
+
+                    </div>
 
               
             </div>
