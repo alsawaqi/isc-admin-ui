@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports';
+
+import { useFlashStore } from '~/stores/flashs'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -7,9 +9,10 @@ definePageMeta({
 
 });
 
-import { ref, onMounted, defineEmits, defineProps, watch, nextTick, reactive } from 'vue'
+import { ref, onMounted,  watch, nextTick, reactive } from 'vue'
 const { $axios, $r2Url } = (useNuxtApp() as any);
 
+const flash = useFlashStore()
 
 
 const table = reactive({
@@ -138,8 +141,9 @@ const submit = async () => {
     })
     emit('uploaded')
     emit('close')
+     flash.success('Images uploaded successfully!')
   } catch (err) {
-    console.error('Upload failed:', err)
+     flash
   }
 }
 
@@ -170,14 +174,14 @@ const saveBarcodes = async () => {
 
     await $axios.post(`/api/productmaster/${currentBarcodeProductId.value}/barcodes`, formData)
 
-    alert('Barcodes saved successfully!')
+      flash.success('Barcodes saved successfully!')
     showBarcodeModal.value = false
   } catch (err: any) {
     // Handle 422 response from Laravel
     if (err?.response?.status === 422 && err?.response?.data?.message) {
-      alert(err.response.data.message)
+      flash.error(err.response.data.message)
     } else {
-      alert('An error occurred while saving barcodes.')
+      flash.error('An error occurred while saving barcodes.')
     }
     console.error('Barcode saving error:', err)
   }
@@ -250,7 +254,7 @@ const saveSpecifications = async () => {
     }))
 
   if (specsPayload.length === 0) {
-    alert('Please select at least one specification value.')
+    flash.error('Please select at least one specification value.')
     return
   }
 
@@ -275,8 +279,10 @@ const saveSpecifications = async () => {
 
     showSpecModal.value = false
     showSummaryModal.value = true
+      flash.success('Specifications saved successfully!')
   } catch (err) {
-    console.error('Failed to save specs', err)
+    
+    flash.error('Failed to save specifications.')
   }
 }
 
@@ -304,7 +310,7 @@ const fetchProducts = async () => {
     }
 
   } catch (error) {
-    console.error('Error fetching products:', error);
+    flash.error('Error fetching products.')
   }
 };
 
@@ -317,15 +323,22 @@ watch(
 )
 
 const deleteProduct = async (id: number) => {
-  alert('Are you sure you want to delete this product?');
-  if (!confirm('Are you sure you want to delete this product?')) {
-    return; // Exit if the user cancels the deletion
-  }
+     const ok = await flash.confirm({
+    title: 'Delete Product?',
+    message: `Are you sure you want to delete this product? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
+ 
   try {
-    await $axios.delete(`/api/productmaster/${id}`);
+    const success = await $axios.delete(`/api/productmaster/${id}`);
+     if (success) {
+      flash.success('Product deleted successfully')
+    }
     await fetchProducts(); // Refresh the product list after deletion
   } catch (error) {
-    console.error('Error deleting product:', error);
+    flash.error('Error deleting product.')
   }
 };
 

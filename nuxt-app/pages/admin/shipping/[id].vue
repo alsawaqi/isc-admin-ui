@@ -9,7 +9,8 @@ import ShipperFormDestinations, { type DestinationRow } from '@/components/shipp
 import ShipperFormRates, { type RatesPerDestination } from '@/components/shipping/ShipperFormRates.vue'
 import ShipperFormHeavy from '@/components/shipping/ShipperFormHeavy.vue'
 import ShipperFormBoxes, { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
-
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
   layout: 'admin',
@@ -141,7 +142,7 @@ async function loadShipper() {
   try {
     const { data } = await $axios.get(`/api/v1/shipping/shippers/${shipperId}`)
 
- 
+
 
     // Basic
     basic.value = {
@@ -160,10 +161,10 @@ async function loadShipper() {
       Shippers_COD: !!data.shipper.Shippers_COD,
       // 🔴 Shippers_COD missing here
 
-        Shippers_Image_Path: data.shipper.Shippers_Image_Path ?? null,
-  Shippers_Size: data.shipper.Shippers_Size ?? null,
-  Shippers_Extenstion: data.shipper.Shippers_Extenstion ?? null,
-  Shippers_Image_Type: data.shipper.Shippers_Image_Type ?? null,
+      Shippers_Image_Path: data.shipper.Shippers_Image_Path ?? null,
+      Shippers_Size: data.shipper.Shippers_Size ?? null,
+      Shippers_Extenstion: data.shipper.Shippers_Extenstion ?? null,
+      Shippers_Image_Type: data.shipper.Shippers_Image_Type ?? null,
     }
 
     // Contacts
@@ -180,45 +181,45 @@ async function loadShipper() {
     // Destinations (+flags embedded)
     const dests = data.destinations ?? []
 
-  destinations.value = dests.map((d: any) => ({
-  id: d.id,   // 👈 keep PK
+    destinations.value = dests.map((d: any) => ({
+      id: d.id,   // 👈 keep PK
 
-  Shippers_Destination_Country_Id: d.basic?.Shippers_Destination_Country_Id ?? null,
-  Shippers_Destination_Region_Id:  d.basic?.Shippers_Destination_Region_Id ?? null,
-  Shippers_Destination_District_Id:d.basic?.Shippers_Destination_District_Id ?? null,
+      Shippers_Destination_Country_Id: d.basic?.Shippers_Destination_Country_Id ?? null,
+      Shippers_Destination_Region_Id: d.basic?.Shippers_Destination_Region_Id ?? null,
+      Shippers_Destination_District_Id: d.basic?.Shippers_Destination_District_Id ?? null,
 
-  Shippers_Destination_Country:
-    d.basic?.Shippers_Destination_Country
-    ?? d.country?.Country_Name
-    ?? null,
+      Shippers_Destination_Country:
+        d.basic?.Shippers_Destination_Country
+        ?? d.country?.Country_Name
+        ?? null,
 
-  Shippers_Destination_Region:
-    d.basic?.Shippers_Destination_Region
-    ?? d.region?.Region_Name
-    ?? null,
+      Shippers_Destination_Region:
+        d.basic?.Shippers_Destination_Region
+        ?? d.region?.Region_Name
+        ?? null,
 
-  Shippers_Destination_District:
-    d.basic?.Shippers_Destination_District
-    ?? d.district?.District_Name
-    ?? null,
+      Shippers_Destination_District:
+        d.basic?.Shippers_Destination_District
+        ?? d.district?.District_Name
+        ?? null,
 
-  Shippers_Destination_Rate_Applicability:
-    d.basic?.Shippers_Destination_Rate_Applicability ?? null,
-  Shippers_Destination_Country_Preference:
-    d.basic?.Shippers_Destination_Country_Preference ?? null,
-  Shippers_Destination_Region_Preference:
-    d.basic?.Shippers_Destination_Region_Preference ?? null,
-  Shippers_Destination_District_Preference:
-    d.basic?.Shippers_Destination_District_Preference ?? null,
+      Shippers_Destination_Rate_Applicability:
+        d.basic?.Shippers_Destination_Rate_Applicability ?? null,
+      Shippers_Destination_Country_Preference:
+        d.basic?.Shippers_Destination_Country_Preference ?? null,
+      Shippers_Destination_Region_Preference:
+        d.basic?.Shippers_Destination_Region_Preference ?? null,
+      Shippers_Destination_District_Preference:
+        d.basic?.Shippers_Destination_District_Preference ?? null,
 
-  Shippers_Destination_Rate_Volume: !!d.flags?.Shippers_Destination_Rate_Volume,
-  Shippers_Destination_Rate_Weight: !!d.flags?.Shippers_Destination_Rate_Weight,
-  Shippers_Destination_Rate_Applicable:
-    d.flags?.Shippers_Destination_Rate_Applicable ?? true,
-  Shippers_Destination_Rate_Box: !!d.flags?.Shippers_Destination_Rate_Box,
+      Shippers_Destination_Rate_Volume: !!d.flags?.Shippers_Destination_Rate_Volume,
+      Shippers_Destination_Rate_Weight: !!d.flags?.Shippers_Destination_Rate_Weight,
+      Shippers_Destination_Rate_Applicable:
+        d.flags?.Shippers_Destination_Rate_Applicable ?? true,
+      Shippers_Destination_Rate_Box: !!d.flags?.Shippers_Destination_Rate_Box,
 
-  rate_mode: d.rate_mode ?? 'weight',
-}))
+      rate_mode: d.rate_mode ?? 'weight',
+    }))
 
 
     // Rates per destination
@@ -308,15 +309,15 @@ const saveAll = async () => {
         Shippers_COD: !!basic.value.Shippers_COD,
         Shippers_Meta: null,
       },
-      contacts: contacts.value, 
-      
+      contacts: contacts.value,
+
       destinations: destinations.value.map((d, i) => {
         const r = rates.value[i] || {}
 
         return {
 
-            id: (d as any).id ?? null,     
-            
+          id: (d as any).id ?? null,
+
           basic: {
             Shippers_Destination_Country_Id: (d as any).Shippers_Destination_Country_Id ?? null,
             Shippers_Destination_Region_Id: (d as any).Shippers_Destination_Region_Id ?? null,
@@ -402,10 +403,10 @@ const saveAll = async () => {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
-    alert('Shipper updated successfully.')
+    flash.success('Shipper updated successfully.')
     navigateTo('/admin/shipping/shippers')
   } catch (e: any) {
-    alert(e?.response?.data?.message || e?.message || 'Failed to update')
+    flash.error(e?.response?.data?.message || e?.message || 'Failed to update shipper.')
   } finally {
     busy.value = false
   }
@@ -445,7 +446,7 @@ onMounted(loadShipper)
         <!-- STEP 2 -->
         <div v-else-if="active === 2">
 
-        
+
           <ShipperFormContacts v-model="contacts" />
         </div>
 

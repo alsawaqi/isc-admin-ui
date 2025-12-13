@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { useNuxtApp, definePageMeta } from '#imports'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -54,7 +57,7 @@ const submitForm = async () => {
       State_Name_Ar: State_Name_Ar.value,
     })
 
-    alert('State created successfully')
+    flash.success('State created successfully.')
 
     // Reset form
     State_Code.value = ''
@@ -64,7 +67,7 @@ const submitForm = async () => {
 
     await fetchStates()
   } catch (error: any) {
-    alert('Error: ' + (error?.response?.data?.message || error?.message))
+    flash.error('Failed to create state. Please try again.')
   }
 }
 

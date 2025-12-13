@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import {definePageMeta, useNuxtApp} from '#imports'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -182,11 +184,11 @@ const submitSpecs = async () => {
       remove_description_ids: removedDescIds.value,
       remove_value_ids: removedValueIds.value
     })
-    alert('Saved')
+    flash.success('Specifications saved successfully.')
     await fetchSpecs()
   } catch (e) {
-    console.error('Save error:', e)
-    alert('Failed to save')
+    flash.error('Failed to save specifications: ' + (e as any).message)
+    
   }
 }
  

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useNuxtApp, definePageMeta } from '#imports'
 import { ref, onMounted, reactive, watch } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
     layout: 'admin',
@@ -147,7 +149,7 @@ const fetchCountries = async (): Promise<void> => {
         }
 
     } catch (error) {
-        console.error('Failed to fetch countries:', error)
+        flash.error('Failed to fetch countries:')
     } finally {
         loadingList.value = false
     }
@@ -171,15 +173,17 @@ const submitForm = async () => {
             Country_Name_Ar: Country_Name_Ar.value,
         })
 
-        alert('Country created successfully')
+       
 
         resetCreateForm()
+
+        flash.success('Country created successfully.')
     } catch (error: any) {
         errorMessage.value =
             error?.response?.data?.message ||
             error?.message ||
             'Failed to create country.'
-        alert('Failed to create country: ' + errorMessage.value)
+        flash.error('Failed to create country.')
     } finally {
         creating.value = false
         await fetchCountries()
@@ -217,8 +221,9 @@ const saveEdit = async () => {
         edit_Country_Name_Ar.value = ''
 
         await fetchCountries()
+        flash.success('Country updated successfully.')
     } catch (error: any) {
-        console.error('Failed to update country:', error)
+        flash.error('Failed to update country.')
         errorMessage.value =
             error?.response?.data?.message ||
             error?.message ||
@@ -241,15 +246,20 @@ const closeEdit = () => {
 
 /* ---------------- DELETE ---------------- */
 const deleteCountry = async (id: number | string) => {
-    const yes = confirm('Are you sure you want to delete this country?')
-    if (!yes) return
+    const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
     try {
-        await $axios.delete(`/api/countries/${id}`)
-        await fetchCountries()
+       const success =   await $axios.delete(`/api/countries/${id}`)
+        flash.success('Department deleted successfully') 
+       await fetchCountries()
     } catch (error) {
-        console.error('Failed to delete country:', error)
-        alert('Delete failed')
+        flash.error('Failed to delete country.')
     }
 }
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports';
 import { ref, onMounted, reactive, watch } from 'vue';
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
     layout: 'admin',
@@ -32,19 +34,19 @@ const savingEdit = ref<boolean>(false);
 
 
 const table = reactive({
-  page: 1,
-  perPage: 10,
-  search: '',
-  sortBy: 'id',
-  sortDir: 'desc',
+    page: 1,
+    perPage: 10,
+    search: '',
+    sortBy: 'id',
+    sortDir: 'desc',
 })
 
 // paginator info from backend
 const pagination = ref({
-  total: 0,
-  from: 0,
-  to: 0,
-  last_page: 1,
+    total: 0,
+    from: 0,
+    to: 0,
+    last_page: 1,
 })
 
 
@@ -79,7 +81,7 @@ const getCustomerTypes = async (): Promise<void> => {
             last_page: data.last_page,
         };
     } catch (error) {
-    
+      flash.error('Failed to fetch customer types.');
     } finally {
         isLoading.value = false;
     }
@@ -97,7 +99,7 @@ const submitCustomerType = async (): Promise<void> => {
         };
 
         const response = await $axios.post('/api/customer-types', payload);
-      
+
         successMessage.value = true;
         errorMessage.value = '';
         CustomerTypeName.value = '';
@@ -105,8 +107,10 @@ const submitCustomerType = async (): Promise<void> => {
         CustomerTypeDescription.value = '';
         await getCustomerTypes();
 
+        flash.success('Customer type created successfully.');
+
     } catch (error) {
-        console.error('Error creating customer type:', error);
+         flash.error('Failed to create customer type.');
         errorMessage.value = 'Failed to create customer type.';
     } finally {
         isSubmitting.value = false;
@@ -149,12 +153,13 @@ const saveEdit = async () => {
             Customer_Type_Description: EditCustomer.Customer_Type_Description
         };
 
-        const response = await $axios.put(`/api/customer-types/${EditCustomer.id}`, payload);
-     
+        await $axios.put(`/api/customer-types/${EditCustomer.id}`, payload);
+
         await getCustomerTypes();
         closeEdit();
+        flash.success('Customer type updated successfully.');
     } catch (error) {
-        console.error('Error updating customer type:', error);
+         flash
         errorMessage.value = 'Failed to update customer type.';
     } finally {
         savingEdit.value = false;
@@ -162,15 +167,22 @@ const saveEdit = async () => {
 };
 
 const deleteCustomerType = async (id: number) => {
-    const confirmed = confirm('Are you sure you want to delete this customer type?');
-    if (!confirmed) return;
+    const ok = await flash.confirm({
+    title: 'Delete customer type?',
+    message: `Are you sure you want to delete this customer type? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
     try {
         await $axios.delete(`/api/customer-types/${id}`);
-        console.log('Customer type deleted');
+        
         await getCustomerTypes();
+
+         flash.success('Customer type deleted successfully.');
     } catch (error) {
-        console.error('Error deleting customer type:', error);
+        flash.error('Failed to delete customer type.');
     }
 };
 
@@ -182,10 +194,10 @@ onMounted(async (): Promise<void> => {
 });
 
 watch(
-  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
-  async () => {
-    await getCustomerTypes();
-  }
+    () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+    async () => {
+        await getCustomerTypes();
+    }
 );
 
 </script>
@@ -285,13 +297,13 @@ watch(
                         <div class="d-flex align-items-center gap-2">
                             <span>Show</span>
                             <select v-model.number="table.perPage" class="form-select form-select-sm w-auto">
-                <option :value="10">10</option>
-                <option :value="15">15</option>
-                <option :value="20">20</option>
-              </select>
+                                <option :value="10">10</option>
+                                <option :value="15">15</option>
+                                <option :value="20">20</option>
+                            </select>
 
 
-                            
+
                         </div>
                         <div class="icon-field">
                             <input type="text" name="#0" class="form-control form-control-sm w-auto"
@@ -358,42 +370,43 @@ watch(
                         </tbody>
                     </table>
 
-                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
-            <span>
-              Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
-              }} entries
-            </span>
-            <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
-              <!-- Prev -->
-              <li class="page-item" :class="{ disabled: table.page === 1 }">
-                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
-                  <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
-                </a>
-              </li>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-24">
+                        <span>
+                            Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0
+                            }} entries
+                        </span>
+                        <ul class="pagination d-flex flex-wrap align-items-center gap-2 justify-content-center">
+                            <!-- Prev -->
+                            <li class="page-item" :class="{ disabled: table.page === 1 }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)" @click="table.page > 1 && (table.page -= 1)">
+                                    <iconify-icon icon="ep:d-arrow-left" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
 
-              <!-- Page numbers -->
-              <li v-for="p in pagination.last_page" :key="p" class="page-item">
-                <a href="javascript:void(0)" @click="table.page = p" :class="[
-                  'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
-                  p === table.page
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-primary-50 text-secondary-light'
-                ]">
-                  {{ p }}
-                </a>
-              </li>
+                            <!-- Page numbers -->
+                            <li v-for="p in pagination.last_page" :key="p" class="page-item">
+                                <a href="javascript:void(0)" @click="table.page = p" :class="[
+                                    'page-link fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px',
+                                    p === table.page
+                                        ? 'bg-primary-600 text-white'
+                                        : 'bg-primary-50 text-secondary-light'
+                                ]">
+                                    {{ p }}
+                                </a>
+                            </li>
 
-              <!-- Next -->
-              <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
-                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
-                  href="javascript:void(0)" @click="table.page < pagination.last_page && (table.page += 1)">
-                  <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
-                </a>
-              </li>
-            </ul>
+                            <!-- Next -->
+                            <li class="page-item" :class="{ disabled: table.page === pagination.last_page }">
+                                <a class="page-link text-secondary-light fw-medium radius-4 border-0 px-10 py-10 d-flex align-items-center justify-content-center h-32-px w-32-px bg-base"
+                                    href="javascript:void(0)"
+                                    @click="table.page < pagination.last_page && (table.page += 1)">
+                                    <iconify-icon icon="ep:d-arrow-right" class="text-xl"></iconify-icon>
+                                </a>
+                            </li>
+                        </ul>
 
-          </div>
+                    </div>
 
 
                 </div>

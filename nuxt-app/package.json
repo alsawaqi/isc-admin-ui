@@ -22,6 +22,7 @@
     "@pusher/push-notifications-web": "^1.1.0",
     "@types/markdown-it": "^13.0.7",
     "@vueuse/core": "^13.7.0",
+    "apexcharts": "^5.3.6",
     "axios": "^1.9.0",
     "bootstrap": "^5.3.6",
     "eslint": "^8.55.0",
@@ -36,7 +37,8 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vue": "^3.5.14",
     "vue-markdown-render": "^2.1.1",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "vue3-apexcharts": "^1.10.0"
   },
   "devDependencies": {
     "@types/bwip-js": "^3.2.3",

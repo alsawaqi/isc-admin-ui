@@ -2,6 +2,9 @@
 import { definePageMeta, useNuxtApp } from '#imports'
 import { ref, onMounted, reactive, watch } from 'vue'
 import { useProductType } from '~/data/producttype'
+
+import { useFlashStore } from '~/stores/flashs'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -14,6 +17,10 @@ definePageMeta({
 
 const { getProductType } = useProductType()
 const { $axios } = (useNuxtApp() as any)
+
+
+const flash = useFlashStore()
+
 
 interface ProductType {
   id: number | string;
@@ -71,7 +78,7 @@ const submitForm = async () => {
       name_ar: nameAr.value
     })
 
-    alert('Product Type created successfully')
+    flash.success('Product type created successfully')
 
     // clear form
     name.value = ''
@@ -80,7 +87,7 @@ const submitForm = async () => {
     // refresh list
     productTypes.value = await getProductType()
   } catch (error: any) {
-    alert(
+    flash.error(
       'Failed to create product type: ' +
         (error?.response?.data?.message || error?.message || 'Unknown error')
     )
@@ -127,7 +134,7 @@ const getProductTypes = async () => {
       last_page: data.last_page,
     }
   } catch (error: any) {
-    alert(
+      flash.error(
       'Failed to fetch product types: ' +
         (error?.response?.data?.message || error?.message || 'Unknown error')
     )
@@ -150,7 +157,7 @@ const updateProductType = async (e: Event) => {
   e.preventDefault()
 
   if (!editId.value) {
-    alert('No product type selected')
+     flash.error('Invalid product type ID')
     return
   }
 
@@ -166,15 +173,12 @@ const updateProductType = async (e: Event) => {
     // If your backend expects PUT:
     await $axios.put(`/api/producttype/${editId.value}`, payload)
 
-    // If instead your backend expects POST + _method:
-    // const formData = new FormData()
-    // formData.append('name', editName.value)
-    // formData.append('_method', 'PUT')
-    // await $axios.post(`/api/producttype/${editId.value}`, formData)
+    
 
-    alert('Product Type updated successfully')
+      flash.success(" Product type updated successfully");
+     
 
-    // refresh list from DB so UI updates
+ 
     productTypes.value = await getProductType()
 
     // close modal
@@ -194,15 +198,23 @@ const updateProductType = async (e: Event) => {
    you haven't implemented delete API yet, so just scaffold:
 -------------------------*/
 const deleteProductType = async (id: number | string) => {
-  if (!confirm('Are you sure you want to delete this product type?')) {
-    return
-  }
+  
+   const ok = await flash.confirm({
+    title: 'Delete product type?',
+    message: `Are you sure you want to delete this product type? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
   try {
-    await $axios.delete(`/api/producttype/${id}`)
+   const success = await $axios.delete(`/api/producttype/${id}`)
+      if (success) {
+        flash.success('Product type deleted successfully')
+      }
     productTypes.value = await getProductType()
   } catch (error: any) {
-    alert(
+    flash.error(
       'Failed to delete product type: ' +
         (error?.response?.data?.message || error?.message || 'Unknown error')
     )

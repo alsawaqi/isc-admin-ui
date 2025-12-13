@@ -9,10 +9,11 @@ definePageMeta({
 import { type Product } from '@/data/Product'
 import { useProductType } from '~/data/producttype'
 import { useProductsBrands } from '~/data/ProductsBrands';
-
-
-
 import { ref, onMounted, watch, computed } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
+
+
+const flash = useFlashStore()
 
 const { $axios } = (useNuxtApp() as any);
 
@@ -284,7 +285,7 @@ const getLatestProducts = async () => {
     form.value.inhouse_barcode = `${product_id.value}-${randomDigits.value}`
 
   } catch (error) {
-    console.error('Failed to fetch latest products:', error)
+     flash.error('Failed to fetch latest products ID')
     throw error
   } finally {
     loadingProducts.value = false
@@ -381,7 +382,8 @@ const submitForm = async () => {
 
     product_id.value = response.data.data.id;
     steps.value = 3
-
+   
+    flash.success('Product created successfully. Please proceed to add specifications.')
 
 
 
@@ -389,10 +391,14 @@ const submitForm = async () => {
     if (typeof error === 'object' && error !== null && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
 
       console.error('Submission failed:', error.response.data)
+      flash.error(
+        'Submission failed: ' +
+        JSON.stringify(error.response.data)
+      )
     } else if (error instanceof Error) {
-      console.error('Submission failed:', error.message)
+       flash.error('Submission failed: ' + error.message)
     } else {
-      console.error('Submission failed:', error)
+      flash.error('An unknown error occurred during submission.')
     }
   } finally {
     loading.value = false
@@ -410,7 +416,7 @@ const submitSpecs = async () => {
     }))
 
   if (chosen.length === 0) {
-    alert('Please select at least one specification value.')
+    flash.error('Please select at least one specification value.')
     return
   }
 
@@ -423,9 +429,11 @@ const submitSpecs = async () => {
     await getLatestProducts()
     steps.value = 1
     productSpecificationProducts.value = []
+
+    flash.success('Product specs saved successfully')
   } catch (error) {
-    console.error('Failed to save product specs:', error)
-    alert('Failed to save product specs')
+ 
+    flash.error('Failed to save product specs')
   }
 }
 

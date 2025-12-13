@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, watch } from 'vue'
 import { definePageMeta, useNuxtApp } from '#imports'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
+
 
 definePageMeta({
     layout: 'admin',
@@ -92,10 +95,10 @@ const changePassword = async () => {
             password: newPassword.value,
         })
 
-        alert('Password updated successfully.')
+        flash.success('Password changed successfully.')
         closePasswordModal()
     } catch (error: any) {
-        console.error('Error changing password:', error)
+        flash.error('Error changing password:', error)
         passwordError.value =
             error?.response?.data?.message || 'Failed to change password.'
     } finally {
@@ -127,7 +130,7 @@ const getuser = async () => {
 
 
     } catch (error: any) {
-        console.error('Error fetching users:', error)
+        flash.error('Error fetching users.')
 
     }
 }
@@ -137,7 +140,7 @@ const getRoles = async () => {
         const res = await $axios.get('/api/roles/all')
         roles.value = res.data
     } catch (error) {
-        console.error('Error fetching roles:', error)
+        flash.error('Error fetching roles.')
     }
 }
 
@@ -160,30 +163,44 @@ const assignRole = async (userId: number, roleId: number) => {
 const blocking = ref<number | null>(null) // which user is being processed
 
 const blockUser = async (userId: number) => {
-    if (!confirm('Are you sure you want to block this user?')) return
+ const ok = await flash.confirm({
+    title: 'Block User?',
+    message: `Are you sure you want to Block this user?.`,
+    confirmText: 'Yes, block',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
     try {
         blocking.value = userId
         await $axios.post(`/api/users/${userId}/block`) // 👈 adjust URL if needed
+        flash.success('User blocked successfully.')
         await getuser() // refresh list
     } catch (error) {
         console.error('Error blocking user:', error)
-        alert('Failed to block user')
+        flash.error('Failed to block user')
     } finally {
         blocking.value = null
     }
 }
 
 const unblockUser = async (userId: number) => {
-    if (!confirm('Unblock this user?')) return
+    const ok = await flash.confirm({
+    title: 'Un Block User?',
+    message: `Are you sure you want to Un Block this user?.`,
+    confirmText: 'Yes, unblock',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
     try {
         blocking.value = userId
         await $axios.post(`/api/users/${userId}/unblock`) // 👈 adjust URL if needed
+        flash.success('User unblocked successfully.')
         await getuser()
     } catch (error) {
         console.error('Error unblocking user:', error)
-        alert('Failed to unblock user')
+        flash.error('Failed to unblock user')
     } finally {
         blocking.value = null
     }

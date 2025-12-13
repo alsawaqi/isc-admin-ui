@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports'
 import { ref, onMounted, watch } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
 
 definePageMeta({
   layout: 'admin',
@@ -8,7 +9,7 @@ definePageMeta({
   permissions: 'shipping.shippers'
 })
 
-const { $axios } = (useNuxtApp() as any)
+
 
 interface Shipper {
   id: number
@@ -27,6 +28,10 @@ interface Shipper {
   created_at?: string
   contacts_count?: number
 }
+
+
+const { $axios } = (useNuxtApp() as any)
+const flash = useFlashStore()
 
 const shippers = ref<Shipper[]>([])
 
@@ -86,8 +91,16 @@ const toggleActive = async (id: number) => {
 
 // delete
 const deleteShipper = async (id: number) => {
-  if (!confirm('Delete this shipper?')) return
+     const ok = await flash.confirm({
+    title: 'Delete shipper?',
+    message: `Are you sure you want to delete this shipper? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
+ 
   await $axios.delete(`/api/v1/shipping/shippers/${id}`)
+  flash.success('Shipper deleted successfully.')
   await fetchShippers()
 }
 
@@ -96,91 +109,93 @@ onMounted(fetchShippers)
 </script>
 
 <template>
-<div class="dashboard-main-body">
+  <div class="dashboard-main-body">
 
-  <!-- Header -->
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-    <h6 class="fw-semibold mb-0" style="color:#ef4444">Shippers</h6>
-    <ul class="d-flex align-items-center gap-2">
-      <li class="fw-medium">
-        <NuxtLink to="/admin" class="d-flex align-items-center gap-1 hover-text-primary">
-          <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
-          Dashboard
-        </NuxtLink>
-      </li>
-      <li>-</li>
-      <li class="fw-medium">Shippers</li>
-    </ul>
-  </div>
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+      <h6 class="fw-semibold mb-0" style="color:#ef4444">Shippers</h6>
+      <ul class="d-flex align-items-center gap-2">
+        <li class="fw-medium">
+          <NuxtLink to="/admin" class="d-flex align-items-center gap-1 hover-text-primary">
+            <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+            Dashboard
+          </NuxtLink>
+        </li>
+        <li>-</li>
+        <li class="fw-medium">Shippers</li>
+      </ul>
+    </div>
 
- 
 
-  <!-- Table -->
-  <div class="card">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
-      <div class="d-flex flex-wrap align-items-center gap-3">
-        <div class="d-flex align-items-center gap-2">
-          <span>Show</span>
-          <select v-model.number="perPage" class="form-select form-select-sm w-auto">
-            <option :value="10">10</option>
-            <option :value="15">15</option>
-            <option :value="20">20</option>
-          </select>
-        </div>
-        <div class="icon-field">
-          <input v-model="search" type="text" class="form-control form-control-sm w-auto" placeholder="Search shipper">
-          <span class="icon">
-            <iconify-icon icon="ion:search-outline"></iconify-icon>
-          </span>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div class="d-flex align-items-center gap-2">
+            <span>Show</span>
+            <select v-model.number="perPage" class="form-select form-select-sm w-auto">
+              <option :value="10">10</option>
+              <option :value="15">15</option>
+              <option :value="20">20</option>
+            </select>
+          </div>
+          <div class="icon-field">
+            <input v-model="search" type="text" class="form-control form-control-sm w-auto"
+              placeholder="Search shipper">
+            <span class="icon">
+              <iconify-icon icon="ion:search-outline"></iconify-icon>
+            </span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="card-body">
-      <table class="table bordered-table mb-0">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Scope</th>
-            <th>Type</th>
-            <th>Rate Mode</th>
-            <th>Active</th>
-            <th>Contacts</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(s, i) in shippers" :key="s.id">
-            <td>{{ (page - 1) * perPage + i + 1 }}</td>
-            <td>{{ s.Shippers_Code }}</td>
-            <td>{{ s.Shippers_Name }}</td>
-            <td>{{ s.Shippers_Email_Address }}</td>
-            <td>{{ s.Shippers_Scope }}</td>
-            <td>{{ s.Shippers_Type }}</td>
-            <td>{{ s.Shippers_Rate_Mode }}</td>
-            <td>
-              <span :class="s.Shippers_Is_Active ? 'text-success' : 'text-danger'">
-                {{ s.Shippers_Is_Active ? 'Yes' : 'No' }}
-              </span>
-            </td>
-            <td>{{ s.contacts_count || 0 }}</td>
-            <td>
-              <NuxtLink :to="`/admin/shipping/${s.id}`" class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center"
-                 >
-                <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
-              </NuxtLink>
-              <a href="javascript:void(0)" class="w-32-px h-32-px bg-danger-light text-danger-600 rounded-circle d-inline-flex align-items-center justify-content-center"
-                 @click="deleteShipper(s.id)">
-                <iconify-icon icon="iconamoon:trash-light"></iconify-icon>
-              </a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="card-body">
+        <table class="table bordered-table mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Scope</th>
+              <th>Type</th>
+              <th>Rate Mode</th>
+              <th>Active</th>
+              <th>Contacts</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(s, i) in shippers" :key="s.id">
+              <td>{{ (page - 1) * perPage + i + 1 }}</td>
+              <td>{{ s.Shippers_Code }}</td>
+              <td>{{ s.Shippers_Name }}</td>
+              <td>{{ s.Shippers_Email_Address }}</td>
+              <td>{{ s.Shippers_Scope }}</td>
+              <td>{{ s.Shippers_Type }}</td>
+              <td>{{ s.Shippers_Rate_Mode }}</td>
+              <td>
+                <span :class="s.Shippers_Is_Active ? 'text-success' : 'text-danger'">
+                  {{ s.Shippers_Is_Active ? 'Yes' : 'No' }}
+                </span>
+              </td>
+              <td>{{ s.contacts_count || 0 }}</td>
+              <td>
+                <NuxtLink :to="`/admin/shipping/${s.id}`"
+                  class="w-32-px h-32-px bg-primary-light text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center">
+                  <iconify-icon icon="iconamoon:eye-light"></iconify-icon>
+                </NuxtLink>
+                <a href="javascript:void(0)"
+                  class="w-32-px h-32-px bg-danger-light text-danger-600 rounded-circle d-inline-flex align-items-center justify-content-center"
+                  @click="deleteShipper(s.id)">
+                  <iconify-icon icon="iconamoon:trash-light"></iconify-icon>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-</div>
 </template>

@@ -2,7 +2,8 @@
 
 import { ref, onMounted, reactive, watch } from 'vue'
 import { useNuxtApp, defineAppConfig, definePageMeta } from '#imports'
-
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 const { $axios } = (useNuxtApp() as any);
 
 
@@ -44,14 +45,23 @@ const roles = ref<Role[]>([])
 const selectedPermissions = ref<string[]>([])
 const currentRoleId = ref<number | null>(null)
 const rolename = ref<string | null>(null)
+const isSubmitting = ref<boolean>(false);  
 
 
 const deleterole = async (roleId: number) => {
+  const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
   try {
     await $axios.delete(`/api/roles/${roleId}`)
     roles.value = roles.value.filter(role => role.id !== roleId)
+    flash.success('Role deleted successfully.')
   } catch (error) {
-    console.error('Error deleting role:', error)
+    flash.error('Error deleting role.')
   }
 }
 
@@ -69,15 +79,28 @@ const openPermissionModal = async (roleId: number, roleNameParam: string) => {
 
 
 const allPermissions = [
+
+
+  'dashboard',
+  // Products
   'products', 'product category', 'departments', 'sub departments', 'sub sub departments', 'addproductsdescription',
   'product brands', 'product types', 'product manufacture', 'product master', 'product activation', 'product reports',
+
+  // Orders
   'orders', 'orders placed', 'order packaging', 'order dispatched', 'order shipments', 'order delivery', 'order verification',
+
+  // Invoice
   'invoice', 'invoice list', 'invoice preview', 'invoice add new',
+
+  // Other Services
   'other services', 'free lancers', 'collaborations',
-  'admin', 'users', 'add new user', 'view user profile', 'print user profile',
-  'define roles', 'assign roles', 'system parameters', 'companies', 'currencies', 'merchant',
-  'couriers', 'admin report', 'geography', 'country', 'state', 'city'
+
+  // Admin
+  'admin', 'users', 'add new user', 'geography', 'country', 'state', 'city', 'view user profile', 'print user profile',
+  'define roles', 'assign roles', 'system parameters', 'companies', 'currencies',
+  'merchant', 'couriers', 'admin report', 'contact departments', 'customer types', 'customers', 'shippingservices', 'create shippers', 'view shippers', 'locations',
 ]
+
 
 const toggleAllPermissions = (checkAll: boolean) => {
   selectedPermissions.value = checkAll ? [...allPermissions] : []
@@ -86,14 +109,17 @@ const toggleAllPermissions = (checkAll: boolean) => {
 
 
 const updateRolePermissions = async () => {
+  isSubmitting.value = true;
   try {
     await $axios.post(`/api/roles/${currentRoleId.value}/permissions`, {
       permissions: selectedPermissions.value,
     })
 
-    console.log('Permissions updated successfully')
+     flash.success('Permissions updated successfully.')
   } catch (error) {
-    console.error('Error updating permissions:', error)
+     flash.error('Failed to update permissions.')
+  }finally {
+    isSubmitting.value = false;
   }
 }
 
@@ -217,7 +243,8 @@ onMounted(async () => {
                 </td>
                 <td>{{ new Date(role.created_at).toLocaleDateString('en-GB', {
                   day: '2-digit', month: 'short', year:
-                  'numeric' }) }}</td>
+                    'numeric'
+                }) }}</td>
                 <td>{{ role.name }}</td>
 
 
@@ -229,7 +256,7 @@ onMounted(async () => {
                       @click.prevent="openPermissionModal(role.id, role.name)">
                       <iconify-icon icon="lucide:edit" class="menu-icon"></iconify-icon>
                     </button>
-                    <button type="button"
+                    <button type="button" @click.prevent="deleterole(role.id)"
                       class="remove-item-btn bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium w-40-px h-40-px d-flex justify-content-center align-items-center rounded-circle">
                       <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                     </button>
@@ -296,6 +323,9 @@ onMounted(async () => {
             Select All Permissions
 
             <ul class="permission-tree-level-0">
+              
+              <li><label><input type="checkbox" v-model="selectedPermissions" value="dashboard"> Dashboard</label>
+</li>
               <li><label><input type="checkbox" v-model="selectedPermissions" value="products"> Products</label>
                 <ul class="permission-tree-level-1">
                   <li><label><input type="checkbox" v-model="selectedPermissions" value="product category"> Product
@@ -385,7 +415,27 @@ onMounted(async () => {
                       </li>
                       <li><label><input type="checkbox" v-model="selectedPermissions" value="state"> state</label></li>
                       <li><label><input type="checkbox" v-model="selectedPermissions" value="city"> city</label></li>
+                      <li><label><input type="checkbox" v-model="selectedPermissions" value="locations">
+                          locations</label></li>
                     </ul>
+                  </li>
+                  <li><label><input type="checkbox" v-model="selectedPermissions" value="shippingservices"> Shipping
+                      Services</label>
+                    <ul class="permission-tree-level-2">
+                      <li><label><input type="checkbox" v-model="selectedPermissions" value="create shippers"> Create
+                          Shippers</label></li>
+                      <li><label><input type="checkbox" v-model="selectedPermissions" value="view shippers"> View
+                          Shippers</label></li>
+                    </ul>
+
+
+                  </li>
+
+                  <li><label><input type="checkbox" v-model="selectedPermissions" value="contact departments"> Contact
+                      Departments</label></li>
+                  <li><label><input type="checkbox" v-model="selectedPermissions" value="customer types">
+                      CustomerTypes</label></li>
+                  <li><label><input type="checkbox" v-model="selectedPermissions" value="customers"> Customers</label>
                   </li>
                   <li><label><input type="checkbox" v-model="selectedPermissions" value="system parameters"> System
                       Parameters</label></li>
@@ -402,8 +452,9 @@ onMounted(async () => {
                 </ul>
               </li>
             </ul>
-            <button @click="updateRolePermissions" class="btn btn-primary">
-              Save Permissions
+            <button @click="updateRolePermissions" class="btn btn-primary" :disabled="isSubmitting">
+              {{ isSubmitting ? 'Saving...' : 'Save Permissions' }}
+            
             </button>
           </div>
 

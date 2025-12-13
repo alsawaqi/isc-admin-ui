@@ -10,6 +10,9 @@ import { ref, onMounted, reactive, watch } from 'vue'
 import { useDepartment } from '../../../data/useDepartment'
 import { definePageMeta, useNuxtApp } from '#imports'
 
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
+
 const { $r2Url, $axios } = useNuxtApp() as any
 
 const { createDepartment, getDepartments, DeleteDepartment } = useDepartment()
@@ -67,6 +70,11 @@ const pagination = ref({
   last_page: 1,
 })
 
+
+
+ 
+
+ 
 
 
 const handleImageChange = (event: Event, type: 'create' | 'update') => {
@@ -138,7 +146,7 @@ const getdepartment = async () => {
       last_page: data.last_page,
     }
   } catch (error) {
-    console.error('Error fetching departments:', error)
+    flash.error('Failed to fetch departments: ' + (error as any).message)
   } finally {
     isLoading.value = false
   }
@@ -159,14 +167,19 @@ const handleSubmit = async (e: Event) => {
 
   try {
 
-    await createDepartment(departmentName.value, departmentNamear.value , uploadedImage.value);
+  await createDepartment(departmentName.value, departmentNamear.value ,  createImage.value);
+
+
+    
     departmentName.value = '';
     departmentNamear.value = '';
-    uploadedImage.value = null;
-    previewUrl.value = null;
+    createImage.value = null;
+    createPreview.value = null;
     await getdepartment();
+
+    flash.success('Department created successfully');
   } catch (err) {
-    alert('Failed to create department')
+    flash.error('Failed to create department: ' + (err as any).message);
   } finally {
     isSubmit.value = false;
   }
@@ -207,16 +220,17 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
       }
     );
 
-    console.log('Response data:', response.data);
+    
 
-    // close modal
-    // isToggle.value = false;
-
-    // refresh list
     await getdepartment();
 
-  } catch (err) {
-    alert('Failed to update department: ' + err);
+      flash.success("Department Updated successfully");
+
+
+  } catch (err: any) {
+    
+      flash.error("Failed to update department: " + err.message);
+
   } finally {
     isSubmit.value = false;
   }
@@ -225,14 +239,24 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
 
 
 const deleteDepartmentHandler = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this department?')) {
-    return;
-  }
+   const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
   try {
-    await DeleteDepartment(id);
+   const success = await DeleteDepartment(id);
+
+   if (success) {
+      flash.success('Department deleted successfully')
+    } else {
+      flash.error('Failed to delete department')
+    }
 
   } catch (err) {
-    alert('Failed to delete department');
+   flash.error('An error occurred while deleting')
   } finally {
     await getdepartment();
   }

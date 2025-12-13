@@ -38,7 +38,7 @@ export default defineNuxtConfig({
         // Icon / fonts / vendor css
         { rel: "stylesheet", href: "/isc-assets/css/remixicon.css" },
         { rel: "stylesheet", href: "/isc-assets/css/lib/bootstrap.min.css" },
-        { rel: "stylesheet", href: "/isc-assets/css/lib/apexcharts.css" },
+        
         { rel: "stylesheet", href: "/isc-assets/css/lib/dataTables.min.css" },
         { rel: "stylesheet", href: "/isc-assets/css/lib/editor-katex.min.css" },
         {
@@ -64,6 +64,7 @@ export default defineNuxtConfig({
         // main theme css (must be last to override others)
         { rel: "stylesheet", href: "/isc-assets/css/style.css" },
       ],
+     
     },
   },
 

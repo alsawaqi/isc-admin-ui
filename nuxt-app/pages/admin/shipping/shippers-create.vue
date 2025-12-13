@@ -8,7 +8,8 @@ import ShipperFormDestinations, { type DestinationRow } from '@/components/shipp
 import ShipperFormHeavy from '@/components/shipping/ShipperFormHeavy.vue'
 import ShipperFormRates, { type RatesPerDestination } from '@/components/shipping/ShipperFormRates.vue'
 import ShipperFormBoxes, { type StandardBox } from '@/components/shipping/ShipperFormBoxes.vue'
-
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -315,10 +316,10 @@ const saveAll = async () => {
 
 
 
-    alert('Shipper setup saved successfully.')
+    flash.success('Shipper setup saved successfully.')
     navigateTo('/admin/shipping/shippers')
   } catch (e: any) {
-    alert(e?.response?.data?.message || e?.message || 'Failed to save')
+    flash.error(e?.response?.data?.message || e?.message || 'Failed to save')
   } finally {
     busy.value = false
   }

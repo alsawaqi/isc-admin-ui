@@ -2,10 +2,11 @@
 import Aside from './inc/aside.vue'
 import NavBar from './inc/navbar.vue'
 import Footer from './inc/footer.vue'
+import FlashHost from '~/components/FlashHost.vue'
 
 if (process.client) {
   const scripts = [
-    '/isc-assets/js/lib/apexcharts.min.js',
+    
     '/isc-assets/js/lib/dataTables.min.js',
     '/isc-assets/js/lib/iconify-icon.min.js',
     '/isc-assets/js/lib/jquery-ui.min.js',
@@ -33,6 +34,8 @@ if (process.client) {
    <Aside />
    <main class="dashboard-main">
     <NavBar />
+
+     <FlashHost /> 
 
     <slot />
    

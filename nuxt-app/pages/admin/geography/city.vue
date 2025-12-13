@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports';
 import { ref, onMounted, watch } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
   layout: 'admin',
@@ -130,7 +132,7 @@ const fetchCities = async () => {
 /* ---------- CREATE ---------- */
 const submitForm = async () => {
   if (!District_Id.value) {
-    alert('Please select a District')
+    flash.error('Please select a District')
     return
   }
 
@@ -145,7 +147,7 @@ const submitForm = async () => {
       City_Name_Ar: City_Name_Ar.value || null
     })
 
-    alert('City created successfully')
+    flash.success('City created successfully')
 
     City_Code.value = ''
     City_Name.value = ''
@@ -155,7 +157,7 @@ const submitForm = async () => {
   } catch (error: any) {
     const msg = error?.response?.data?.message || error?.message || 'Failed to create city.'
     errorMessage.value = msg
-    alert('Error: ' + msg)
+    flash.error(msg)
   } finally {
     creating.value = false
   }
@@ -216,7 +218,7 @@ const openEdit = async (c: City) => {
 const saveEdit = async () => {
   if (!edit_id.value) return
   if (!edit_District_Id.value) {
-    alert('Please select a District')
+    flash.error('Please select a District')
     return
   }
 
@@ -245,8 +247,9 @@ const saveEdit = async () => {
     editDistricts.value = []
 
     await fetchCities()
+    flash.success('City updated successfully.')
   } catch (error: any) {
-    console.error('Failed to update city:', error)
+      flash.error('Failed to update city.')
     errorMessage.value =
       error?.response?.data?.message ||
       error?.message ||
@@ -274,9 +277,15 @@ const closeEdit = () => {
 
 /* ---------- DELETE ---------- */
 const deleteCity = async (id: number) => {
-  const yes = confirm('Are you sure you want to delete this city?')
-  if (!yes) return
+   const ok = await flash.confirm({
+    title: 'Delete city?',
+    message: `Are you sure you want to delete this city? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
   await $axios.delete(`/api/geo/cities/${id}`)
+  flash.success('City deleted successfully')
   await fetchCities()
 }
 

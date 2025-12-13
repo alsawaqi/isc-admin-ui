@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports';
 import { ref, onMounted, watch, reactive } from 'vue'
-
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -180,13 +181,15 @@ const fetchlocations = async () => {
     }
 
 
-    console.log('Fetched locations:', locations.value);
+   flash.success('Locations loaded successfully.')
 
 
 
 
 
   } catch (error) {
+ 
+    flash.error('Failed to load locations.')
 
   } finally {
     loading.value = false;
@@ -223,11 +226,10 @@ const submitForm = async () => {
     Location_Name.value = ''
     Location_Name_Ar.value = ''
 
-
+    flash.success('Location created successfully.')
 
   } catch (error) {
-    console.error('Failed to create location:', error);
-    alert('Failed to create location. Please try again.');
+    flash.error('Failed to create location.')
   } finally {
     await fetchlocations()
     isSubmitting.value = false;
@@ -267,25 +269,31 @@ const updateLocation = async () => {
     await $axios.put(`/api/locations/${editLocation.id}`, payload);
     TogglePopupclose();
     await fetchlocations();
+    flash.success('Location updated successfully.');
   } catch (error) {
     console.error('Failed to update location:', error);
-    alert('Failed to update location. Please try again.');
+   flash.error('Failed to update location.');
   } finally {
     isSubmitUpdate.value = false;
   }
 };
 
 const deletelocation = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this location?')) {
-    return;
-  }
+   const ok = await flash.confirm({
+    title: 'Delete location?',
+    message: `Are you sure you want to delete this location? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
   try {
     await $axios.delete(`/api/locations/${id}`);
     await fetchlocations();
+    flash.success('Location deleted successfully.');
   } catch (error) {
     console.error('Failed to delete location:', error);
-    alert('Failed to delete location. Please try again.');
+    flash.error('Failed to delete location. Please try again.');
   }
 };
 

@@ -2,6 +2,8 @@
 import { definePageMeta, useNuxtApp } from '#imports';
 import { ref, onMounted, reactive, watch } from 'vue';
 
+import { useFlashStore } from '~/stores/flashs'
+
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
@@ -9,6 +11,7 @@ definePageMeta({
 });
 
 const { $axios } = (useNuxtApp() as any);
+const flash = useFlashStore()
 
 
 interface ProductDepartments {
@@ -73,9 +76,9 @@ const getProductDepartment = async () => {
     try {
         const response = await $axios.get('/api/productdepartment/all');
         ProductDepartments.value = response.data;
-        console.log('Product Departments:', response.data);
+
     } catch (error) {
-        console.error('Failed to fetch product departments:', error);
+        flash.error('Failed to fetch product departments');
         throw error;
     }
 };
@@ -103,7 +106,7 @@ const getManufactures = async () => {
 
 
     } catch (error) {
-        console.error('Failed to fetch manufactures:', error);
+        flash.error('Failed to fetch product manufactures');
         throw error;
     } finally {
         loading.value = false;
@@ -134,8 +137,9 @@ const submit = async () => {
 
         resetCreateForm();
         await getManufactures();
+        flash.success('Manufacture created successfully.');
     } catch (error: any) {
-        console.error('Error creating manufacture:', error);
+        flash.error('Failed to create manufacture.');
         errorMessage.value =
             error?.response?.data?.message || 'Failed to create manufacture.';
     }
@@ -180,8 +184,9 @@ const saveEdit = async () => {
 
         closeEdit();
         await getManufactures();
+        flash.success('Manufacture updated successfully.');
     } catch (error: any) {
-        console.error('Error updating manufacture:', error);
+        flash.error('Failed to update manufacture.');
         errorMessage.value =
             error?.response?.data?.message || 'Failed to update manufacture.';
     }
@@ -189,15 +194,24 @@ const saveEdit = async () => {
 
 // ---- DELETE LOGIC ----
 const deleteManufacture = async (id: number) => {
-    const yes = confirm('Are you sure you want to delete this manufacture?');
-    if (!yes) return;
+    const ok = await flash.confirm({
+        title: 'Delete manufacture?',
+        message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+        confirmText: 'Yes, delete',
+        cancelText: 'No, cancel',
+    })
+    if (!ok) return;
 
     try {
-        await $axios.delete(`/api/productmanufacture/${id}`);
+        const success = await $axios.delete(`/api/productmanufacture/${id}`);
+
+        if (success) {
+            flash.success('Manufacture deleted successfully')
+        }
+
         await getManufactures();
     } catch (error) {
-        console.error('Failed to delete manufacture:', error);
-        alert('Delete failed');
+        flash.error('Failed to delete manufacture')
     }
 };
 
@@ -326,7 +340,7 @@ onMounted(async () => {
                             <tr>
                                 <th scope="col">
                                     <div class="form-check style-check d-flex align-items-center">
-                                     
+
                                         <label class="form-check-label" for="checkAll">
                                             S.L
                                         </label>
@@ -352,7 +366,7 @@ onMounted(async () => {
 
                                 <td>
                                     <div class="form-check style-check d-flex align-items-center">
-                                     
+
                                         <label class="form-check-label" :for="'check-' + manufacture.id">
                                             {{ index + 1 }}
                                         </label>

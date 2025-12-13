@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { definePageMeta,useNuxtApp } from '#imports';
+import { useFlashStore } from '~/stores/flashs'
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -8,6 +10,9 @@ definePageMeta({
 })
 
 const { $axios, $r2Url } = (useNuxtApp() as any)
+
+const flash = useFlashStore()
+
 
 interface Department {
   id: number;
@@ -194,8 +199,10 @@ const createSubDepartment = async (e: Event) => {
     uploadedImage.value = null
     previewUrl.value = null
 
-  } catch (error) {
-    alert('Failed to create sub department')
+    flash.success('Sub department created successfully')
+
+  } catch (error: any) {
+    flash.error('Failed to create sub department: ' + error.message)
   } finally {
     await getsubDepartments()
     isSubmit.value = false
@@ -229,16 +236,7 @@ const updateSubDepartment = async (e: Event) => {
       formData.append('remove_image', '1')
     }
 
-    // send multipart/form-data PUT/PATCH via POST + _method if your Laravel route uses PUT
-    // If your route is Route::post('/api/productsubdepartment/{id}') you can just POST.
-    // If it's Route::put('/api/productsubdepartment/{id}'), you either:
-    //   - change to $axios.post + _method='PUT', OR
-    //   - do $axios.post if you've defined it that way.
-    //
-    // I'll follow same style we used earlier (POST with FormData):
-    // If you need PUT instead, add formData.append('_method', 'PUT')
-    // and call $axios.post().
-    // For now I'll assume you will accept POST:
+   
     const res = await $axios.post(
       `/api/productsubdepartment/${editSubDeptId.value}`,
       formData,
@@ -247,13 +245,13 @@ const updateSubDepartment = async (e: Event) => {
       }
     )
 
-    console.log('update response', res.data)
-
+    
+    flash.success('Sub department updated successfully')
     await getsubDepartments()
     closeEditModal()
 
-  } catch (err) {
-    alert('Failed to update sub department: ' + err)
+  } catch (err: any) {
+    flash.error('Failed to update sub department: ' + err.message)
   } finally {
     isSubmit.value = false
   }
@@ -285,13 +283,23 @@ const getsubDepartments = async () => {
 }
 
 const deleteSubDepartment = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this sub department?')) return
+  const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
   try {
-    await $axios.delete(`/api/productsubdepartment/${id}`)
+  const success =  await $axios.delete(`/api/productsubdepartment/${id}`)
+    if (success) {
+      flash.success('Sub department deleted successfully')
+    }  
     await getsubDepartments()
-  } catch (error) {
-    console.error('Failed to delete sub department:', error)
+  } catch (error: any) {
+      flash.error('Failed to delete sub department: ' + error.message)
+    
   }
 }
 

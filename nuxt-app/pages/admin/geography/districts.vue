@@ -2,6 +2,9 @@
 import { definePageMeta, useNuxtApp } from '#imports';
 import { ref, onMounted, watch } from 'vue'
 
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
+
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
@@ -86,15 +89,18 @@ const fetchRegions = async () => {
 // load regions for a specific country into editRegions (used in modal)
 const fetchRegionsForEdit = async (countryId: number | '') => {
   if (!countryId) { editRegions.value = []; return }
-  const { data } = await $axios.get('/api/geo/regions', {
+
+  const { data } = await $axios.get('/api/geo/regions/countries', {
     params: { country_id: countryId }
   })
+
   editRegions.value = data
-  // cleanup edit_Region_Id if not valid anymore
+
   if (!editRegions.value.find(r => r.id === edit_Region_Id.value)) {
     edit_Region_Id.value = ''
   }
 }
+
 
 const fetchDistricts = async () => {
   loadingList.value = true
@@ -133,7 +139,7 @@ const submitForm = async () => {
       District_Name_Ar: District_Name_Ar.value || null
     })
 
-    alert('District created successfully')
+    flash.success('District created successfully.')
 
     // reset
     District_Code.value = ''
@@ -144,7 +150,7 @@ const submitForm = async () => {
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || 'Failed to create district.'
     errorMessage.value = msg
-    alert('Error: ' + msg)
+    flash.error(msg)
   } finally {
     creating.value = false
   }
@@ -154,13 +160,11 @@ const submitForm = async () => {
 const openEdit = async (d: District) => {
   errorMessage.value = null
 
-  // preload edit form from row
   edit_id.value = d.id
   edit_District_Code.value = d.District_Code
   edit_District_Name.value = d.District_Name
   edit_District_Name_Ar.value = d.District_Name_Ar || ''
 
-  // infer Country_Id + Region_Id from the district's region
   const regionObj = d.region
   const detectedCountryId = regionObj?.Country_Id ?? regionObj?.country?.id ?? ''
   const detectedRegionId = d.Region_Id ?? ''
@@ -168,16 +172,22 @@ const openEdit = async (d: District) => {
   edit_Country_Id.value = detectedCountryId
   edit_Region_Id.value = detectedRegionId
 
-  // load regions for this country into editRegions
-  await fetchRegionsForEdit(edit_Country_Id.value)
-
+  // show the modal immediately
   showEdit.value = true
+
+  try {
+    await fetchRegionsForEdit(edit_Country_Id.value)
+  } catch (e: any) {
+    flash.error('Failed to load regions for edit.')
+    console.error(e)
+  }
 }
+
 
 const saveEdit = async () => {
   if (!edit_id.value) return
   if (!edit_Region_Id.value) {
-    alert('Please select a Region')
+    flash.error('Please select a Region')
     return
   }
 
@@ -203,8 +213,9 @@ const saveEdit = async () => {
     edit_District_Name_Ar.value = ''
 
     await fetchDistricts()
+    flash.success('District updated successfully.')
   } catch (err: any) {
-    console.error('Failed to update district:', err)
+   flash.error('Failed to update district:')
     errorMessage.value =
       err?.response?.data?.message ||
       err?.message ||
@@ -228,10 +239,16 @@ const closeEdit = () => {
 
 /* ----------------------- DELETE ----------------------- */
 const deleteDistrict = async (id: number) => {
-  const yes = confirm('Are you sure you want to delete this district?')
-  if (!yes) return
+  const ok = await flash.confirm({
+    title: 'Delete district?',
+    message: `Are you sure you want to delete this district? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
-  await $axios.delete(`/api/geo/districts/${id}`)
+   await $axios.delete(`/api/geo/districts/${id}`)
+  flash.success('District deleted successfully')
   await fetchDistricts()
 }
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { definePageMeta,useNuxtApp } from '#imports'
-
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 definePageMeta({
      layout: 'admin',
      middleware: ['permission'],
@@ -149,14 +150,18 @@ const submitSpecs = async () => {
         values: (h.input_type === 'select' || h.input_type === 'multiselect') ? [...new Set(h.values.map(v => v.trim()).filter(Boolean))] : []
       }))
     })
-    alert('Specifications submitted successfully')
-    // headers.value = [{ name: '', input_type: 'text', is_required: false, is_active: false, sort_order: 0, values: [] }]
-    // form.value.product_department_id = 0
-    // form.value.product_sub_department_id = 0
-    // form.value.product_sub_sub_department_id = 0
+    flash.success('Product specifications submitted successfully')
+    // Reset form
+    form.value.product_department_id = 0
+    form.value.product_sub_department_id = 0
+    form.value.product_sub_sub_department_id = 0
+    subDepartments.value = []
+    subSubDepartments.value = []
+    headers.value = [
+      { name: '', input_type: 'text', is_required: false, is_active: false, sort_order: 0, values: [], _newVal: '' }
+    ] 
   } catch (e) {
-    console.error('Submission error:', e)
-    alert('Failed to submit specifications')
+    flash.error('Failed to submit product specifications: ' + (e as any).message)
   }
 }
 

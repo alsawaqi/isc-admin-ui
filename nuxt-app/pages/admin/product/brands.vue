@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { definePageMeta, useNuxtApp } from '#imports'
 import { ref, onMounted, reactive, watch } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
   layout: 'admin',
@@ -86,8 +88,8 @@ const getProductBrands = async () => {
 
 
   } catch (error: any) {
-    alert(
-      'Failed to fetch product types: ' +
+    flash.error(
+      'Failed to fetch product brands: ' +
       (error?.response?.data?.message || error?.message || 'Unknown error')
     )
   }
@@ -132,7 +134,7 @@ const submit = async (e: Event) => {
   e.preventDefault()
 
   if (!name.value) {
-    alert('Please enter a brand name.')
+    flash.error('Please enter a brand name.')
     return
   }
 
@@ -142,8 +144,8 @@ const submit = async (e: Event) => {
     form.append('name', name.value)
     form.append('name_ar', nameAr.value)
     if (uploadedImage.value) {
-      form.append('image', uploadedImage.value) // <- use "image" (or "file" if your backend uses file)
-    }
+  form.append('file', uploadedImage.value)  // ✅ match backend
+}
 
     await $axios.post('/api/productbrands', form, {
       headers: {
@@ -151,7 +153,7 @@ const submit = async (e: Event) => {
       }
     })
 
-    alert('Product Brand created successfully')
+    flash.success('Product Brand created successfully')
 
     // reset create form
     name.value = ''
@@ -159,7 +161,7 @@ const submit = async (e: Event) => {
     removeImage()
     await getProductBrands()
   } catch (error: any) {
-    alert(
+    flash.error(
       'Failed to create product brand: ' +
       (error?.response?.data?.message || error?.message || 'Unknown error')
     )
@@ -253,13 +255,14 @@ const updateBrand = async (e: Event) => {
       }
     })
 
+    flash.success('Product Brand updated successfully')
     // refresh list
     await getProductBrands()
 
     // close modal
     isEditOpen.value = false
   } catch (error: any) {
-    alert(
+    flash.error(
       'Failed to update product brand: ' +
       (error?.response?.data?.message || error?.message || 'Unknown error')
     )
@@ -270,13 +273,21 @@ const updateBrand = async (e: Event) => {
 
 /* delete handler (optional) */
 const deleteBrand = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this brand?')) return
+    const ok = await flash.confirm({
+    title: 'Delete brand?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
   try {
     await $axios.delete(`/api/productbrands/${id}`)
+    flash.success('Product brand deleted successfully')
+    // refresh list
     await getProductBrands()
   } catch (error: any) {
-    alert(
+    flash.error(
       'Failed to delete product brand: ' +
       (error?.response?.data?.message || error?.message || 'Unknown error')
     )

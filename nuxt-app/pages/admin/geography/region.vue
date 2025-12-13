@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useNuxtApp, definePageMeta } from '#imports'
 import { ref, onMounted, reactive, watch } from 'vue'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 definePageMeta({
     layout: 'admin',
@@ -72,7 +74,7 @@ const fetchCountries = async () => {
         const response = await $axios.get('/api/regions/countries')
         countries.value = response.data
     } catch (err) {
-        console.error('Failed to fetch countries:', err)
+        flash.error('Failed to load countries.')
     }
 }
 
@@ -124,7 +126,7 @@ const submitForm = async () => {
             Region_Name_Ar: Region_Name_Ar.value,
         })
 
-        alert('Region created successfully')
+        flash.success('Region created successfully.')
 
         resetCreateForm()
         await fetchRegions()
@@ -134,7 +136,9 @@ const submitForm = async () => {
             error?.response?.data?.message ||
             error?.message ||
             'Failed to create region.'
-        alert('Error: ' + errorMessage.value)
+        flash.error(
+            'Failed to create region.'
+        )
     } finally {
         creating.value = false
     }
@@ -178,13 +182,14 @@ const saveEdit = async () => {
         edit_Country_Id.value = ''
 
         await fetchRegions()
+        flash.success('Region updated successfully.')
     } catch (error: any) {
-        console.error('Failed to update region:', error)
+        flash.error('Failed to update region.')
         errorMessage.value =
             error?.response?.data?.message ||
             error?.message ||
             'Failed to update region.'
-        // keep modal open, user can fix
+       
     } finally {
         savingEdit.value = false
     }
@@ -203,15 +208,21 @@ const closeEdit = () => {
 
 /* ---------- DELETE ---------- */
 const deleteRegion = async (id: number) => {
-    const yes = confirm('Are you sure you want to delete this region?')
-    if (!yes) return
+     const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
 
     try {
         await $axios.delete(`/api/regions/${id}`)
         await fetchRegions()
+        flash.success('Region deleted successfully.')
     } catch (err) {
-        console.error('Failed to delete region:', err)
-        alert('Delete failed')
+       
+        flash.error('Failed to delete region. Please try again.')
     }
 }
 

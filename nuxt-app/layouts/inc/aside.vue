@@ -683,7 +683,7 @@ onMounted(async () => {
                 </li>
 
 
-                <li class="has-child">
+                <li class="has-child" v-if="hasPermission('shippingservices')">
                     <a href="javascript:void(0)"
                              :style="isAnyChildActive([
                             '/admin/shipping/shippers-create',
@@ -693,7 +693,7 @@ onMounted(async () => {
                   </a>
 
                  <ul> 
-                   <li>
+                   <li v-if="hasPermission('create shippers')">
                      <NuxtLink
                        to="/admin/shipping/shippers-create"
                        :style="isActive('/admin/shipping/shippers-create') ? getActiveColor('/admin/shipping/shippers-create') : ''"
@@ -707,7 +707,8 @@ onMounted(async () => {
                      <NuxtLink
                        to="/admin/shipping/shippers"
                        :style="isActive('/admin/shipping/shippers') ? getActiveColor('/admin/shipping/shippers') : ''"
-                     >
+                        v-if="hasPermission('view shippers')"
+                        >
                        View Shippers
                      </NuxtLink>
                    </li>
@@ -716,11 +717,11 @@ onMounted(async () => {
                 </li>
 
 
-                <li><NuxtLink to="/admin/department">Contact Departments</NuxtLink></li>
-                <li><NuxtLink to="/admin/customer/type">Customer Types</NuxtLink></li>
+                <li v-if="hasPermission('contact departments')"><NuxtLink to="/admin/department">Contact Departments</NuxtLink></li>
+                <li v-if="hasPermission('customer types')"><NuxtLink to="/admin/customer/type">Customer Types</NuxtLink></li>
 
-                <li><NuxtLink to="/admin/customer">Customers</NuxtLink></li>
-                <li v-if="hasPermission('system parameters')"><a href="#">System Parameters</a></li>
+                <li v-if="hasPermission('customers')"><NuxtLink to="/admin/customer">Customers</NuxtLink></li>
+                <li v-if="hasPermission('system parameters')"><NuxtLink to="/admin/system-parameters">System Parameters</NuxtLink></li>
                 <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>
                 <li v-if="hasPermission('merchant')"><a href="#">Merchant</a></li>

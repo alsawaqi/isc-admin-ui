@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { definePageMeta, useNuxtApp } from '#imports';
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission']
@@ -267,7 +269,7 @@ const updateSubSubDepartment = async (e: Event) => {
       }
     )
 
-    console.log('Updated:', res.data)
+    flash.success('Sub-sub department updated successfully')
 
     // refresh tree so UI updates
     await fetchFullTree()
@@ -275,8 +277,7 @@ const updateSubSubDepartment = async (e: Event) => {
     // close modal
     isEditOpen.value = false
   } catch (err) {
-    console.error('Failed to update sub-sub department:', err)
-    alert('Failed to update')
+    flash.error('Failed to update sub-sub department: ' + (err as any).message)
   } finally {
     isSubmit.value = false
   }
@@ -330,11 +331,11 @@ const handleSubmit = async () => {
     selectedSubDepartmentId.value = null;
     uploadedImage.value = null;
     previewUrl.value = null;
-    alert('Saved successfully!');
+   
+    flash.success('Sub-sub department created successfully')
 
   } catch (error: any) {
-    alert('Failed to save: ' + (error?.response?.data?.message || 'Unknown error'));
-    console.error(error.response?.data || error);
+    flash.error('Failed to create sub-sub department: ' + error.message)
   } finally {
     await fetchFullTree();
 
@@ -345,15 +346,20 @@ const handleSubmit = async () => {
 
 
 const deleteSubSubDepartment = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this sub-sub department?')) return;
-
+  const ok = await flash.confirm({
+    title: 'Delete department?',
+    message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return;
   try {
     await $axios.delete(`/api/sub-sub-departments/${id}`);
-    alert('Deleted successfully!');
+    flash.success('Deleted successfully!');
     await fetchFullTree();
   } catch (error: any) {
-    alert('Failed to delete: ' + (error?.response?.data?.message || 'Unknown error'));
-    console.error(error.response?.data || error);
+    flash.error('Failed to delete: ' + (error?.response?.data?.message || 'Unknown error'));
+  
   }
 };
 

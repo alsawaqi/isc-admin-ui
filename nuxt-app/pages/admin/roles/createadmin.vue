@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useNuxtApp,definePageMeta } from '#imports'
+import { useFlashStore } from '~/stores/flashs'
+const flash = useFlashStore()
 
 const  { $axios } = (useNuxtApp() as any);
 
@@ -34,7 +36,7 @@ const fetchRoles = async () => {
     const response = await $axios.get('/api/roles/all')
     roles.value = response.data
   } catch (error) {
-    console.error('Failed to load roles:', error)
+    flash.error('Failed to load roles.')
   }
 }
 
@@ -51,9 +53,11 @@ const submitForm = async (e: Event) => {
       confirmPassword: '',
       role: ''
     }
+
+    flash.success('User created successfully.')
    
   } catch (error) {
-    alert('Failed to create user:'+ error)
+    flash.error('Failed to create user.')
   }
 }
 
