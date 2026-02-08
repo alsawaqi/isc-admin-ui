@@ -3,7 +3,8 @@
   "include": ["**/*.ts", "**/*.vue", ".nuxt", "nuxt.d.ts"],
   "compilerOptions": {
     "noEmit": true,
-    "allowJs": true
+    "allowJs": true,
+    "module": "esnext"
   },
   "exclude": [
     "node_modules",

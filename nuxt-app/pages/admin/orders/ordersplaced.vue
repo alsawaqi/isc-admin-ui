@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { definePageMeta, useNuxtApp } from '#imports'
-import { ref, onMounted, defineEmits, defineProps, watch, reactive } from 'vue'
+  import { definePageMeta, useNuxtApp,} from '#imports'
+import { ref, onMounted, watch, reactive } from 'vue'
 
 definePageMeta({
   layout: 'admin',

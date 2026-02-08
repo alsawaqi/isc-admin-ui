@@ -293,16 +293,7 @@ const getLatestProducts = async () => {
 }
 
 
-// watch(() => form.value.product_sub_sub_department_id, async () => {
-//   try {
-//     const specifications = await getproductspecifications(form.value.product_sub_sub_department_id);
-//     console.log('Product specifications:', specifications);
-//   } catch (error) {
-//     console.error('Error fetching product specifications:', error);
-//   }
-// });
-
-
+ 
 const submitForm = async () => {
   loading.value = true
 

@@ -1,4 +1,4 @@
- <script lang="ts" setup>
+<script lang="ts" setup>
 import { useNuxtApp, definePageMeta } from '#imports';
 import { ref, onMounted, reactive, watch } from 'vue';
 import { useFlashStore } from '~/stores/flashs'

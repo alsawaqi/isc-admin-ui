@@ -66,6 +66,8 @@ const getActiveColor = (path: string): string => {
     // Shipping
     '/admin/shipping/shippers-create': 'color: #0f766e;', // NEW
     '/admin/shipping/shippers': 'color: #fbbf24;',        // NEW
+    '/admin/vender': 'color: #fbbf24;',        // NEW
+    '/admin/vender/user': 'color: #fbbf24;',        // NEW
   }
 
   // fallback color
@@ -636,7 +638,7 @@ onMounted(async () => {
                     Region
                       
                   </NuxtLink>
-                </li>
+                  </li>
 
 
                 <li>
@@ -714,6 +716,42 @@ onMounted(async () => {
                    </li>
                  </ul>
 
+                </li>
+
+
+                <li class="has-child">
+                    <a href="javascript:void(0)"
+                             :style="isAnyChildActive([
+                               '/admin/vender',
+                               '/admin/vendor/user'
+                            ]) ? getActiveColor(route.path) : ''">
+                    Vendor Services
+                  </a>
+
+                 <ul> 
+                  <li>
+                    <NuxtLink to="/admin/vendor">Vendors</NuxtLink>
+                  </li>
+                  
+                  <li>
+                    <NuxtLink to="/admin/vendor/user">Vendors Login</NuxtLink>
+                  </li>
+
+
+
+                  <li>
+                    <NuxtLink to="/admin/products-temp">Vendors Request</NuxtLink>
+                  </li>
+                  
+                      <li>
+                        <NuxtLink to="/admin/vendor-orders">Vendor Orders</NuxtLink>
+                      </li>
+
+                      <li> 
+                        <NuxtLink to="/admin/vendor-orders/vendor-payouts">Vendor Payouts</NuxtLink>
+                      </li>
+
+                  </ul>
                 </li>
 
 
