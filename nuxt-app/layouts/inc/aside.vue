@@ -483,7 +483,7 @@ onMounted(async () => {
             Product Activation
           </NuxtLink>
         </li>
-                <li v-if="hasPermission('product reports')"><a href="#">Product Reports</a></li>
+                <!-- <li v-if="hasPermission('product reports')"><a href="#">Product Reports</a></li> -->
               </ul>
             </li>
 
@@ -508,19 +508,19 @@ onMounted(async () => {
                 <li v-if="hasPermission('order dispatched')"><NuxtLink to="/admin/orders/ordersdispatch">Order Dispatched</NuxtLink></li>
                 <li v-if="hasPermission('order shipments')"><NuxtLink to="/admin/orders/ordersshipment">Order Shipments</NuxtLink></li>
                 <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">View All Orders</NuxtLink></li>
-               <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li>
+               <!-- <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li> -->
               </ul>
             </li>
 
             <!-- Invoice -->
-            <li v-if="hasPermission('invoice')" class="has-child">
+            <!-- <li v-if="hasPermission('invoice')" class="has-child">
               <a href="javascript:void(0)">Invoice</a>
               <ul class="open" style="display: block;">
                 <li v-if="hasPermission('invoice list')"><a href="#">List</a></li>
                 <li v-if="hasPermission('invoice preview')"><a href="#">Preview</a></li>
                 <li v-if="hasPermission('invoice add new')"><a href="#">Add new</a></li>
               </ul>
-            </li>
+            </li> -->
 
 
 
@@ -533,13 +533,13 @@ onMounted(async () => {
             </li>
 
             <!-- Other Services -->
-            <li v-if="hasPermission('other services')" class="has-child">
+            <!-- <li v-if="hasPermission('other services')" class="has-child">
               <a href="javascript:void(0)">Other Services</a>
               <ul class="open" style="display: block;">
                 <li v-if="hasPermission('free lancers')"><a href="#">Free Lancers</a></li>
                 <li v-if="hasPermission('collaborations')"><a href="#">Collaborations</a></li>
               </ul>
-            </li>
+            </li> -->
 
             <!-- Admin -->
             <li v-if="hasPermission('admin')" class="has-child">
@@ -760,11 +760,11 @@ onMounted(async () => {
 
                 <li v-if="hasPermission('customers')"><NuxtLink to="/admin/customer">Customers</NuxtLink></li>
                 <li v-if="hasPermission('system parameters')"><NuxtLink to="/admin/system-parameters">System Parameters</NuxtLink></li>
-                <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
+                <!-- <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>
                 <li v-if="hasPermission('merchant')"><a href="#">Merchant</a></li>
                 <li v-if="hasPermission('couriers')"><a href="#">Couriers</a></li>
-                <li v-if="hasPermission('admin report')"><a href="#">Admin Report</a></li>
+                <li v-if="hasPermission('admin report')"><a href="#">Admin Report</a></li> -->
               </ul>
             </li>
           </ul>

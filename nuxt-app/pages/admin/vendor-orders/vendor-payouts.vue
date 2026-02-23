@@ -43,15 +43,33 @@ const total = ref(0)
 const status = ref("commission_set") // must be commission_set
 const payoutStatus = ref<"unpaid" | "requested" | "paid">("unpaid")
 
+
+// payout modal
+const payoutOpen = ref(false)
+const payoutBusy = ref(false)
+const selected = ref<VendorOrder | null>(null)
+const payoutReference = ref("")
+const payoutAt = ref<string>("") // datetime-local optional
+
 // Search (optional)
 const q = ref("")
 
 const fetchList = async () => {
   loading.value = true
   error.value = null
+
   try {
-    const { data } = await $axios.get("/api/admin/vendor-orders"
-    )
+    const { data } = await $axios.get("/api/admin/vendor-orders/commissions-set", {
+      params: {
+        page: page.value,
+        per_page: perPage.value,
+        status: status.value,              // "commission_set"
+        payout_status: payoutStatus.value, // unpaid/requested/paid
+        q: q.value?.trim() || undefined,
+        needs_commission: false,           // IMPORTANT for payout page
+      },
+    })
+
     rows.value = data.data || []
     total.value = data.meta?.total || 0
   } catch (e: any) {
@@ -75,12 +93,7 @@ const calcPayout = (r: VendorOrder) => {
   return amount < 0 ? 0 : amount
 }
 
-// payout modal
-const payoutOpen = ref(false)
-const payoutBusy = ref(false)
-const selected = ref<VendorOrder | null>(null)
-const payoutReference = ref("")
-const payoutAt = ref<string>("") // datetime-local optional
+
 
 const openPayout = (r: VendorOrder) => {
   selected.value = r
@@ -105,7 +118,10 @@ const confirmPayout = async () => {
     }
 
     if (payoutReference.value.trim()) payload.reference = payoutReference.value.trim()
-    if (payoutAt.value) payload.payout_at = payoutAt.value
+    if (payoutAt.value) {
+  // "2026-02-23T01:38" -> "2026-02-23 01:38:00"
+  payload.payout_at = payoutAt.value.replace("T", " ") + ":00"
+}
 
     await $axios.post(`/api/admin/vendor-orders/${selected.value.id}/payout`, payload)
 
