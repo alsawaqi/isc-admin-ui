@@ -5,8 +5,7 @@ import { useFlashStore } from '~/stores/flashs'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
-
+  permission: 'products' // or whatever permission string you use
 });
 
 import { ref, onMounted,  watch, nextTick, reactive } from 'vue'
@@ -88,18 +87,104 @@ const showBarcodeModal = ref(false)
 const productBarcodes = ref<string[]>([])
 const currentBarcodeProductId = ref<number | null>(null)
 
-const showImagesModal = ref(false)
+  const showImagesModal = ref(false)
 const currentImageProductId = ref<number | null>(null)
-const productImages = ref<{ id: number; path: string; is_default: boolean }[]>([])
+
+type ProductImageRow = {
+  id: number
+  Image_Path: string
+  Product_Image_Code?: string
+}
+
+const productImages = ref<ProductImageRow[]>([])
+const imageFiles = ref<File[]>([])
+const imagePreviews = ref<string[]>([])
+const imagesBusy = ref(false)
+
+const fetchImages = async () => {
+  if (!currentImageProductId.value) return
+  const res = await $axios.get(`/api/product-images/${currentImageProductId.value}`)
+  productImages.value = res.data
+}
 
 const openImagesModal = async (productId: number) => {
   currentImageProductId.value = productId
+  showImagesModal.value = true
   try {
-    const res = await $axios.get(`/api/productmaster/${productId}/images`)
-    productImages.value = res.data
-    showImagesModal.value = true
+    await fetchImages()
   } catch (err) {
     console.error('Failed to fetch product images', err)
+    flash.error('Failed to load images')
+  }
+}
+
+const closeImagesModal = () => {
+  showImagesModal.value = false
+  currentImageProductId.value = null
+  imageFiles.value = []
+  imagePreviews.value.forEach((u) => URL.revokeObjectURL(u))
+  imagePreviews.value = []
+}
+
+const handleImageFiles = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  imagePreviews.value.forEach((u) => URL.revokeObjectURL(u))
+  imageFiles.value = Array.from(input.files)
+  imagePreviews.value = imageFiles.value.map((f) => URL.createObjectURL(f))
+}
+
+const uploadImages = async () => {
+  if (!currentImageProductId.value) return
+  if (!imageFiles.value.length) {
+    flash.error('Choose images first')
+    return
+  }
+
+  imagesBusy.value = true
+  try {
+    const fd = new FormData()
+    imageFiles.value.forEach((f) => fd.append('file[]', f)) // ✅ maps to "file" array in Laravel
+
+    await $axios.post(`/api/product-images/${currentImageProductId.value}`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+
+    flash.success('Images uploaded successfully!')
+    imageFiles.value = []
+    imagePreviews.value.forEach((u) => URL.revokeObjectURL(u))
+    imagePreviews.value = []
+
+    await fetchImages()
+  } catch (err) {
+    console.error(err)
+    flash.error('Upload failed')
+  } finally {
+    imagesBusy.value = false
+  }
+}
+
+const deleteImage = async (imageId: number) => {
+  const ok = await flash.confirm({
+    title: 'Delete image?',
+    message: 'This will remove the image from storage and database.',
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+  })
+
+  if (!ok) return
+
+  imagesBusy.value = true
+  try {
+    await $axios.delete(`/api/product-images/${imageId}`)
+    flash.success('Image deleted')
+    await fetchImages()
+  } catch (err) {
+    console.error(err)
+    flash.error('Delete failed')
+  } finally {
+    imagesBusy.value = false
   }
 }
 
@@ -595,37 +680,91 @@ onMounted(async () => {
   </teleport>
 
 
+ 
   <teleport to="body">
-    <div v-if="show" class="modal-backdrop fade show"></div>
-    <div v-if="show" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
-      <div class="modal-dialog modal-lg">
+  <div v-if="showImagesModal">
+    <div class="modal-backdrop fade show"></div>
+
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.3)">
+      <div class="modal-dialog modal-xl">
         <div class="modal-content">
+
           <div class="modal-header">
-            <h5 class="modal-title">Upload Product Images</h5>
-            <button type="button" class="btn-close" @click="emit('close')"></button>
+            <h5 class="modal-title">Manage Product Images</h5>
+            <button type="button" class="btn-close" @click="closeImagesModal"></button>
           </div>
+
           <div class="modal-body">
-            <input type="file" multiple @change="handleFiles" class="form-control" />
+            <div class="row g-3">
 
-            <div class="d-flex flex-wrap mt-3 gap-3">
-              <div v-for="(image, index) in existingImages" :key="'existing-' + index" class="border p-2">
-                <img :src="`${$r2Url}/` + image" class="img-thumbnail" width="100" height="100" />
+              <!-- Upload -->
+              <div class="col-lg-4">
+                <label class="form-label fw-semibold">Upload new images</label>
+                <input type="file" multiple accept="image/*" class="form-control" @change="handleImageFiles" />
+
+                <button class="btn btn-primary w-100 mt-3"
+                        :disabled="imagesBusy || !imageFiles.length"
+                        @click="uploadImages">
+                  {{ imagesBusy ? 'Working...' : 'Upload' }}
+                </button>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                  <img v-for="(p, i) in imagePreviews"
+                       :key="'prev-' + i"
+                       :src="p"
+                       class="img-thumbnail"
+                       style="width:110px;height:110px;object-fit:cover;" />
+                </div>
               </div>
 
-              <div v-for="(preview, index) in previews" :key="'preview-' + index" class="border p-2">
-                <img :src="preview" class="img-thumbnail" width="100" height="100" />
+              <!-- Existing images -->
+              <div class="col-lg-8">
+                <div class="d-flex align-items-center justify-content-between">
+                  <label class="form-label fw-semibold mb-0">Existing Images</label>
+                  <button class="btn btn-sm btn-outline-secondary" :disabled="imagesBusy" @click="fetchImages">
+                    Refresh
+                  </button>
+                </div>
+
+                <div class="d-flex flex-wrap gap-3 mt-3">
+                  <div v-for="img in productImages"
+                       :key="img.id"
+                       class="border rounded p-2 position-relative"
+                       style="width:160px">
+                    <img :src="`${$r2Url}/` + img.Image_Path"
+                         class="img-thumbnail w-100"
+                         style="height:120px;object-fit:cover;" />
+
+                    <button class="btn btn-sm btn-danger position-absolute"
+                            style="top:6px;right:6px"
+                            :disabled="imagesBusy"
+                            @click="deleteImage(img.id)">
+                      <iconify-icon icon="mingcute:delete-2-line"></iconify-icon>
+                    </button>
+
+                    <div class="text-muted small mt-1 text-truncate">
+                      {{ img.Product_Image_Code || ('#' + img.id) }}
+                    </div>
+                  </div>
+
+                  <div v-if="!productImages.length" class="text-muted">
+                    No images yet.
+                  </div>
+                </div>
               </div>
+
             </div>
           </div>
+
           <div class="modal-footer">
-            <button class="btn btn-secondary" @click="emit('close')">Cancel</button>
-            <button class="btn btn-primary" @click="submit">Upload</button>
+            <button class="btn btn-secondary" @click="closeImagesModal">Close</button>
           </div>
+
         </div>
       </div>
     </div>
-  </teleport>
-
+  </div>
+</teleport>
 
   <teleport to="body">
     <div v-if="showSummaryModal">

@@ -127,12 +127,8 @@ watch(() => form.value.product_sub_department_id, fetchSubSubDepartments)
 const isSubmitDisabled = computed(() => {
   if (!form.value.product_sub_sub_department_id) return true
   if (headers.value.length === 0) return true
-  // Must have at least one non-empty header name
   if (headers.value.every(h => h.name.trim() === '')) return true
-  // For select/multiselect, at least one value
-  if (headers.value.some(h => (h.input_type === 'select' || h.input_type === 'multiselect') && h.values.length === 0)) {
-    return true
-  }
+  // Allowed values are optional for any input_type (same as viewproductdescription.vue)
   return false
 })
 
@@ -147,7 +143,7 @@ const submitSpecs = async () => {
         is_required: h.is_required,
         is_active: h.is_active,
         sort_order: h.sort_order || 0,
-        values: (h.input_type === 'select' || h.input_type === 'multiselect') ? [...new Set(h.values.map(v => v.trim()).filter(Boolean))] : []
+        values: [...new Set(h.values.map(v => (v || '').trim()).filter(Boolean))]
       }))
     })
     flash.success('Product specifications submitted successfully')
@@ -288,44 +284,44 @@ onMounted(async () => {
 
                   <!-- Values tag editor for select/multiselect -->
                 <!-- Allowed values (always visible) -->
-<div class="col-sm-12">
-  <label class="form-label d-flex align-items-center gap-2">
-    Allowed values
-    <span
-      v-if="!['select','multiselect'].includes(h.input_type)"
-      class="badge bg-light text-muted"
-      title="These values are only used when the type is Select or Multi-select"
-    >
-      used for Select / Multi-select
-    </span>
-  </label>
+                    <div class="col-sm-12">
+                      <label class="form-label d-flex align-items-center gap-2">
+                        Allowed values
+                        <span
+                          v-if="!['select','multiselect'].includes(h.input_type)"
+                          class="badge bg-light text-muted"
+                          title="These values are only used when the type is Select or Multi-select"
+                        >
+                          used for Select / Multi-select
+                        </span>
+                      </label>
 
-  <div class="d-flex gap-2 flex-wrap mb-2">
-    <span v-for="(val, vi) in h.values" :key="vi" class="badge bg-secondary">
-      {{ val }}
-      <button
-        type="button"
-        class="btn btn-sm btn-link text-white"
-        @click="h.values.splice(vi, 1)"
-        aria-label="Remove value"
-      >×</button>
-    </span>
-    <span v-if="!h.values.length" class="text-muted small">No values yet</span>
-  </div>
+                      <div class="d-flex gap-2 flex-wrap mb-2">
+                        <span v-for="(val, vi) in h.values" :key="vi" class="badge bg-secondary">
+                          {{ val }}
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-link text-white"
+                            @click="h.values.splice(vi, 1)"
+                            aria-label="Remove value"
+                          >×</button>
+                        </span>
+                        <span v-if="!h.values.length" class="text-muted small">No values yet</span>
+                      </div>
 
-  <div class="input-group">
-    <input
-      class="form-control"
-      :id="`val-input-${index}`"
-      :placeholder="`Type a value and press Add`"
-      v-model="h._newVal"
-      @keyup.enter="addValue(index)"
-    />
-    <button class="btn btn-outline-primary" @click="addValue(index)">Add</button>
-    <button v-if="h.values.length" class="btn btn-outline-secondary" @click="h.values = []">Clear</button>
-  </div>
-  <small class="text-muted">Examples: Green, Yellow, 220V…</small>
-</div>
+                      <div class="input-group">
+                        <input
+                          class="form-control"
+                          :id="`val-input-${index}`"
+                          :placeholder="`Type a value and press Add`"
+                          v-model="h._newVal"
+                          @keyup.enter="addValue(index)"
+                        />
+                        <button class="btn btn-outline-primary" @click="addValue(index)">Add</button>
+                        <button v-if="h.values.length" class="btn btn-outline-secondary" @click="h.values = []">Clear</button>
+                      </div>
+                      <small class="text-muted">Examples: Green, Yellow, 220V…</small>
+                    </div>
 
                   <div class="col-sm-12">
                     <button class="btn btn-danger" @click="removeSpecHeader(index)">Remove</button>
