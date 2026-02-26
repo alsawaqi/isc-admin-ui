@@ -3,11 +3,12 @@ import { definePageMeta } from '#imports'
 import { ref } from 'vue'
 import Loyality from '~/components/systemparameters/loyality.vue'
 import Vat from '~/components/systemparameters/vat.vue'
+import Sliders from '~/components/systemparameters/sliders.vue'
 
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'shipping.shippers'
+  permission: 'system parameters'
 })
 
  
@@ -56,6 +57,15 @@ const changeRoute = (newRoute: string) => {
                                 Vat
                             </button>
 
+
+
+                            <button type="button"
+                                :class="'btn text-sm btn-sm px-12 py-12 w-100 radius-8 d-flex align-items-center gap-2 mb-16'
+                                    + (change === 'sliders' ? ' btn-primary' : ' btn-outline-secondary')"
+                                @click="changeRoute('sliders')">
+                                UI Slider
+                                </button>
+
                            
 
                         </div>
@@ -67,6 +77,7 @@ const changeRoute = (newRoute: string) => {
                         <div class="card-body p-0">
                             <Loyality v-if="change === 'loyality'" />
                             <Vat v-else-if="change === 'vat'" />
+                            <Sliders v-else-if="change === 'sliders'" />    
                         </div>
                         
                          
