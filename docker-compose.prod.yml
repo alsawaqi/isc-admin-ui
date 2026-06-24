@@ -6,7 +6,7 @@ services:
     container_name: nuxt-ssr
     restart: always
     networks:
-      - npm_network
+      - proxy_network
     environment:
       NODE_ENV: production
       NUXT_PUBLIC_API_BASE: https://api.avinaq.com
@@ -19,8 +19,8 @@ services:
     depends_on:
       - nuxt
     networks:
-      - npm_network
+      - proxy_network
 
 networks:
-  npm_network:
+  proxy_network:
     external: true
