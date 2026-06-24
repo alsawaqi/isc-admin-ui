@@ -29,6 +29,9 @@ let idCounter = 1
 export const useFlashStore = defineStore('flash', () => {
   const toasts = ref<FlashToast[]>([])
   const confirmState = ref<ConfirmState | null>(null)
+  const visible = ref(false)
+  const title = ref<string | null>(null)
+  const subtitle = ref<string | null>(null)
 
   const removeToast = (id: number) => {
     toasts.value = toasts.value.filter(t => t.id !== id)
@@ -47,6 +50,23 @@ export const useFlashStore = defineStore('flash', () => {
   const error = (message: string, title = 'Error') => push('error', message, title, 5000)
   const warning = (message: string, title = 'Warning') => push('warning', message, title, 4000)
   const info = (message: string, title = 'Info') => push('info', message, title)
+
+  const showWelcome = (name: string, redirectTo = '/admin', duration = 2200) => {
+    title.value = name ? `Welcome, ${name}!` : 'Welcome!'
+    subtitle.value = 'Loading your workspace...'
+    visible.value = true
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        visible.value = false
+        window.location.href = redirectTo
+      }, duration)
+    }
+  }
+
+  const hide = () => {
+    visible.value = false
+  }
 
   // 🔸 Confirmation dialog (returns a Promise<boolean>)
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
@@ -73,12 +93,17 @@ export const useFlashStore = defineStore('flash', () => {
     // state
     toasts,
     confirmState,
+    visible,
+    title,
+    subtitle,
     // toast methods
     push,
     success,
     error,
     warning,
     info,
+    showWelcome,
+    hide,
     removeToast,
     // confirm methods
     confirm,

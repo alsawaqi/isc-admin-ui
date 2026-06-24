@@ -2,15 +2,17 @@
 import { definePageMeta, useNuxtApp } from "#imports"
 import { ref, onMounted, computed } from "vue"
 import { useRoute } from "vue-router"
+import { useFlashStore } from '~/stores/flashs'
 
 definePageMeta({
   layout: "admin",
   middleware: ["permission"],
-  permissions: "products_temp",
+  permission: "vendor requests",
 })
 
 const { $axios, $r2Url } = useNuxtApp() as any
 const route = useRoute()
+const flash = useFlashStore()
 
 const tempId = Number(route.params.tempId)
 
@@ -136,12 +138,8 @@ const rejectReason = ref('')
 const reviewNote = ref('')
 
 const busyAction = ref(false)
-const actionError = ref<string | null>(null)
-const actionSuccess = ref<string | null>(null)
 
 function resetActionToasts() {
-  actionError.value = null
-  actionSuccess.value = null
 }
 
 
@@ -176,11 +174,11 @@ async function approveTemp() {
   busyAction.value = true
   try {
     await $axios.post(`/api/admin/products-temp/${tempId}/approve`)
-    actionSuccess.value = 'Approved successfully ✅'
+    flash.success('Product approved and moved to master catalog.')
     showApprove.value = false
     await fetchDetails() // your existing fetch
   } catch (e: any) {
-    actionError.value = e?.response?.data?.message || e?.message || 'Approve failed'
+    flash.error(e?.response?.data?.message || e?.message || 'Approve failed')
   } finally {
     busyAction.value = false
   }
@@ -189,18 +187,18 @@ async function approveTemp() {
 async function rejectTemp() {
   resetActionToasts()
   if (rejectReason.value.trim().length < 3) {
-    actionError.value = 'Reason must be at least 3 characters.'
+    flash.warning('Reason must be at least 3 characters.')
     return
   }
   busyAction.value = true
   try {
     await $axios.post(`/api/admin/products-temp/${tempId}/reject`, { reason: rejectReason.value })
-    actionSuccess.value = 'Rejected successfully ✅'
+    flash.success('Product rejected and vendor can see the reason.')
     showReject.value = false
     rejectReason.value = ''
     await fetchDetails()
   } catch (e: any) {
-    actionError.value = e?.response?.data?.message || e?.message || 'Reject failed'
+    flash.error(e?.response?.data?.message || e?.message || 'Reject failed')
   } finally {
     busyAction.value = false
   }
@@ -209,18 +207,18 @@ async function rejectTemp() {
 async function reviewTemp() {
   resetActionToasts()
   if (reviewNote.value.trim().length < 3) {
-    actionError.value = 'Note must be at least 3 characters.'
+    flash.warning('Note must be at least 3 characters.')
     return
   }
   busyAction.value = true
   try {
     await $axios.post(`/api/admin/products-temp/${tempId}/review`, { note: reviewNote.value })
-    actionSuccess.value = 'Review saved (Needs changes) ✅'
+    flash.success('Review note sent to vendor. Product is marked as needs changes.')
     showReview.value = false
     reviewNote.value = ''
     await fetchDetails()
   } catch (e: any) {
-    actionError.value = e?.response?.data?.message || e?.message || 'Review failed'
+    flash.error(e?.response?.data?.message || e?.message || 'Review failed')
   } finally {
     busyAction.value = false
   }
@@ -252,14 +250,10 @@ onMounted(fetchDetails)
 
       <!-- Buttons near page title -->
 <div class="d-flex gap-2 flex-wrap">
-  <button class="btn btn-success" @click="showApprove = true">Approve</button>
-  <button class="btn btn-warning" @click="showReview = true">Review</button>
-  <button class="btn btn-danger"  @click="showReject = true">Reject</button>
+  <button class="btn btn-success" @click="showApprove = true" :disabled="product?.Submission_Status === 'approved'">Approve</button>
+  <button class="btn btn-warning" @click="showReview = true" :disabled="product?.Submission_Status === 'approved'">Request Changes</button>
+  <button class="btn btn-danger"  @click="showReject = true" :disabled="product?.Submission_Status === 'approved'">Reject</button>
 </div>
-
-<!-- Toasts -->
-<div v-if="actionError" class="alert alert-danger mt-3">{{ actionError }}</div>
-<div v-if="actionSuccess" class="alert alert-success mt-3">{{ actionSuccess }}</div>
 
 <!-- Simple overlay modal -->
 <div v-if="showApprove" class="modal-backdropx">
@@ -480,7 +474,7 @@ onMounted(fetchDetails)
 
               <div class="col-12">
                 <div class="text-muted small">
-                  (Next step) we’ll add Approve / Reject / Review actions here.
+                  Dimensions are stored in meters. The database column names still say Cm for legacy compatibility.
                 </div>
               </div>
             </div>
@@ -535,3 +529,24 @@ onMounted(fetchDetails)
     </div>
   </div>
 </template>
+
+<style scoped>
+.modal-backdropx {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.modal-cardx {
+  width: min(520px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+  padding: 1.25rem;
+}
+</style>

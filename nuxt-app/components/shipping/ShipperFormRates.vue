@@ -30,6 +30,7 @@ export interface WeightBand {
 export interface VolumetricRule {
   enabled: boolean
   divisor: number | null
+  // Carrier volumetric limits are entered and stored in centimeters.
   maxL_cm?: number | null
   maxW_cm?: number | null
   maxH_cm?: number | null
@@ -42,7 +43,7 @@ export interface RatesPerDestination {
   volumeBands: VolumeBand[]
   weightBands: WeightBand[]
   volumetricRule?: VolumetricRule | null
-    rate_mode?: RateMode    
+    rate_mode?: RateMode
 }
 
 /** --- Props + v-model (keep first) --- */
@@ -64,10 +65,15 @@ const syncRateMode = () => {
   // ensure rows carry the same mode
  for (let i = 0; i < need; i++) {
   rows.value[i] ||= { volumeBands: [], weightBands: [], volumetricRule: null }
-   if (!rows.value[i].rate_mode) rows.value[i].rate_mode = rateMode.value[i]
+   if (rows.value[i].rate_mode) {
+    rateMode.value[i] = rows.value[i].rate_mode
+   } else {
+    rows.value[i].rate_mode = rateMode.value[i]
+   }
   }
 }
 watch(() => props.destinations.length, syncRateMode, { immediate: true })
+watch(rows, syncRateMode, { deep: true })
 
 /** --- Factories --- */
 const newVolume = (): VolumeBand => ({
@@ -120,13 +126,6 @@ const syncLength = () => {
 }
 watch(() => props.destinations.length, syncLength, { immediate: true })
 
-
-
-const withRuleDivisor = (i: number) => ({
-  ...tests.value[i],
-  divisor: Number(rows.value[i]?.volumetricRule?.divisor ?? tests.value[i]?.divisor ?? 4000)
-})
-
 // Keep the preview's divisor mirrored from the rule
 watch(rows, () => {
   for (let i = 0; i < rows.value.length; i++) {
@@ -171,23 +170,23 @@ const hydrateTestsFromRule = () => {
 
   for (let i = 0; i < n; i++) {
     const rule = rows.value[i]?.volumetricRule
-    if (!tests.value[i]) {
-      tests.value[i] = {
-        grossKg: null,
-        lengthCm: null,
-        widthCm: null,
-        heightCm: null,
-        divisor: 4000
-      }
-    }
+	    if (!tests.value[i]) {
+	      tests.value[i] = {
+	        grossKg: null,
+	        lengthCm: null,
+	        widthCm: null,
+	        heightCm: null,
+	        divisor: 4000
+	      }
+	    }
 
     if (rule) {
       const t = tests.value[i]
 
       // only fill if still empty so we don't overwrite user-typed values
-      if (t.lengthCm == null) t.lengthCm = ruleNum(rule.maxL_cm)
-      if (t.widthCm  == null) t.widthCm  = ruleNum(rule.maxW_cm)
-      if (t.heightCm == null) t.heightCm = ruleNum(rule.maxH_cm)
+	      if (t.lengthCm == null) t.lengthCm = ruleNum(rule.maxL_cm)
+	      if (t.widthCm  == null) t.widthCm  = ruleNum(rule.maxW_cm)
+	      if (t.heightCm == null) t.heightCm = ruleNum(rule.maxH_cm)
 
       // keep divisor in sync with the rule
       t.divisor = ruleNum(rule.divisor, 4000) ?? 4000
@@ -204,8 +203,14 @@ const toNum = (v: any): number | null => {
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
+const parcelVolumeCbm = (t: TestParcel): number | null => {
+  const L = toNum(t.lengthCm), W = toNum(t.widthCm), H = toNum(t.heightCm)
+  if (L == null || W == null || H == null) return null
+  return (L * W * H) / 1_000_000
+}
 const volumetricWeight = (t: TestParcel): number | null => {
-  const L = toNum(t.lengthCm), W = toNum(t.widthCm), H = toNum(t.heightCm), D = toNum(t.divisor)
+  const L = toNum(t.lengthCm), W = toNum(t.widthCm), H = toNum(t.heightCm)
+  const D = toNum(t.divisor)
   if (L == null || W == null || H == null || !D) return null
   return (L * W * H) / D
 }
@@ -229,6 +234,18 @@ const pickWeightBand = (bands: WeightBand[], kg: number | null): WeightBand | nu
   )
   return sorted[0] ?? null
 }
+const pickVolumeBand = (bands: VolumeBand[], cbm: number | null): VolumeBand | null => {
+  if (cbm == null || !bands?.length) return null
+  const hit = bands.find(b =>
+    (b.Shippers_Min_Volume_Cbm ?? -Infinity) <= cbm &&
+    (b.Shippers_Max_Volume_Cbm ?? Infinity) >= cbm
+  )
+  if (hit) return hit
+  const sorted = [...bands].sort((a, b) =>
+    (b.Shippers_Max_Volume_Cbm ?? 0) - (a.Shippers_Max_Volume_Cbm ?? 0)
+  )
+  return sorted[0] ?? null
+}
 const estimateWeightCost = (band: WeightBand | null, kg: number | null): number | null => {
   if (!band || kg == null) return null
   const flat = Number(band.Shippers_Flat_Fee ?? 0)
@@ -241,6 +258,19 @@ const estimateWeightCost = (band: WeightBand | null, kg: number | null): number 
   const charge = Math.min(Math.max(kg, min), max)
 
   return perKg > 0 ? base + Math.max(0, charge - min) * perKg : base
+}
+const estimateVolumeCost = (band: VolumeBand | null, cbm: number | null): number | null => {
+  if (!band || cbm == null) return null
+  const flat = Number(band.Shippers_Flat_Fee ?? 0)
+  if (flat > 0) return flat
+
+  const perCbm = Number(band.Shippers_Per_Cbm_Fee ?? 0)
+  const base = Number(band.Shippers_Base_Fee ?? band.Shippers_Standard_Shipping_Volume_Rate ?? 0)
+  const min = Number(band.Shippers_Min_Volume_Cbm ?? 0)
+  const max = Number(band.Shippers_Max_Volume_Cbm ?? cbm)
+  const charge = Math.min(Math.max(cbm, min), max)
+
+  return perCbm > 0 ? base + Math.max(0, charge - min) * perCbm : base
 }
 
 /** --- Actions: add/remove band rows --- */
@@ -282,7 +312,7 @@ const onModeChange = (i: number) => {
     if (!rows.value[i].volumeBands?.length) addVolume(i)
   } else {
     if (!rows.value[i].weightBands?.length) addWeight(i)
-  } 
+  }
 }
 
 /** --- Unified "Add" handler for the current mode --- */
@@ -290,7 +320,7 @@ const addBand = (i: number) => {
   const m = rateMode.value[i]
   if (m === 'volume') return addVolume(i)
     if (m === 'weight') return addWeight(i)
- 
+
 }
 </script>
 
@@ -302,7 +332,7 @@ const addBand = (i: number) => {
   </div>
 
   <div v-for="(d, i) in props.destinations" :key="i" class="border radius-12 p-3 mb-16">
- 
+
     <h6 class="fw-semibold mb-12">
       Destination #{{ i+1 }} —
       {{ d.Shippers_Destination_Country || '-' }} /
@@ -312,24 +342,24 @@ const addBand = (i: number) => {
 
     <!-- Add-band toolbar -->
    <div class="d-flex align-items-center gap-2 mb-10">
-  <label class="form-label mb-0 text-sm">Rate Mode</label>
-  <select v-model="rateMode[i]" @change="onModeChange(i)" class="form-select form-select-sm w-auto radius-8">
-    <option value="volume">Volume</option>
-    <option value="weight">Weight</option>
- 
-  </select>
+	  <label class="form-label mb-0 text-sm">Rate Mode</label>
+	  <select v-model="rateMode[i]" @change="onModeChange(i)" class="form-select form-select-sm w-auto radius-8">
+	    <option value="weight">Chargeable Weight</option>
+	    <option value="volume">CBM / Volume</option>
+
+	  </select>
 
   <!-- Optional convenience button: adds one item appropriate to the current mode -->
-<button type="button" class="btn btn-primary btn-sm" @click="addBand(i)">
-  Add {{ rateMode[i] === 'volume' ? 'Volume Band' : 'Weight Band' }}
-</button>
+	<button type="button" class="btn btn-primary btn-sm" @click="addBand(i)">
+	  Add {{ rateMode[i] === 'volume' ? 'CBM Band' : 'Chargeable Weight Band' }}
+	</button>
 </div>
 
 
     <!-- Volume bands -->
     <div class="mb-12"  v-if="rateMode[i] === 'volume'">
       <div class="d-flex align-items-center justify-content-between">
-        <span class="fw-semibold">Volume Bands</span>
+	        <span class="fw-semibold">CBM / Volume Bands</span>
       </div>
       <div v-if="rows[i].volumeBands.length === 0" class="text-muted mt-8">No volume bands.</div>
 
@@ -337,7 +367,7 @@ const addBand = (i: number) => {
         <div class="row">
           <div class="col-sm-3 mb-8">
             <label class="form-label text-sm">Size Code</label>
-            <input v-model="rows[i].volumeBands[j].Shippers_Standard_Shipping_Volume_Size" class="form-control radius-8" placeholder="e.g., BOX_S or 0–0.05 CBM"/>
+	            <input v-model="rows[i].volumeBands[j].Shippers_Standard_Shipping_Volume_Size" class="form-control radius-8" placeholder="e.g., 0-0.05 CBM"/>
           </div>
           <div class="col-sm-3 mb-8">
             <label class="form-label text-sm">Standard Rate</label>
@@ -381,27 +411,27 @@ const addBand = (i: number) => {
     <!-- Weight bands -->
     <div class="mt-12" v-if="rateMode[i] === 'weight'">
       <div class="d-flex align-items-center justify-content-between">
-        <span class="fw-semibold">Weight Bands</span>
+	        <span class="fw-semibold">Chargeable Weight Bands</span>
       </div>
       <div v-if="rows[i].weightBands.length === 0" class="text-muted mt-8">No weight bands.</div>
 
       <div v-for="(w, j) in rows[i].weightBands" :key="j" class="p-3 mt-8 border radius-8">
         <div class="row">
           <div class="col-sm-3 mb-8">
-            <label class="form-label text-sm">Band Code</label>
-            <input v-model="rows[i].weightBands[j].Shippers_Standard_Shipping_Weight_Size" class="form-control radius-8" placeholder="e.g., 0–5 KG"/>
+	            <label class="form-label text-sm">Band Code</label>
+	            <input v-model="rows[i].weightBands[j].Shippers_Standard_Shipping_Weight_Size" class="form-control radius-8" placeholder="e.g., 0–5 KG"/>
           </div>
           <div class="col-sm-3 mb-8">
             <label class="form-label text-sm">Standard Rate</label>
             <input type="number" step="0.001" v-model.number="rows[i].weightBands[j].Shippers_Standard_Shipping_Weight_Rate" class="form-control radius-8"/>
           </div>
           <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Min KG</label>
+	            <label class="form-label text-sm">Min Chargeable KG</label>
             <input type="number" step="0.001" v-model.number="rows[i].weightBands[j].Shippers_Min_Weight_Kg" class="form-control radius-8"/>
           </div>
           <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Max KG</label>
-            <input type="number" step="0.001" v-model.number="rows[i].weightBands[j].Shippers_Max_Weight_Kg" class="form-control radius-8"/>
+	            <label class="form-label text-sm">Max Chargeable KG</label>
+	            <input type="number" step="0.001" v-model.number="rows[i].weightBands[j].Shippers_Max_Weight_Kg" class="form-control radius-8" placeholder="blank = no upper limit"/>
           </div>
           <div class="col-sm-2 mb-8">
             <label class="form-label text-sm">Currency</label>
@@ -430,30 +460,30 @@ const addBand = (i: number) => {
 
     <hr/>
 
-    <!-- Volumetric preview -->
-    <div class="mt-12">
-      <div class="p-3 mt-12 border radius-8 bg-light-subtle">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="fw-semibold">Volumetric</span>
-        </div>
+	    <!-- Centimeter-based calculation preview -->
+	    <div class="mt-12">
+	      <div class="p-3 mt-12 border radius-8 bg-light-subtle">
+	        <div class="d-flex align-items-center justify-content-between mb-2">
+	          <span class="fw-semibold">Centimeter-Based Calculation Preview</span>
+	        </div>
 
-        <div class="row">
-          <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Gross Weight (kg)</label>
-            <input type="number" step="0.001" v-model.number="tests[i].grossKg" class="form-control radius-8" />
+	        <div class="row">
+	          <div class="col-sm-2 mb-8">
+	            <label class="form-label text-sm">Gross Weight (kg)</label>
+	            <input type="number" step="0.001" v-model.number="tests[i].grossKg" class="form-control radius-8" />
           </div>
           <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Length (cm)</label>
-            <input type="number" step="0.1" v-model.number="tests[i].lengthCm" class="form-control radius-8" />
-          </div>
-          <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Width (cm)</label>
-            <input type="number" step="0.1" v-model.number="tests[i].widthCm" class="form-control radius-8" />
-          </div>
-          <div class="col-sm-2 mb-8">
-            <label class="form-label text-sm">Height (cm)</label>
-            <input type="number" step="0.1" v-model.number="tests[i].heightCm" class="form-control radius-8" />
-          </div>
+	            <label class="form-label text-sm">Length (cm)</label>
+	            <input type="number" step="0.1" v-model.number="tests[i].lengthCm" class="form-control radius-8" />
+	          </div>
+	          <div class="col-sm-2 mb-8">
+	            <label class="form-label text-sm">Width (cm)</label>
+	            <input type="number" step="0.1" v-model.number="tests[i].widthCm" class="form-control radius-8" />
+	          </div>
+	          <div class="col-sm-2 mb-8">
+	            <label class="form-label text-sm">Height (cm)</label>
+	            <input type="number" step="0.1" v-model.number="tests[i].heightCm" class="form-control radius-8" />
+	          </div>
         <div v-if="rows[i]?.volumetricRule" class="col-sm-2 mb-8">
   <label class="form-label text-sm">Divisor</label>
   <input
@@ -462,15 +492,33 @@ const addBand = (i: number) => {
     v-model.number="rows[i].volumetricRule.divisor"
     class="form-control radius-8"
   />
-  <small class="text-muted">Default 4000</small>
-</div>
-        </div>
+	  <small class="text-muted">Formula: L x W x H (cm) / divisor</small>
+	</div>
+	        </div>
 
-        <div class="row">
+	        <div v-if="rows[i]?.volumetricRule" class="row">
+	          <div class="col-sm-4 mb-8">
+	            <label class="form-label text-sm">Max Length (cm)</label>
+	            <input type="number" step="0.1" v-model.number="rows[i].volumetricRule.maxL_cm" class="form-control radius-8" />
+	          </div>
+	          <div class="col-sm-4 mb-8">
+	            <label class="form-label text-sm">Max Width (cm)</label>
+	            <input type="number" step="0.1" v-model.number="rows[i].volumetricRule.maxW_cm" class="form-control radius-8" />
+	          </div>
+	          <div class="col-sm-4 mb-8">
+	            <label class="form-label text-sm">Max Height (cm)</label>
+	            <input type="number" step="0.1" v-model.number="rows[i].volumetricRule.maxH_cm" class="form-control radius-8" />
+	          </div>
+	        </div>
+
+	        <div class="row">
           <div class="col-sm-4">
-            <div class="alert alert-secondary py-2">
-              <div><strong>Volumetric Wt:</strong>
-                {{ (volumetricWeight(tests[i]) ?? 0).toFixed(3) }} kg
+	            <div class="alert alert-secondary py-2">
+	              <div><strong>Volume:</strong>
+	                {{ (parcelVolumeCbm(tests[i]) ?? 0).toFixed(4) }} CBM
+	              </div>
+	              <div><strong>Volumetric Wt:</strong>
+	                {{ (volumetricWeight(tests[i]) ?? 0).toFixed(3) }} kg
               </div>
               <div><strong>Chargeable Wt:</strong>
                 {{ (chargeableWeight(tests[i]) ?? 0).toFixed(3) }} kg
@@ -480,9 +528,9 @@ const addBand = (i: number) => {
 
           <div class="col-sm-8">
             <div class="alert alert-info py-2">
-              <template v-if="chargeableWeight(tests[i]) && rows[i].weightBands?.length">
-                <span class="me-2"><strong>Band:</strong>
-                  {{
+	              <template v-if="rateMode[i] === 'weight' && chargeableWeight(tests[i]) && rows[i].weightBands?.length">
+	                <span class="me-2"><strong>Band:</strong>
+	                  {{
                     (pickWeightBand(rows[i].weightBands, chargeableWeight(tests[i]))?.Shippers_Standard_Shipping_Weight_Size) || '—'
                   }}
                 </span>
@@ -493,12 +541,28 @@ const addBand = (i: number) => {
                       chargeableWeight(tests[i])
                     ) ?? 0).toFixed(3)
                   }}
-                  {{ pickWeightBand(rows[i].weightBands, chargeableWeight(tests[i]))?.Shippers_Currency || 'OMR' }}
-                </span>
-              </template>
-              <template v-else>
-                Add weight bands to enable the preview.
-              </template>
+	                  {{ pickWeightBand(rows[i].weightBands, chargeableWeight(tests[i]))?.Shippers_Currency || 'OMR' }}
+	                </span>
+	              </template>
+	              <template v-else-if="rateMode[i] === 'volume' && parcelVolumeCbm(tests[i]) && rows[i].volumeBands?.length">
+	                <span class="me-2"><strong>Band:</strong>
+	                  {{
+	                    (pickVolumeBand(rows[i].volumeBands, parcelVolumeCbm(tests[i]))?.Shippers_Standard_Shipping_Volume_Size) || '—'
+	                  }}
+	                </span>
+	                <span class="me-2"><strong>Est. Cost:</strong>
+	                  {{
+	                    (estimateVolumeCost(
+	                      pickVolumeBand(rows[i].volumeBands, parcelVolumeCbm(tests[i])),
+	                      parcelVolumeCbm(tests[i])
+	                    ) ?? 0).toFixed(3)
+	                  }}
+	                  {{ pickVolumeBand(rows[i].volumeBands, parcelVolumeCbm(tests[i]))?.Shippers_Currency || 'OMR' }}
+	                </span>
+	              </template>
+	              <template v-else>
+	                Add {{ rateMode[i] === 'volume' ? 'CBM bands' : 'chargeable weight bands' }} to enable the preview.
+	              </template>
             </div>
           </div>
         </div>

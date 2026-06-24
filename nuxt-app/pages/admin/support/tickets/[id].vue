@@ -5,7 +5,7 @@ import { ref, onMounted, nextTick, watch  } from 'vue'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'support.tickets'
+  permission: 'support tickets'
 })
 
 const route = useRoute()

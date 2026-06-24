@@ -7,7 +7,7 @@ const flash = useFlashStore()
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
-    permissions: 'departments'
+    permission: 'customers'
 
 });
 
@@ -31,6 +31,13 @@ interface Customer {
 }
 
 const customers = ref<Customer[]>([]);
+const notifyTarget = ref<Customer | null>(null);
+const notifySaving = ref(false);
+const notifyForm = reactive({
+  title: '',
+  message: '',
+  url: '/account?tab=notifications',
+});
 
 const table = reactive({
   page: 1,
@@ -126,6 +133,44 @@ const unblockUser = async (userId: number) => {
     }
 }
 
+const openNotifyModal = (customer: Customer) => {
+  notifyTarget.value = customer;
+  notifyForm.title = 'Account update';
+  notifyForm.message = '';
+  notifyForm.url = '/account?tab=notifications';
+}
+
+const closeNotifyModal = () => {
+  if (!notifySaving.value) {
+    notifyTarget.value = null;
+  }
+}
+
+const sendCustomerNotification = async () => {
+  if (!notifyTarget.value || !notifyForm.title.trim() || !notifyForm.message.trim()) {
+    flash.warning('Add a title and message before sending.');
+    return;
+  }
+
+  notifySaving.value = true;
+
+  try {
+    await $axios.post('/api/admin/customer-notifications', {
+      customer_id: notifyTarget.value.id,
+      title: notifyForm.title.trim(),
+      message: notifyForm.message.trim(),
+      url: notifyForm.url.trim() || undefined,
+    });
+
+    flash.success('Customer notification sent.');
+    notifyTarget.value = null;
+  } catch (error) {
+    flash.error('Failed to send notification: ' + ((error as any)?.response?.data?.message || (error as any).message));
+  } finally {
+    notifySaving.value = false;
+  }
+}
+
 
 watch(
   () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
@@ -207,6 +252,7 @@ onMounted(async () => {
                                 <th scope="col">View Orders</th>
                                 <th scope="col">View Cart</th>
                                 <th scope="col">View Favorites</th>
+                                <th scope="col">Notify</th>
                                 <th scope="col">Block</th>
 
 
@@ -231,6 +277,16 @@ onMounted(async () => {
                                         <td><NuxtLink :to="`/admin/orders/customer/${customer.id}`">View Orders</NuxtLink></td>
                                         <td><NuxtLink :to="`/admin/customer/cart/${customer.id}`">View Carts</NuxtLink></td>
                                         <td><NuxtLink :to="`/admin/customer/favorites/${customer.id}`">View Favorites</NuxtLink></td>
+                                        <td>
+                                          <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                                            @click="openNotifyModal(customer)"
+                                          >
+                                            <iconify-icon icon="solar:bell-bing-outline"></iconify-icon>
+                                            Notify
+                                          </button>
+                                        </td>
                                         <td>
 
                                             <button type="button" class="btn btn-sm"
@@ -293,5 +349,79 @@ onMounted(async () => {
 
     </div>
 
+    <div v-if="notifyTarget" class="modal-backdrop-custom" role="dialog" aria-modal="true">
+      <div class="notify-modal">
+        <div class="notify-modal-header">
+          <div>
+            <h6 class="mb-1">Send customer notification</h6>
+            <small class="text-muted">{{ notifyTarget.Customer_Full_Name }} · {{ notifyTarget.Email_Address || 'No email' }}</small>
+          </div>
+          <button type="button" class="btn btn-sm btn-light" :disabled="notifySaving" @click="closeNotifyModal">
+            <iconify-icon icon="radix-icons:cross-2"></iconify-icon>
+          </button>
+        </div>
+
+        <div class="notify-modal-body">
+          <label class="form-label">Title</label>
+          <input v-model="notifyForm.title" type="text" class="form-control mb-3" maxlength="180" />
+
+          <label class="form-label">Message</label>
+          <textarea v-model="notifyForm.message" rows="4" class="form-control mb-3" placeholder="Write a short update for this customer."></textarea>
+
+          <label class="form-label">Open link</label>
+          <input v-model="notifyForm.url" type="text" class="form-control" placeholder="/account?tab=notifications" />
+        </div>
+
+        <div class="notify-modal-footer">
+          <button type="button" class="btn btn-light" :disabled="notifySaving" @click="closeNotifyModal">Cancel</button>
+          <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" :disabled="notifySaving" @click="sendCustomerNotification">
+            <span v-if="notifySaving" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Send notification
+          </button>
+        </div>
+      </div>
+    </div>
+
 
 </template>
+<style scoped>
+.modal-backdrop-custom {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.notify-modal {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+}
+
+.notify-modal-header,
+.notify-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.notify-modal-footer {
+  justify-content: flex-end;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 0;
+  background: #f9fafb;
+}
+
+.notify-modal-body {
+  padding: 16px;
+}
+</style>

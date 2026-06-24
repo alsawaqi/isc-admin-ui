@@ -2,12 +2,14 @@
 import { useNuxtApp, navigateTo, definePageMeta, useHead } from '#imports'
 import { useAdminUI } from '~/composables/useAdminUI'
 import { useBootstrapUI } from '~/composables/useBootstrapUI'
+import { useAuth } from '~/stores/auth'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 useAdminUI()
 useBootstrapUI()
 
 const { $axios } = (useNuxtApp() as any);
 const nuxtApp = useNuxtApp()
+const auth = useAuth()
 
 let channel: any = null
 
@@ -107,10 +109,11 @@ const logout = async () => {
 
     try {
         await $axios.post('/api/logout')
-        localStorage.removeItem('token')
-        await navigateTo('/');
     } catch (err) {
         console.error('Logout failed', err)
+    } finally {
+        auth.logout()
+        await navigateTo('/');
     }
 }
 </script>

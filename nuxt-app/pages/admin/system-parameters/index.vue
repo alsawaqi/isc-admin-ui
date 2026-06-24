@@ -46,7 +46,7 @@ const changeRoute = (newRoute: string) => {
                                                         + (change === 'loyality' ? ' btn-primary' : ' btn-outline-secondary')"
                                                            @click="changeRoute('loyality')">
                               
-                                Loyality
+                                Loyalty
                             </button>
 
 

@@ -5,7 +5,7 @@ import { ref, onMounted, computed } from "vue"
 definePageMeta({
   layout: "admin",
   middleware: ["permission"],
-  permissions: "orders", // change to your permission key
+  permission: "vendor orders",
 })
 
 const { $axios } = useNuxtApp() as any
@@ -92,6 +92,8 @@ onMounted(fetchList)
                 <th>Order ID</th>
                 <th>Vendor</th>
                 <th>Sub Total</th>
+                <th>Shipping</th>
+                <th>Total</th>
                 <th>Commission</th>
                 <th>Status</th>
                 <th class="text-end">Action</th>
@@ -104,6 +106,8 @@ onMounted(fetchList)
                 <td class="font-monospace">{{ r.Orders_Placed_Id }}</td>
                 <td class="font-monospace">{{ r.Vendor_Id }}</td>
                 <td>{{ Number(r.Sub_Total || 0).toFixed(3) }}</td>
+                <td>{{ Number(r.Shipping || 0).toFixed(3) }}</td>
+                <td class="fw-semibold">{{ Number(r.Total || 0).toFixed(3) }}</td>
                 <td>
                   <span v-if="r.Commission_Type">
                     {{ r.Commission_Type }} / {{ r.Commission_Value }}
@@ -121,7 +125,7 @@ onMounted(fetchList)
               </tr>
 
               <tr v-if="rows.length === 0">
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                   No vendor orders found.
                 </td>
               </tr>

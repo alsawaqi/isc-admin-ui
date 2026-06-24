@@ -5,7 +5,7 @@ import { useFlashStore } from '~/stores/flashs'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permission: 'products' // or whatever permission string you use
+  permission: 'product activation'
 });
 
 import { ref, onMounted,  watch, nextTick, reactive } from 'vue'
@@ -20,6 +20,9 @@ const table = reactive({
   search: '',
   sortBy: 'id',
   sortDir: 'desc',
+  productDepartmentId: '',
+  productSubDepartmentId: '',
+  productSubSubDepartmentId: '',
 })
 
 // paginator info from backend
@@ -49,8 +52,33 @@ type SpecRow = {
 interface Products {
   id: number;
   Product_Name: string;
+  Product_Code?: string;
+  Product_Sku?: string | null;
   created_at: string;
   Product_Price: number;
+  Product_Department_Id?: number | null;
+  Product_Sub_Department_Id?: number | null;
+  Product_Sub_Sub_Department_Id?: number | null;
+  department?: {
+    Product_Department_Name?: string | null;
+    Product_Department_Name_Ar?: string | null;
+  } | null;
+  sub_department?: {
+    Sub_Department_Name?: string | null;
+    Sub_Department_Name_Ar?: string | null;
+  } | null;
+  subDepartment?: {
+    Sub_Department_Name?: string | null;
+    Sub_Department_Name_Ar?: string | null;
+  } | null;
+  sub_sub_department?: {
+    Product_Sub_Sub_Department_Name?: string | null;
+    Product_Sub_Sub_Department_Name_Ar?: string | null;
+  } | null;
+  subSubDepartment?: {
+    Product_Sub_Sub_Department_Name?: string | null;
+    Product_Sub_Sub_Department_Name_Ar?: string | null;
+  } | null;
 }
 
 interface ProductSpec {
@@ -64,6 +92,58 @@ interface ProductSpec {
 
 
 const products = ref<Products[]>([]);
+
+const departmentOptions = ref<any[]>([])
+const subDepartmentOptions = ref<any[]>([])
+const subSubDepartmentOptions = ref<any[]>([])
+
+const fetchDepartmentOptions = async () => {
+  const { data } = await $axios.get('/api/productdepartment/all')
+  departmentOptions.value = Array.isArray(data) ? data : []
+}
+
+const fetchSubDepartmentOptions = async (departmentId: string | number) => {
+  if (!departmentId) {
+    subDepartmentOptions.value = []
+    return
+  }
+
+  const { data } = await $axios.get(`/api/sub-departments/${departmentId}`)
+  subDepartmentOptions.value = Array.isArray(data?.sub_departments) ? data.sub_departments : []
+}
+
+const fetchSubSubDepartmentOptions = async (subDepartmentId: string | number) => {
+  if (!subDepartmentId) {
+    subSubDepartmentOptions.value = []
+    return
+  }
+
+  const { data } = await $axios.get(`/api/sub-sub-departments/${subDepartmentId}`)
+  subSubDepartmentOptions.value = Array.isArray(data) ? data : []
+}
+
+const categoryName = (product: Products, level: 'department' | 'subDepartment' | 'subSubDepartment') => {
+  if (level === 'department') {
+    return product.department?.Product_Department_Name || 'Unassigned'
+  }
+
+  if (level === 'subDepartment') {
+    return product.subDepartment?.Sub_Department_Name
+      || product.sub_department?.Sub_Department_Name
+      || 'Unassigned'
+  }
+
+  return product.subSubDepartment?.Product_Sub_Sub_Department_Name
+    || product.sub_sub_department?.Product_Sub_Sub_Department_Name
+    || 'Unassigned'
+}
+
+const clearCategoryFilters = () => {
+  table.productDepartmentId = ''
+  table.productSubDepartmentId = ''
+  table.productSubSubDepartmentId = ''
+  table.page = 1
+}
 
 
 const saveResult = ref<null | {
@@ -377,11 +457,15 @@ const fetchProducts = async () => {
     const { data } = await $axios.get('/api/productmaster', {
 
       params: {
+        owner: 'company',
         page: table.page,
         per_page: table.perPage,
         search: table.search,
         sort_by: table.sortBy,
         sort_dir: table.sortDir,
+        product_department_id: table.productDepartmentId || undefined,
+        product_sub_department_id: table.productSubDepartmentId || undefined,
+        product_sub_sub_department_id: table.productSubSubDepartmentId || undefined,
       },
     });
     products.value = data.data;
@@ -401,9 +485,45 @@ const fetchProducts = async () => {
 
 
 watch(
-  () => [table.page, table.perPage, table.search, table.sortBy, table.sortDir],
+  () => [
+    table.page,
+    table.perPage,
+    table.search,
+    table.sortBy,
+    table.sortDir,
+    table.productDepartmentId,
+    table.productSubDepartmentId,
+    table.productSubSubDepartmentId,
+  ],
   async () => {
     await fetchProducts()
+  }
+)
+
+watch(
+  () => table.productDepartmentId,
+  async (departmentId) => {
+    table.page = 1
+    table.productSubDepartmentId = ''
+    table.productSubSubDepartmentId = ''
+    subSubDepartmentOptions.value = []
+    await fetchSubDepartmentOptions(departmentId)
+  }
+)
+
+watch(
+  () => table.productSubDepartmentId,
+  async (subDepartmentId) => {
+    table.page = 1
+    table.productSubSubDepartmentId = ''
+    await fetchSubSubDepartmentOptions(subDepartmentId)
+  }
+)
+
+watch(
+  () => table.productSubSubDepartmentId,
+  () => {
+    table.page = 1
   }
 )
 
@@ -429,7 +549,10 @@ const deleteProduct = async (id: number) => {
 
 
 onMounted(async () => {
-  await fetchProducts();
+  await Promise.all([
+    fetchDepartmentOptions(),
+    fetchProducts(),
+  ]);
 });
 
 </script>
@@ -439,7 +562,7 @@ onMounted(async () => {
 
 
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-      <h6 class="fw-semibold mb-0" style="color: #ef4444">View Products</h6>
+      <h6 class="fw-semibold mb-0" style="color: #ef4444">Company Product Activation</h6>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -448,7 +571,7 @@ onMounted(async () => {
           </a>
         </li>
         <li>-</li>
-        <li class="fw-medium">View Products</li>
+        <li class="fw-medium">Company Products</li>
       </ul>
     </div>
 
@@ -476,9 +599,68 @@ onMounted(async () => {
             </span>
           </div>
         </div>
+
+        <div class="activation-filter-grid w-100">
+          <div>
+            <label class="form-label small text-muted mb-1">Department</label>
+            <select v-model="table.productDepartmentId" class="form-select form-select-sm">
+              <option value="">All departments</option>
+              <option
+                v-for="department in departmentOptions"
+                :key="department.id"
+                :value="department.id"
+              >
+                {{ department.Product_Department_Name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label small text-muted mb-1">Sub Department</label>
+            <select
+              v-model="table.productSubDepartmentId"
+              class="form-select form-select-sm"
+              :disabled="!table.productDepartmentId"
+            >
+              <option value="">All sub departments</option>
+              <option
+                v-for="subDepartment in subDepartmentOptions"
+                :key="subDepartment.id"
+                :value="subDepartment.id"
+              >
+                {{ subDepartment.Sub_Department_Name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label small text-muted mb-1">Sub Sub Department</label>
+            <select
+              v-model="table.productSubSubDepartmentId"
+              class="form-select form-select-sm"
+              :disabled="!table.productSubDepartmentId"
+            >
+              <option value="">All sub sub departments</option>
+              <option
+                v-for="subSubDepartment in subSubDepartmentOptions"
+                :key="subSubDepartment.id"
+                :value="subSubDepartment.id"
+              >
+                {{ subSubDepartment.Product_Sub_Sub_Department_Name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="d-flex align-items-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" @click="clearCategoryFilters">
+              Clear filters
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="card-body p-0">
+        <div class="table-responsive">
         <table class="table mb-0 align-middle text-sm text-gray-700 dark:text-gray-300 table-bordered">
           <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white">
             <tr>
@@ -489,6 +671,15 @@ onMounted(async () => {
               </th>
               <th scope="col" class="p-3">
                 <div class="d-flex align-items-center gap-1 fw-semibold">Name</div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Department</div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Sub Department</div>
+              </th>
+              <th scope="col" class="p-3">
+                <div class="d-flex align-items-center gap-1 fw-semibold">Sub Sub Department</div>
               </th>
               <th scope="col" class="p-3">
                 <div class="d-flex align-items-center gap-1 fw-semibold">Created Date</div>
@@ -514,7 +705,22 @@ onMounted(async () => {
               <td class="p-3">
                 <div class="d-flex flex-column">
                   <span class="fw-semibold">{{ product.Product_Name }}</span>
+                  <span v-if="product.Product_Code || product.Product_Sku" class="text-muted small">
+                    {{ product.Product_Code || product.Product_Sku }}
+                  </span>
                 </div>
+              </td>
+
+              <td class="p-3">
+                <span class="category-pill">{{ categoryName(product, 'department') }}</span>
+              </td>
+
+              <td class="p-3">
+                <span class="category-pill">{{ categoryName(product, 'subDepartment') }}</span>
+              </td>
+
+              <td class="p-3">
+                <span class="category-pill">{{ categoryName(product, 'subSubDepartment') }}</span>
               </td>
 
               <td class="p-3">
@@ -567,6 +773,7 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+        </div>
 
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-3 px-3">
           <span class="text-muted small">
@@ -859,6 +1066,25 @@ onMounted(async () => {
   border-radius: 999px;
 }
 
+.activation-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.category-pill {
+  display: inline-flex;
+  max-width: 220px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.1rem;
+  white-space: normal;
+}
+
 .table-action-group {
   gap: 0.5rem;
 }
@@ -881,5 +1107,17 @@ onMounted(async () => {
 .pagination-btn:hover {
   background-color: #2563eb;
   color: #ffffff;
+}
+
+@media (max-width: 991px) {
+  .activation-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575px) {
+  .activation-filter-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

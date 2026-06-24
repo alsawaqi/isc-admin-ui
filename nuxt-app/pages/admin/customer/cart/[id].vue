@@ -4,7 +4,7 @@ import { definePageMeta, useNuxtApp, useParam, useRouter } from '#imports'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'shipping.shippers'
+  permission: 'customers'
 })
 
 const router = useRouter();

@@ -11,5 +11,7 @@ RUN npm install
 # copy source
 COPY ./nuxt-app .
 
+RUN chown -R node:node /app
+
 # default command (compose will override anyway)
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

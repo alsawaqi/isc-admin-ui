@@ -7,7 +7,7 @@ const flash = useFlashStore()
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
-    permissions: 'countries',
+    permission: 'country',
 })
 
 const { $axios } = (useNuxtApp() as any);
@@ -24,6 +24,7 @@ interface Country {
 }
 
 const countries = ref<Country[]>([])
+const logoSrc = '/logo.jpg'
 
 // create form
 const Country_Code = ref('')
@@ -418,11 +419,11 @@ onMounted(async () => {
                                                 const code = countryCode(country.Country_Name)
                                                 return code
                                                     ? `https://flagcdn.com/24x18/${code.toLowerCase()}.png`
-                                                    : '/logo.jpg'
+                                                    : logoSrc
                                             })()" :alt="country.Country_Name + ' flag'" width="24" height="18" />
                                         </div>
                                         <div v-else>
-                                            <img src="/logo.jpg" alt="isc" width="54" height="40" />
+                                            <img :src="logoSrc" alt="isc" width="54" height="40" />
                                         </div>
 
                                         <div class="ms-3 d-flex flex-column">

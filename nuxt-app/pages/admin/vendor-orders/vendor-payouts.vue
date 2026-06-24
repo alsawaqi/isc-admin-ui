@@ -5,7 +5,7 @@ import { ref, onMounted, computed } from "vue"
 definePageMeta({
   layout: "admin",
   middleware: ["permission"],
-  permissions: "orders",
+  permission: "vendor payouts",
 })
 
 const { $axios } = useNuxtApp() as any

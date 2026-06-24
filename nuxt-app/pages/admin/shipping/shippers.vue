@@ -6,7 +6,7 @@ import { useFlashStore } from '~/stores/flashs'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'shipping.shippers'
+  permission: 'view shippers'
 })
 
 

@@ -13,7 +13,7 @@ const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'shipping.shippers'
+  permission: 'create shippers'
 })
 
 
@@ -394,10 +394,10 @@ const saveAll = async () => {
               <div class="table-responsive">
                 <table class="table table-sm align-middle">
                   <tbody>
-                    <tr>
-                      <th class="w-25">Name</th>
-                      <td>{{ dash(basic.Shippers_Image_Path) }}</td>
-                    </tr>
+	                    <tr>
+	                      <th class="w-25">Name</th>
+	                      <td>{{ dash(basic.Shippers_Name) }}</td>
+	                    </tr>
                     <tr>
                       <th>Scope</th>
                       <td>{{ dash(basic.Shippers_Scope) }}</td>
@@ -406,10 +406,10 @@ const saveAll = async () => {
                       <th>Type</th>
                       <td>{{ dash(basic.Shippers_Type) }}</td>
                     </tr>
-                    <tr>
-                      <th>Rate Mode</th>
-                      <td>{{ dash(basic.Shippers_Rate_Mode) }}</td>
-                    </tr>
+	                    <tr>
+	                      <th>Default Pricing Method</th>
+	                      <td>{{ dash(basic.Shippers_Rate_Mode) }}</td>
+	                    </tr>
                     <tr>
                       <th>Active</th>
                       <td>{{ yesno(basic.Shippers_Is_Active) }}</td>
@@ -489,18 +489,14 @@ const saveAll = async () => {
                 <div class="table-responsive mb-10">
                   <table class="table table-sm align-middle">
                     <tbody>
-                      <tr>
-                        <th class="w-25">Applicability Label</th>
-                        <td>{{ dash(d.Shippers_Destination_Rate_Applicability) }}</td>
-                      </tr>
-                      <tr>
-                        <th>Flags</th>
-                        <td>
-                          Volume: {{ yesno(d.Shippers_Destination_Rate_Volume) }} |
-                          Weight: {{ yesno(d.Shippers_Destination_Rate_Weight) }} |
-                          Applicable: {{ yesno(d.Shippers_Destination_Rate_Applicable !== false) }}
-                        </td>
-                      </tr>
+	                      <tr>
+	                        <th class="w-25">Rate Card / Zone Label</th>
+	                        <td>{{ dash(d.Shippers_Destination_Rate_Applicability) }}</td>
+	                      </tr>
+	                      <tr>
+	                        <th>Pricing Method</th>
+	                        <td>{{ rates[i]?.rate_mode === 'volume' ? 'CBM / Volume' : 'Chargeable Weight' }}</td>
+	                      </tr>
                       <tr>
                         <th>Prefs</th>
                         <td>
@@ -626,13 +622,11 @@ const saveAll = async () => {
                     <tr>
                       <th>Code</th>
                       <th>Label</th>
-                      <th>L (cm)</th>
-                      <th>W (cm)</th>
-                      <th>H (cm)</th>
-                      <th>Max Wt (kg)</th>
-                      <th>Flat Rate</th>
-                      <th>Curr</th>
-                      <th>Notes</th>
+	                      <th>L (cm)</th>
+	                      <th>W (cm)</th>
+	                      <th>H (cm)</th>
+	                      <th>Max Wt (kg)</th>
+	                      <th>Notes</th>
                     </tr>
                   </thead>
                   <tbody>

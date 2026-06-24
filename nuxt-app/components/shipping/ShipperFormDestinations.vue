@@ -15,7 +15,7 @@ export interface DestinationRow {
   Shippers_Destination_Region?: string | null
   Shippers_Destination_District?: string | null
 
-  Shippers_Destination_Rate_Applicability?: 'weight' | 'volume' | 'both' | 'special' | '' | null
+  Shippers_Destination_Rate_Applicability?: string | null
   Shippers_Destination_Country_Preference?: string | null
   Shippers_Destination_Region_Preference?: string | null
   Shippers_Destination_District_Preference?: string | null
@@ -250,16 +250,21 @@ onMounted(async () => {
           </select>
         </div>
 
-        <!-- Applicability Label -->
+        <!-- Optional rate card / zone label -->
         <div class="col-sm-4 mb-12">
-          <label class="form-label text-sm">Applicability Label</label>
-          <select v-model="r.Shippers_Destination_Rate_Applicability" class="form-control radius-8">
-            <option value="">-- Optional --</option>
-            <option value="weight">weight</option>
-            <option value="volume">volume</option>
-            <option value="both">both</option>
-            <option value="special">special</option>
-          </select>
+          <label class="form-label text-sm">Rate Card / Zone Label</label>
+          <input
+            v-model="r.Shippers_Destination_Rate_Applicability"
+            class="form-control radius-8"
+            list="shipper-rate-card-labels"
+            placeholder="e.g., Muscat / Tier 1"
+          />
+          <datalist id="shipper-rate-card-labels">
+            <option value="Muscat / Tier 1" />
+            <option value="Interior / Tier 2 & 3" />
+            <option value="Custom" />
+            <option value="Special" />
+          </datalist>
         </div>
 
         <!-- Preferences -->
@@ -281,20 +286,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Flags -->
+        <!-- Destination controls -->
         <div class="col-sm-12 mb-8">
-          <label class="form-label text-sm">Rate Flags</label>
+          <label class="form-label text-sm">Destination Controls</label>
           <div class="d-flex gap-4">
-            <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Volume" :id="'v-' + i"
-                class="form-check-input" />
-              <label class="form-check-label" :for="'v-' + i">Volume</label>
-            </div>
-            <div class="form-check">
-              <input type="checkbox" v-model="r.Shippers_Destination_Rate_Weight" :id="'w-' + i"
-                class="form-check-input" />
-              <label class="form-check-label" :for="'w-' + i">Weight</label>
-            </div>
             <div class="form-check">
               <input type="checkbox" v-model="r.Shippers_Destination_Rate_Applicable" :id="'a-' + i"
                 class="form-check-input" />
@@ -304,7 +299,7 @@ onMounted(async () => {
             <div class="form-check">
               <input type="checkbox" v-model="r.Shippers_Destination_Rate_Box" :id="'b-' + i"
                 class="form-check-input" />
-              <label class="form-check-label" :for="'b-' + i">Box: Yes/No</label>
+              <label class="form-check-label" :for="'b-' + i">Use Box Recommendation</label>
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { useRoute } from "vue-router"
 definePageMeta({
   layout: "admin",
   middleware: ["permission"],
-  permissions: "orders",
+  permission: "vendor orders",
 })
 
 const { $axios } = useNuxtApp() as any
@@ -134,6 +134,11 @@ onMounted(fetchDetails)
               <div class="col-4">
                 <div class="text-muted small">VAT</div>
                 <div>{{ Number(vendorOrder?.VAT || 0).toFixed(3) }}</div>
+              </div>
+
+              <div class="col-4">
+                <div class="text-muted small">Shipping</div>
+                <div>{{ Number(vendorOrder?.Shipping || 0).toFixed(3) }}</div>
               </div>
 
               <div class="col-4">

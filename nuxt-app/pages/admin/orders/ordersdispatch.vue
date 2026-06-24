@@ -5,7 +5,7 @@ import { ref, onMounted, reactive, watch } from 'vue'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
+  permission: 'order dispatched'
 
 });
 

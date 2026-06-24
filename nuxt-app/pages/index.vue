@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { definePageMeta, navigateTo, useNuxtApp } from '#imports'
-import { useFlashStore } from '~/stores/flash'
-import { ref, onMounted } from 'vue'
+import { definePageMeta, useNuxtApp } from '#imports'
+import { useFlashStore } from '~/stores/flashs'
+import { ref } from 'vue'
 import { useAuth } from '~/stores/auth'
+import { getAdminLandingPath } from '~/utils/adminAccess'
 
 
 
@@ -37,8 +38,13 @@ const login = async (): Promise<void> => {
  
     auth.setAuth(user, token)
 
-   
-    flash.showWelcome(user?.User_Name || 'Welcome', '/admin', 2200)
+    if (!auth.permissions.length) {
+      await auth.fetchUser()
+    }
+
+    const redirectTo = getAdminLandingPath(auth.permissions)
+
+    flash.showWelcome(user?.User_Name || 'Welcome', redirectTo, 2200)
  } catch (err: any) {
   const res = err.response
 

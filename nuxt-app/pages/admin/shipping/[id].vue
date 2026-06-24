@@ -15,7 +15,7 @@ const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'shipping.shippers'
+  permission: 'view shippers'
 })
 
 const { $axios } = (useNuxtApp() as any)
@@ -223,10 +223,11 @@ async function loadShipper() {
 
 
     // Rates per destination
-    rates.value = dests.map((d: any) => ({
-      volumeBands: d.volume_bands ?? [],
-      weightBands: d.weight_bands ?? [],
-      volumetricRule: {
+	    rates.value = dests.map((d: any) => ({
+	      rate_mode: d.rate_mode ?? 'weight',
+	      volumeBands: d.volume_bands ?? [],
+	      weightBands: d.weight_bands ?? [],
+	      volumetricRule: {
         enabled: !!d.volumetric_rule?.enabled,
         divisor: d.volumetric_rule?.divisor ?? null,
         maxL_cm: d.volumetric_rule?.maxL_cm ?? null,
@@ -265,15 +266,15 @@ async function loadShipper() {
       .filter(Boolean) as any[]
 
     // Boxes (sizes; admin only)
-    boxes.value = (data.standard_boxes ?? []).map((b: any) => ({
-      Box_Code: b.Box_Code,
-      Box_Label: b.Box_Label,
-      Length_cm: b.Length_cm,
-      Width_cm: b.Width_cm,
-      Height_cm: b.Height_cm,
-      Max_Weight_Kg: b.Max_Weight_Kg,
-      // keep pricing fields empty — per-destination in DB
-      Flat_Rate_Price: null,
+	    boxes.value = (data.standard_boxes ?? []).map((b: any) => ({
+	      Box_Code: b.Shippers_Box_Code ?? b.Box_Code,
+	      Box_Label: b.Shippers_Box_Label ?? b.Box_Label,
+	      Length_cm: b.Shippers_Box_Length_Cm ?? b.Length_cm,
+	      Width_cm: b.Shippers_Box_Width_Cm ?? b.Width_cm,
+	      Height_cm: b.Shippers_Box_Height_Cm ?? b.Height_cm,
+	      Max_Weight_Kg: b.Shippers_Box_Max_Weight_Kg ?? b.Max_Weight_Kg,
+	      // keep pricing fields empty — per-destination in DB
+	      Flat_Rate_Price: null,
       Currency: 'OMR',
       Notes: null
     }))
@@ -311,10 +312,13 @@ const saveAll = async () => {
       },
       contacts: contacts.value,
 
-      destinations: destinations.value.map((d, i) => {
-        const r = rates.value[i] || {}
+	      destinations: destinations.value.map((d, i) => {
+	        const r = (rates.value[i] || {}) as Partial<RatesPerDestination>
+	        const mode = (r.rate_mode || (d as any).rate_mode || basic.value.Shippers_Rate_Mode || 'weight') === 'volume'
+	          ? 'volume'
+	          : 'weight'
 
-        return {
+	        return {
 
           id: (d as any).id ?? null,
 
@@ -337,18 +341,18 @@ const saveAll = async () => {
           },
 
           // important: send rate_mode (per-dest or fallback)
-          rate_mode: (d as any).rate_mode || basic.value.Shippers_Rate_Mode || 'weight',
+	          rate_mode: mode,
 
-          flags: {
-            Shippers_Destination_Rate_Volume: !!d.Shippers_Destination_Rate_Volume,
-            Shippers_Destination_Rate_Weight: !!d.Shippers_Destination_Rate_Weight,
-            Shippers_Destination_Rate_Applicable:
-              d.Shippers_Destination_Rate_Applicable !== false,
+	          flags: {
+	            Shippers_Destination_Rate_Volume: mode === 'volume',
+	            Shippers_Destination_Rate_Weight: mode === 'weight',
+	            Shippers_Destination_Rate_Applicable:
+	              d.Shippers_Destination_Rate_Applicable !== false,
             Shippers_Destination_Rate_Box: !!(d as any).Shippers_Destination_Rate_Box,
           },
 
-          volume_bands: r.volumeBands || [],
-          weight_bands: r.weightBands || [],
+	          volume_bands: mode === 'volume' ? (r.volumeBands || []) : [],
+	          weight_bands: mode === 'weight' ? (r.weightBands || []) : [],
 
           // 🔴 NEW: send volumetric_rule for update()
           volumetric_rule: r.volumetricRule

@@ -6,7 +6,7 @@ const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'states'
+  permission: 'state'
 })
 
 import { ref, onMounted } from 'vue'

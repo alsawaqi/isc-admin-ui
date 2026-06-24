@@ -6,7 +6,7 @@ import SignaturePad from '~/components/SignaturePad.vue'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments',
+  permission: 'order dispatched',
 })
 
 const { $axios } = useNuxtApp() as any
@@ -75,7 +75,7 @@ const submitShipment = async () => {
     })
 
     closeSignatureModal()
-    navigateTo('/admin/orders/ordersdispatch')
+    navigateTo('/admin/orders/ordersshipment')
   } catch (e) {
     console.error('Shipment failed:', e)
     alert('Failed to confirm shipment.')
@@ -317,4 +317,3 @@ onMounted(async () => {
     </div>
   </div>
 </template>
-

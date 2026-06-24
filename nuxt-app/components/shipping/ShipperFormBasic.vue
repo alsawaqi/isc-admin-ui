@@ -178,14 +178,14 @@ const removeImage = () => {
         <option value="heavy">Heavy</option>
       </select>
     </div>
-    <div class="col-sm-4 mb-20">
-      <label class="form-label fw-semibold text-primary-light text-sm mb-8">Rate Mode</label>
-      <select v-model="f.Shippers_Rate_Mode" class="form-control radius-8">
-        <option value="weight">Weight</option>
-        <option value="volume">Volume</option>
-        <option value="both">Both</option>
-      </select>
-    </div>
+	    <div class="col-sm-4 mb-20">
+	      <label class="form-label fw-semibold text-primary-light text-sm mb-8">Default Pricing Method</label>
+	      <select v-model="f.Shippers_Rate_Mode" class="form-control radius-8">
+	        <option value="weight">Chargeable Weight</option>
+	        <option value="volume">CBM / Volume</option>
+	        <option value="both">Both</option>
+	      </select>
+	    </div>
     <div class="col-sm-12 mb-20">
       <label class="form-label fw-semibold text-primary-light text-sm mb-8">Address</label>
       <input v-model="f.Shippers_Address" class="form-control radius-8" />

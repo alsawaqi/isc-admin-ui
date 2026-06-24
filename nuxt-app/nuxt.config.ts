@@ -61,8 +61,12 @@ export default defineNuxtConfig({
         { rel: "stylesheet", href: "/isc-assets/css/lib/file-upload.css" },
         { rel: "stylesheet", href: "/isc-assets/css/lib/audioplayer.css" },
 
-        // main theme css (must be last to override others)
+        // main theme css (WowDash — legacy)
         { rel: "stylesheet", href: "/isc-assets/css/style.css" },
+
+        // TailAdmin (Tailwind v4) — compiled to /public/tw.css; loaded LAST so its
+        // (unlayered) utilities win over WowDash on converted pages.
+        { rel: "stylesheet", href: "/tw.css" },
       ],
      
     },

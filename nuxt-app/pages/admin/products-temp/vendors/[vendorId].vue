@@ -6,7 +6,7 @@ import { useRoute } from "vue-router"
 definePageMeta({
   layout: "admin",
   middleware: ["permission"],
-  permissions: "products_temp",
+  permission: "vendor requests",
 })
 
 const { $axios, $r2Url } = useNuxtApp() as any
@@ -29,6 +29,11 @@ interface TempProduct {
   Product_Stock: number
   Submission_Status: "pending" | "approved" | "rejected"
   Submitted_At?: string
+  approval_sla?: {
+    sla_status?: string
+    sla_due_at?: string | null
+    hours_remaining?: number | null
+  }
   default_image?: DefaultImage | null
   defaultImage?: DefaultImage | null
 }
@@ -62,6 +67,13 @@ function badgeClass(s: string) {
   if (s === "pending") return "bg-warning text-dark"
   if (s === "approved") return "bg-success"
   if (s === "rejected") return "bg-danger"
+  return "bg-secondary"
+}
+
+function slaBadgeClass(s?: string) {
+  if (s === "overdue") return "bg-danger"
+  if (s === "due_soon") return "bg-warning text-dark"
+  if (s === "completed") return "bg-success"
   return "bg-secondary"
 }
 
@@ -181,6 +193,7 @@ onMounted(fetchVendorProducts)
                   <th class="py-3 px-3 text-end">Price</th>
                   <th class="py-3 px-3 text-end">Stock</th>
                   <th class="py-3 px-3">Status</th>
+                  <th class="py-3 px-3">SLA</th>
                   <th class="py-3 px-3">Submitted</th>
                   <th class="py-3 px-3 text-center" style="width: 9rem;">Action</th>
                 </tr>
@@ -188,11 +201,11 @@ onMounted(fetchVendorProducts)
 
               <tbody>
                 <tr v-if="loading">
-                  <td colspan="9" class="py-4 text-center text-muted">Loading...</td>
+                  <td colspan="10" class="py-4 text-center text-muted">Loading...</td>
                 </tr>
 
                 <tr v-else-if="products.length === 0">
-                  <td colspan="9" class="py-4 text-center text-muted">No temp products found.</td>
+                  <td colspan="10" class="py-4 text-center text-muted">No temp products found.</td>
                 </tr>
 
                 <tr v-else v-for="(p, index) in products" :key="p.id">
@@ -237,6 +250,13 @@ onMounted(fetchVendorProducts)
                     <span class="badge rounded-pill" :class="badgeClass(p.Submission_Status)">
                       {{ p.Submission_Status }}
                     </span>
+                  </td>
+
+                  <td class="py-2 px-3">
+                    <span class="badge rounded-pill" :class="slaBadgeClass(p.approval_sla?.sla_status)">
+                      {{ p.approval_sla?.sla_status?.replace('_', ' ') || '-' }}
+                    </span>
+                    <div class="text-muted small">{{ p.approval_sla?.sla_due_at || '-' }}</div>
                   </td>
 
                   <td class="py-2 px-3 text-nowrap">

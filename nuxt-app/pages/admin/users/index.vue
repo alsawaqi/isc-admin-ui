@@ -8,7 +8,7 @@ const flash = useFlashStore()
 definePageMeta({
     layout: 'admin',
     middleware: ['permission'],
-    permissions: 'View Users'
+    permission: 'assign roles'
 })
 
 const { $axios } = (useNuxtApp() as any);

@@ -3,6 +3,7 @@ import {useRoute,useNuxtApp} from '#imports';
 import { NuxtLink } from '#components';
 import { useAdminUI } from '~/composables/useAdminUI'
 import { useAuth } from '~/stores/auth'
+import { getAdminLandingPath } from '~/utils/adminAccess'
 import { onMounted,computed,ref } from 'vue';
 
  
@@ -16,9 +17,11 @@ const nuxtApp = useNuxtApp()
 const { $axios } = (nuxtApp as any);
 
 const hasPermission = (perm: string) => auth.permissions.includes(perm)
+const adminHomePath = computed(() => getAdminLandingPath(auth.permissions))
 
 
 const route = useRoute();
+const logoSrc = '/logo.jpg'
 
 const isDisabling = ref<boolean>(false)
 const disableError = ref<string | null>(null)
@@ -46,10 +49,15 @@ const getActiveColor = (path: string): string => {
     '/admin/product/brands': 'color: #eab308;',
     '/admin/product/manufacture': 'color: #10b981;',
     '/admin/product': 'color: #8b5676;',
+    '/admin/product/stock': 'color: #0891b2;',
     '/admin/product/viewproducts': 'color: #ef4444;',
+    '/admin/product/vendor-products': 'color: #0f766e;',
+    '/admin/product/discounts': 'color: #7c3aed;',
+    '/admin/product/reviews': 'color: #db2777;',
 
     // Orders
     '/admin/orders/ordersplaced': 'color: #a855f7;', // NEW
+    '/admin/reports/operations': 'color: #0f766e;',
 
     // Admin / Roles / Users
     '/admin/roles/createadmin': 'color: #6366f1;',
@@ -351,10 +359,10 @@ onMounted(async () => {
 
     <div>
       <NuxtLink
-    to="/admin" class="sidebar-logo">
-        <img src="/logo.jpg" alt="site logo" class="light-logo">
-        <img src="/logo.jpg" alt="site logo" class="dark-logo">
-        <img src="/logo.jpg" alt="site logo" class="logo-icon">
+    :to="adminHomePath" class="sidebar-logo">
+        <img :src="logoSrc" alt="site logo" class="light-logo">
+        <img :src="logoSrc" alt="site logo" class="dark-logo">
+        <img :src="logoSrc" alt="site logo" class="logo-icon">
       </NuxtLink>
     </div>
 
@@ -362,13 +370,21 @@ onMounted(async () => {
          <ul id="sidebar-menu" class="tree">
 
                 <!-- Dashboard --------------------------------------------------- -->
-                <li class="has-child">
+                <li v-if="hasPermission('dashboard')" class="has-child">
                   <a href="javascript:void(0)">
                     <iconify-icon icon="solar:home-smile-angle-outline" class="menu-icon"></iconify-icon>
                     Dashboard
                   </a>
                   <ul class="open" style="display: block;">
                     <li><NuxtLink  to="/admin">Status</NuxtLink></li>
+                    <li>
+                      <NuxtLink
+                        to="/admin/reports/operations"
+                        :style="isActive('/admin/reports/operations') ? getActiveColor('/admin/reports/operations') : ''"
+                      >
+                        Operations Reports
+                      </NuxtLink>
+                    </li>
                   </ul>
                 </li>
 
@@ -424,7 +440,7 @@ onMounted(async () => {
 
 
 
-                      <li>
+                      <li v-if="hasPermission('view products description')">
                       <NuxtLink
                             to="/admin/categories/viewproductdescription"
                             :style="isActive('/admin/categories/viewproductdescription') ? getActiveColor('/admin/categories/viewproductdescription') : 'color: #17a2b8;'"
@@ -466,22 +482,67 @@ onMounted(async () => {
           </NuxtLink>
         </li>
 
-        <li v-if="hasPermission('product master')">
-          <NuxtLink
-            to="/admin/product"
+    <li v-if="hasPermission('product master')">
+      <NuxtLink
+        to="/admin/product"
             :style="isActive('/admin/product') ? getActiveColor('/admin/product') : ''"
           >
             Product Master
-          </NuxtLink>
-        </li>
+      </NuxtLink>
+    </li>
 
-        <li v-if="hasPermission('product activation')">
-          <NuxtLink
-            to="/admin/product/viewproducts"
-            :style="isActive('/admin/product/viewproducts') ? getActiveColor('/admin/product/viewproducts') : ''"
+    <li v-if="hasPermission('product stock')">
+      <NuxtLink
+        to="/admin/product/stock"
+        :style="isActive('/admin/product/stock') ? getActiveColor('/admin/product/stock') : ''"
+      >
+        Product Stock
+      </NuxtLink>
+    </li>
+
+    <li v-if="hasPermission('product activation')" class="has-child">
+          <a
+            href="javascript:void(0)"
+            :style="isAnyChildActive(['/admin/product/viewproducts', '/admin/product/vendor-products', '/admin/product/discounts', '/admin/product/reviews'])
+              ? getActiveColor(route.path)
+              : ''"
           >
             Product Activation
-          </NuxtLink>
+          </a>
+          <ul class="open" style="display: block;">
+            <li>
+              <NuxtLink
+                to="/admin/product/viewproducts"
+                :style="isActive('/admin/product/viewproducts') ? getActiveColor('/admin/product/viewproducts') : ''"
+              >
+                Company Products
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink
+                to="/admin/product/vendor-products"
+                :style="isActive('/admin/product/vendor-products') ? getActiveColor('/admin/product/vendor-products') : ''"
+              >
+                Vendor Products
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink
+                to="/admin/product/discounts"
+                :style="isActive('/admin/product/discounts') ? getActiveColor('/admin/product/discounts') : ''"
+              >
+                Discounts
+              </NuxtLink>
+            </li>
+            <li>
+              <NuxtLink
+                to="/admin/product/reviews"
+                :style="isActive('/admin/product/reviews') ? getActiveColor('/admin/product/reviews') : ''"
+              >
+                Reviews &amp; Q&amp;A
+              </NuxtLink>
+            </li>
+          </ul>
         </li>
                 <!-- <li v-if="hasPermission('product reports')"><a href="#">Product Reports</a></li> -->
               </ul>
@@ -507,7 +568,8 @@ onMounted(async () => {
                 <li v-if="hasPermission('order packaging')"><NuxtLink to="/admin/orders/orderspacking">Order Packaging</NuxtLink></li>
                 <li v-if="hasPermission('order dispatched')"><NuxtLink to="/admin/orders/ordersdispatch">Order Dispatched</NuxtLink></li>
                 <li v-if="hasPermission('order shipments')"><NuxtLink to="/admin/orders/ordersshipment">Order Shipments</NuxtLink></li>
-                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/ordersdeliveried">View All Orders</NuxtLink></li>
+                <li v-if="hasPermission('order pickup')"><NuxtLink to="/admin/orders/orderspickup">Order Pickup</NuxtLink></li>
+                <li v-if="hasPermission('order delivery')"><NuxtLink to="/admin/orders/completed">View All Orders</NuxtLink></li>
                <!-- <li v-if="hasPermission('order verification')"><a href="#">Order Verification</a></li> -->
               </ul>
             </li>
@@ -525,7 +587,7 @@ onMounted(async () => {
 
 
 
-            <li class="has-child">
+            <li v-if="hasPermission('support tickets')" class="has-child">
               <a href="javascript:void(0)">Supports</a>
               <ul class="open" style="display: block;">
                 <li><NuxtLink to="/admin/support/tickets">Support Tickets</NuxtLink></li>
@@ -630,7 +692,7 @@ onMounted(async () => {
                   </NuxtLink>
                 </li> -->
 
-                  <li>
+                  <li v-if="hasPermission('region')">
                   <NuxtLink
                     to="/admin/geography/region"
                     :style="isActive('/admin/geography/region') ? getActiveColor('/admin/geography/region') : ''"   
@@ -641,7 +703,7 @@ onMounted(async () => {
                   </li>
 
 
-                <li>
+                <li v-if="hasPermission('districts')">
                   <NuxtLink
                     to="/admin/geography/districts"
                     :style="isActive('/admin/geography/districts') ? getActiveColor('/admin/geography/districts') : ''"   
@@ -667,7 +729,7 @@ onMounted(async () => {
 
 
 
-                <li >
+                <li v-if="hasPermission('locations')">
 
                   <NuxtLink
                     to="/admin/geography/location"  
@@ -719,7 +781,7 @@ onMounted(async () => {
                 </li>
 
 
-                <li class="has-child">
+                <li class="has-child" v-if="hasPermission('vendor services')">
                     <a href="javascript:void(0)"
                              :style="isAnyChildActive([
                                '/admin/vender',
@@ -728,26 +790,29 @@ onMounted(async () => {
                     Vendor Services
                   </a>
 
-                 <ul> 
-                  <li>
-                    <NuxtLink to="/admin/vendor">Vendors</NuxtLink>
-                  </li>
-                  
-                  <li>
-                    <NuxtLink to="/admin/vendor/user">Vendors Login</NuxtLink>
+                 <ul>
+                  <li v-if="hasPermission('vendors')">
+                    <NuxtLink to="/admin/vendor/create">Create Vendor</NuxtLink>
                   </li>
 
+                  <li v-if="hasPermission('vendors')">
+                    <NuxtLink to="/admin/vendor/manage">Manage Vendors</NuxtLink>
+                  </li>
+
+                  <li v-if="hasPermission('vendor registration requests')">
+                    <NuxtLink to="/admin/vendor/registration-requests">Registration Requests</NuxtLink>
+                  </li>
 
 
-                  <li>
+                  <li v-if="hasPermission('vendor requests')">
                     <NuxtLink to="/admin/products-temp">Vendors Request</NuxtLink>
                   </li>
                   
-                      <li>
+                      <li v-if="hasPermission('vendor orders')">
                         <NuxtLink to="/admin/vendor-orders">Vendor Orders</NuxtLink>
                       </li>
 
-                      <li> 
+                      <li v-if="hasPermission('vendor payouts')"> 
                         <NuxtLink to="/admin/vendor-orders/vendor-payouts">Vendor Payouts</NuxtLink>
                       </li>
 

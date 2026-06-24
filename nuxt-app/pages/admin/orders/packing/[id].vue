@@ -3,7 +3,7 @@ import { useParam, useNuxtApp, navigateTo, definePageMeta } from '#imports';
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
+  permission: 'order packaging'
 
 });
 
@@ -17,6 +17,7 @@ const { $axios } = (useNuxtApp() as any);
 const Orders_Id = useParam('id');
 
 const orders = ref<any>([]);
+const isPickupOrder = computed(() => orders.value?.Delivery_Type === 'pickup')
 
 /** Photos keyed by order detail id */
 const linePhotos = ref<Record<number, File[]>>({})
@@ -31,11 +32,14 @@ const sigRef = ref<InstanceType<typeof SignaturePad> | null>(null)
 type OrderLine = {
   id: number
   Quantity: number
-  product: {
-    Product_Name: string
-    Length_cm?: number | null
-    Width_cm?: number | null
-    Height_cm?: number | null
+	  product: {
+	    Product_Name: string
+	    Length_Cm?: number | null
+	    Width_Cm?: number | null
+	    Height_Cm?: number | null
+	    Length_cm?: number | null
+	    Width_cm?: number | null
+	    Height_cm?: number | null
     Volume_Cbm?: number | null
     Weight_Kg?: number | null
 
@@ -127,9 +131,13 @@ const boxes = ref<BoxSize[]>([])
 const loadBoxesForShipper = async () => {
   const sid = orders.value?.shipper?.id || orders.value?.Shippers_Id
   if (!sid) return
-  // adjust endpoint to your API
-  const { data } = await $axios.get(`/api/v1/shipping/shippers/${sid}/boxes`)
-  boxes.value = data
+  try {
+    const { data } = await $axios.get(`/api/v1/shipping/shippers/${sid}/boxes`)
+    boxes.value = data
+  } catch (error) {
+    console.error('Failed to load shipper boxes:', error)
+    boxes.value = []
+  }
 }
 
 
@@ -138,20 +146,26 @@ const loadBoxesForShipper = async () => {
 const volFromDimsCbm = (L?: number | null, W?: number | null, H?: number | null) => {
   const l = Number(L || 0), w = Number(W || 0), h = Number(H || 0)
   if (!l || !w || !h) return null
-  return (l * w * h) / 1_000_000 // cm³ → m³
+  return l * w * h
+}
+
+const boxVolFromCmDimsCbm = (L?: number | null, W?: number | null, H?: number | null) => {
+  const l = Number(L || 0), w = Number(W || 0), h = Number(H || 0)
+  if (!l || !w || !h) return null
+  return (l * w * h) / 1_000_000
 }
 
 const normBoxes = computed(() =>
   (boxes.value || []).map(b => {
     const vol = b.Shippers_Box_Volume_Cbm ??
-      volFromDimsCbm(b.Shippers_Box_Length_Cm, b.Shippers_Box_Width_Cm, b.Shippers_Box_Height_Cm)
+      boxVolFromCmDimsCbm(b.Shippers_Box_Length_Cm, b.Shippers_Box_Width_Cm, b.Shippers_Box_Height_Cm)
     return {
       ...b,
       _volCbm: Number(vol || 0),
       _maxKg: Number(b.Shippers_Box_Max_Weight_Kg || 0),
-      _L: Number(b.Shippers_Box_Length_Cm || 0),
-      _W: Number(b.Shippers_Box_Width_Cm || 0),
-      _H: Number(b.Shippers_Box_Height_Cm || 0),
+      _L: Number(b.Shippers_Box_Length_Cm || 0) / 100,
+      _W: Number(b.Shippers_Box_Width_Cm || 0) / 100,
+      _H: Number(b.Shippers_Box_Height_Cm || 0) / 100,
     }
   }).filter(b => b._volCbm > 0)
 )
@@ -160,17 +174,19 @@ const normBoxes = computed(() =>
  * If product dims are missing, we fall back to volume+weight only.
  */
 function fitsOneByDims(prod: OrderLine['product'], box: any) {
-  const pL = Number(prod.Length_cm || 0)
-  const pW = Number(prod.Width_cm || 0)
-  const pH = Number(prod.Height_cm || 0)
+  const pL = Number(prod.Length_Cm ?? prod.Length_cm ?? 0)
+  const pW = Number(prod.Width_Cm ?? prod.Width_cm ?? 0)
+  const pH = Number(prod.Height_Cm ?? prod.Height_cm ?? 0)
   if (!pL || !pW || !pH) return true // no dims → skip dimension gate
-  // naive orientation (no rotation optimizer): require all <=
+  // Product dimensions are normalized to meters; box dimensions are converted from cm to meters above.
   return pL <= box._L && pW <= box._W && pH <= box._H
 }
 
 function bestForItem(item: OrderLine) {
   const volPerUnit = Number(item.product.Volume_Cbm ?? volFromDimsCbm(
-    item.product.Length_cm, item.product.Width_cm, item.product.Height_cm
+    item.product.Length_Cm ?? item.product.Length_cm,
+    item.product.Width_Cm ?? item.product.Width_cm,
+    item.product.Height_Cm ?? item.product.Height_cm
   ) ?? 0)
   const kgPerUnit = Number(item.product.Weight_Kg || 0)
 
@@ -263,12 +279,14 @@ const getorders = async () => {
     }
 
     // 🔹 4) Send as multipart/form-data
-    await $axios.post(`/api/orders-placed/${Orders_Id}/dispatch`, fd, {
+    const { data } = await $axios.post(`/api/orders-placed/${Orders_Id}/dispatch`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
 
     showSignature.value = false
-    navigateTo('/admin/orders/ordersdispatch')
+    navigateTo(data?.status === 'ready_for_collection'
+      ? '/admin/orders/orderspickup'
+      : '/admin/orders/ordersdispatch')
   } catch (e: any) {
     console.error('Dispatch failed:', e?.response?.data ?? e)
     alert(e?.response?.data?.message ?? 'Failed to dispatch order.')
@@ -281,6 +299,7 @@ const getorders = async () => {
 
 onMounted(async () => {
   await getorders();
+  await loadBoxesForShipper();
 });
 </script>
 <template>
@@ -309,7 +328,7 @@ onMounted(async () => {
         <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
           <button type="button" class="btn btn-sm btn-outline-success"
             :disabled="!allRowsHavePhotos || submitting || uploading" @click.prevent="showSignature = true">
-            Dispatch
+            {{ isPickupOrder ? 'Ready for Collection' : 'Dispatch' }}
           </button>
 
         </div>
@@ -357,9 +376,10 @@ onMounted(async () => {
                       <th class="text-center">Qty</th>
                       <th class="text-end">Unit Price</th>
                       <th class="text-end">Price</th>
-                      <th>Shipping Volume (CBM)</th>
-                      <th>Shipping Weight (KG)</th>
-                      <th>Upload Image</th>
+	                      <th>Shipping Volume (CBM)</th>
+	                      <th>Shipping Weight (KG)</th>
+	                      <th>Recommended Box</th>
+	                      <th>Upload Image</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -369,9 +389,20 @@ onMounted(async () => {
                       <td class="text-center">{{ row.Quantity }}</td>
                       <td class="text-end">OMR {{ Number(row.Price || 0).toFixed(3) }}</td>
                       <td class="text-end">OMR {{ Number(row.Subtotal || 0).toFixed(3) }}</td>
-                      <td>{{ row.product?.Volume_Cbm ?? '—' }} CBM</td>
-                      <td>{{ row.product?.Weight_Kg ?? '—' }} KG</td>
-                      <td>
+	                      <td>{{ row.product?.Volume_Cbm ?? '—' }} CBM</td>
+	                      <td>{{ row.product?.Weight_Kg ?? '—' }} KG</td>
+	                      <td>
+	                        <template v-if="sOf(row)">
+	                          <div class="fw-semibold">
+	                            {{ sOf(row)?.chosen.Shippers_Box_Label || sOf(row)?.chosen.Shippers_Box_Code }}
+	                          </div>
+	                          <div class="small text-muted">
+	                            {{ sOf(row)?.chosen.Shippers_Box_Code }} · {{ sOf(row)?.boxesNeeded }} box(es)
+	                          </div>
+	                        </template>
+	                        <span v-else>—</span>
+	                      </td>
+	                      <td>
                         <label class="btn btn-outline-secondary btn-sm mb-0">
                           <iconify-icon icon="ion:camera-outline" class="me-1"></iconify-icon>
                           Take Photo
@@ -410,7 +441,7 @@ onMounted(async () => {
     <div class="position-absolute top-50 start-50 translate-middle bg-white rounded-3 shadow p-3"
       style="width: min(680px, 95vw);">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0">Confirm Dispatch – Signature</h6>
+        <h6 class="mb-0">{{ isPickupOrder ? 'Confirm Ready for Collection' : 'Confirm Dispatch' }} - Signature</h6>
         <button type="button" class="btn-close" aria-label="Close" :disabled="submitting"
           @click="showSignature = false"></button>
       </div>
@@ -426,7 +457,7 @@ onMounted(async () => {
         <button type="button" class="btn btn-light" :disabled="submitting"
           @click="showSignature = false">Cancel</button>
         <button type="button" class="btn btn-success" :disabled="submitting" @click="confirmDispatch">
-          {{ submitting ? 'Submitting…' : 'Sign & Dispatch' }}
+          {{ submitting ? 'Submitting...' : (isPickupOrder ? 'Sign & Mark Ready' : 'Sign & Dispatch') }}
         </button>
       </div>
     </div>

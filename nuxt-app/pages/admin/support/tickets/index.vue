@@ -3,7 +3,7 @@ import { useNuxtApp,  definePageMeta } from '#imports'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'support.tickets'
+  permission: 'support tickets'
 })
 
 import { ref, onMounted, watch, computed } from 'vue'

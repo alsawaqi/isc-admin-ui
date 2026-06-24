@@ -1,10 +1,11 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'admin',
-
+  middleware: ['permission'],
+  permission: 'product master',
 });
 
-import { ref, onMounted,computed,watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
  
 import { useProductType } from '~/data/producttype'
@@ -115,6 +116,29 @@ const volumeUnitOptions = [
   { value: 'ft', label: 'Foot (ft)' },
 ]
 
+type DimensionUnit = 'mm' | 'cm' | 'm' | 'in' | 'ft'
+
+const metersPerUnit: Record<DimensionUnit, number> = {
+  mm: 0.001,
+  cm: 0.01,
+  m: 1,
+  in: 0.0254,
+  ft: 0.3048,
+}
+
+const isDimensionUnit = (unit: unknown): unit is DimensionUnit =>
+  typeof unit === 'string' && unit in metersPerUnit
+
+const roundDimension = (value: number) => Number(value.toFixed(4))
+
+const metersToUnit = (value: number | null | undefined, unit: DimensionUnit) =>
+  roundDimension(Number(value || 0) / metersPerUnit[unit])
+
+const convertUnitValue = (value: number | null | undefined, fromUnit: DimensionUnit, toUnit: DimensionUnit) =>
+  roundDimension((Number(value || 0) * metersPerUnit[fromUnit]) / metersPerUnit[toUnit])
+
+const hydratingProduct = ref(false)
+
 
 
 const fetchDepartments = async () => {
@@ -153,9 +177,22 @@ const getManufactures = async () => {
 const getproducts = async (): Promise<void> => {
   try {
     const response = await $axios.get(`/api/productmaster/${id.value}`);
-    form.value = response.data;
+    const product = response.data;
+    const unit = isDimensionUnit(product.volume_type) ? product.volume_type : 'm';
+
+    hydratingProduct.value = true;
+    form.value = {
+      ...product,
+      volume_type: unit,
+      Length_Cm: metersToUnit(product.Length_Cm, unit),
+      Width_Cm: metersToUnit(product.Width_Cm, unit),
+      Height_Cm: metersToUnit(product.Height_Cm, unit),
+    };
+    await nextTick();
+    hydratingProduct.value = false;
     console.log('Fetched product:', response.data);
   } catch (error) {
+    hydratingProduct.value = false;
     console.error('Failed to fetch product:', error);
     throw error;
   } finally {
@@ -167,6 +204,15 @@ const getproducts = async (): Promise<void> => {
 
 watch(() => form.value.Product_Department_Id, fetchSubDepartments)
 watch(() => form.value.Product_Sub_Department_Id, fetchSubSubDepartments)
+watch(() => form.value.volume_type, (newUnit, oldUnit) => {
+  if (hydratingProduct.value || !isDimensionUnit(newUnit) || !isDimensionUnit(oldUnit) || newUnit === oldUnit) {
+    return
+  }
+
+  form.value.Length_Cm = convertUnitValue(form.value.Length_Cm, oldUnit, newUnit)
+  form.value.Width_Cm = convertUnitValue(form.value.Width_Cm, oldUnit, newUnit)
+  form.value.Height_Cm = convertUnitValue(form.value.Height_Cm, oldUnit, newUnit)
+})
 
 
 const updateproducts = async (): Promise<void> => {
@@ -421,7 +467,7 @@ onMounted(async () => {
 
                 <!-- Measurement Type -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Measurement Type</label>
+                  <label class="form-label fw-semibold">Input Unit (stored as meters)</label>
                   <div class="icon-field">
                     <span class="icon">
                       <!-- unit icon -->
@@ -436,30 +482,30 @@ onMounted(async () => {
 
                 <!-- Length -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Length (cm)</label>
+                  <label class="form-label fw-semibold">Length</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Length_Cm" class="form-control" placeholder="Enter Length (Cm)"
+                    <input type="number" v-model="form.Length_Cm" class="form-control" placeholder="Enter length in selected unit"
                       required />
                   </div>
                 </div>
 
                 <!-- Width -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Width (cm)</label>
+                  <label class="form-label fw-semibold">Width</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Width_Cm" class="form-control" placeholder="Enter Width (Cm)"
+                    <input type="number" v-model="form.Width_Cm" class="form-control" placeholder="Enter width in selected unit"
                       required />
                   </div>
                 </div>
 
                 <!-- Height -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Height (cm)</label>
+                  <label class="form-label fw-semibold">Height</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Height_Cm" class="form-control" placeholder="Enter Height (Cm)"
+                    <input type="number" v-model="form.Height_Cm" class="form-control" placeholder="Enter height in selected unit"
                       required />
                   </div>
                 </div>

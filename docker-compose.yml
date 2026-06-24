@@ -8,7 +8,7 @@ services:
     volumes:
       - ./nuxt-app:/app              # your source code
       - nuxt_admin_node_modules:/app/node_modules  # keep deps in container volume
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "mkdir -p /app/node_modules && chown -R node:node /app/node_modules /app/.nuxt /app/.output 2>/dev/null || true; su node -c 'npm install && npm run dev -- --host 0.0.0.0'"
     ports:
       - "3000:3000"
     networks:

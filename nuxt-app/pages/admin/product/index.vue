@@ -3,7 +3,7 @@ import { definePageMeta, useNuxtApp } from '#imports'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'manage products'
+  permission: 'product master'
 });
 
 import { type Product } from '@/data/Product'
@@ -700,7 +700,7 @@ onMounted(async () => {
 
                 <!-- Measurement Type -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Measurement Type</label>
+                  <label class="form-label fw-semibold">Input Unit (stored as meters)</label>
                   <div class="icon-field">
                     <span class="icon">
                       <!-- unit icon -->
@@ -715,30 +715,30 @@ onMounted(async () => {
 
                 <!-- Length -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Length (cm)</label>
+                  <label class="form-label fw-semibold">Length</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Length_Cm" class="form-control" placeholder="Enter Length (Cm)"
+                    <input type="number" v-model="form.Length_Cm" class="form-control" placeholder="Enter length in selected unit"
                       required />
                   </div>
                 </div>
 
                 <!-- Width -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Width (cm)</label>
+                  <label class="form-label fw-semibold">Width</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Width_Cm" class="form-control" placeholder="Enter Width (Cm)"
+                    <input type="number" v-model="form.Width_Cm" class="form-control" placeholder="Enter width in selected unit"
                       required />
                   </div>
                 </div>
 
                 <!-- Height -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Height (cm)</label>
+                  <label class="form-label fw-semibold">Height</label>
                   <div class="icon-field">
                     <span class="icon"></span>
-                    <input type="number" v-model="form.Height_Cm" class="form-control" placeholder="Enter Height (Cm)"
+                    <input type="number" v-model="form.Height_Cm" class="form-control" placeholder="Enter height in selected unit"
                       required />
                   </div>
                 </div>

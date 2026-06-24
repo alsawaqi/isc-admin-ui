@@ -5,7 +5,7 @@ import { useParam, useNuxtApp, navigateTo, definePageMeta } from '#imports';
 definePageMeta({
      layout: 'admin',
      middleware: ['permission'],
-     permissions: 'departments'
+     permission: 'order shipments'
      
     });
 

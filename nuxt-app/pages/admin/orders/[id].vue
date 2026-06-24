@@ -8,7 +8,7 @@ import SignaturePad from '~/components/SignaturePad.vue'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
+  permission: 'orders placed'
 })
 
 
@@ -42,6 +42,27 @@ const Orders_Id = computed(() => String(route.params.id || ''))
 
 // start as an object so template bindings are safe pre-fetch
 const orders = ref<any>({ orderlist: [], transaction: null })
+
+const deliveryTypeLabel = computed(() => {
+  if (orders.value?.Delivery_Type === 'pickup') return 'Local Pickup'
+  if (orders.value?.Delivery_Type === 'ship') return 'Ship to Address'
+  return orders.value?.Delivery_Type || '-'
+})
+
+const fulfillmentName = computed(() => {
+  if (orders.value?.Delivery_Type === 'pickup') {
+    return orders.value?.location?.Location_Name || orders.value?.location?.Location_Name_Ar || '-'
+  }
+  return orders.value?.shipper?.Shippers_Name || '-'
+})
+
+const loyaltyDiscount = computed(() => Number(orders.value?.Loyalty_Discount_Amount || 0))
+const loyaltyPointsRedeemed = computed(() => Number(orders.value?.Loyalty_Points_Redeemed || 0))
+const productDiscount = computed(() => Number(orders.value?.Product_Discount_Amount || 0))
+const originalOrderSubtotal = computed(() => Number(orders.value?.Original_Sub_Total_Price || (orderSubtotal.value + productDiscount.value)))
+const orderSubtotal = computed(() => Number(orders.value?.Sub_Total_Price || 0))
+const orderVat = computed(() => Number(orders.value?.VAT || orders.value?.Tax || 0))
+const orderShipping = computed(() => Number(orders.value?.Shipping_Price || 0))
 
 
 const getorders = async (): Promise<void> => {
@@ -320,7 +341,15 @@ onMounted(async()=> await getorders())
                         <li><span class="text-muted">Order Code:</span> {{ orders.Order_Code }}</li>
                         <li><span class="text-muted">Issue Date:</span> {{ new
                           Date(orders.created_at).toLocaleDateString() }}</li>
-                        <li><span class="text-muted">Shipment ID:</span> {{ orders.shipper?.Shippers_Name || '-' }}</li>
+                        <li><span class="text-muted">Fulfillment:</span> {{ deliveryTypeLabel }}</li>
+                        <li><span class="text-muted">{{ orders.Delivery_Type === 'pickup' ? 'Pickup Location' : 'Shipper' }}:</span> {{ fulfillmentName }}</li>
+                        <li v-if="orders.Delivery_Type === 'ship' && orders.Shipping_Basis">
+                          <span class="text-muted">Shipping Basis:</span> {{ orders.Shipping_Basis }}
+                        </li>
+                        <li v-if="loyaltyPointsRedeemed > 0">
+                          <span class="text-muted">Loyalty Redeemed:</span>
+                          {{ loyaltyPointsRedeemed.toLocaleString() }} pts / OMR {{ loyaltyDiscount.toFixed(3) }}
+                        </li>
                       </ul>
                     </div>
                   </div>
@@ -350,7 +379,16 @@ onMounted(async()=> await getorders())
                           </td>
                           <td>{{ line.product?.Product_Name || '-' }}</td>
                           <td class="text-center">{{ line.Quantity }}</td>
-                          <td class="text-end">OMR {{ Number(line.Price || 0).toFixed(3) }}</td>
+                          <td class="text-end">
+                            <div>OMR {{ Number(line.Price || 0).toFixed(3) }}</div>
+                            <div v-if="Number(line.Line_Discount_Amount || 0) > 0" class="small text-muted text-decoration-line-through">
+                              OMR {{ Number(line.Original_Unit_Price || line.Price || 0).toFixed(3) }}
+                            </div>
+                            <div v-if="Number(line.Line_Discount_Amount || 0) > 0" class="small text-success">
+                              - OMR {{ Number(line.Line_Discount_Amount || 0).toFixed(3) }}
+                              <span v-if="line.Product_Discount_Name">({{ line.Product_Discount_Name }})</span>
+                            </div>
+                          </td>
                           <td class="text-end">OMR {{ Number(line.Subtotal || 0).toFixed(3) }}</td>
                           <td class="text-end">
                             <span class="badge rounded-pill" :class="{
@@ -376,19 +414,29 @@ onMounted(async()=> await getorders())
                     <div class="col-md-6">
                       <table class="table table-sm mb-0">
                         <tbody>
+                          <tr v-if="productDiscount > 0">
+                            <td class="text-muted">Items Before Discount</td>
+                            <td class="text-end">OMR {{ originalOrderSubtotal.toFixed(3) }}</td>
+                          </tr>
+                          <tr v-if="productDiscount > 0">
+                            <td class="text-muted">Product Discount</td>
+                            <td class="text-end text-success">- OMR {{ productDiscount.toFixed(3) }}</td>
+                          </tr>
                           <tr>
                             <td class="text-muted">Subtotal</td>
-                            <td class="text-end">
-
-                            </td>
+                            <td class="text-end">OMR {{ orderSubtotal.toFixed(3) }}</td>
                           </tr>
-                          <tr v-if="orders.Shipping_Price">
+                          <tr v-if="orderVat">
+                            <td class="text-muted">VAT</td>
+                            <td class="text-end">OMR {{ orderVat.toFixed(3) }}</td>
+                          </tr>
+                          <tr v-if="orderShipping">
                             <td class="text-muted">Shipping</td>
-                            <td class="text-end">OMR {{ Number(orders.Shipping_Price).toFixed(3) }}</td>
+                            <td class="text-end">OMR {{ orderShipping.toFixed(3) }}</td>
                           </tr>
-                          <tr v-if="orders.Tax">
-                            <td class="text-muted">Tax</td>
-                            <td class="text-end">OMR {{ Number(orders.Tax).toFixed(3) }}</td>
+                          <tr v-if="loyaltyDiscount > 0">
+                            <td class="text-muted">Loyalty Discount</td>
+                            <td class="text-end text-success">- OMR {{ loyaltyDiscount.toFixed(3) }}</td>
                           </tr>
                           <tr class="table-light">
                             <th>Total</th>
@@ -447,6 +495,8 @@ onMounted(async()=> await getorders())
                       
                
                       <th>Payment</th>
+                      <th class="text-end">Payment Amount</th>
+                      <th class="text-end">Loyalty Discount</th>
                       <th>Status</th>
                       <th class="text-nowrap">Notes</th>
                     </tr>
@@ -462,7 +512,8 @@ onMounted(async()=> await getorders())
                           'bg-success': t.Payment_Method === 'card',
                           'bg-primary': t.Payment_Method === 'transfer',
                           'bg-warning text-dark': t.Payment_Method === 'cod',
-                          'bg-secondary': !['card', 'transfer', 'cod'].includes(t.Payment_Method)
+                          'bg-success-subtle text-success border border-success': t.Payment_Method === 'loyalty',
+                          'bg-secondary': !['card', 'transfer', 'cod', 'loyalty'].includes(t.Payment_Method)
                         }">
                           {{ t.Payment_Method || '-' }}
                         </span>
@@ -476,6 +527,20 @@ onMounted(async()=> await getorders())
                         <span v-else-if="t.Payment_Method === 'cod'" class="ms-2 small text-muted">
                           {{ t.COD_Collected ? 'Collected' : 'Pending' }}
                         </span>
+                        <span v-else-if="t.Payment_Method === 'loyalty'" class="ms-2 small text-muted">
+                          Fully paid by points
+                        </span>
+                      </td>
+
+                      <td class="text-end text-nowrap">
+                        OMR {{ Number(t.Payment_Amount || 0).toFixed(3) }}
+                      </td>
+
+                      <td class="text-end text-nowrap">
+                        <span v-if="Number(t.Discount_Amount || 0) > 0">
+                          OMR {{ Number(t.Discount_Amount || 0).toFixed(3) }}
+                        </span>
+                        <span v-else class="text-muted">-</span>
                       </td>
 
                       <!-- Payment status -->
@@ -501,6 +566,9 @@ onMounted(async()=> await getorders())
                         </span>
                         <span v-else-if="t.Payment_Method === 'cod' && t.COD_Collected_At">
                           Collected: {{ t.COD_Collected_At }}
+                        </span>
+                        <span v-else-if="loyaltyPointsRedeemed > 0">
+                          Redeemed {{ loyaltyPointsRedeemed.toLocaleString() }} loyalty points
                         </span>
                       </td>
                     </tr>

@@ -5,7 +5,7 @@ import { ref, onMounted, watch, reactive } from 'vue'
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
+  permission: 'orders placed'
 
 });
 
@@ -24,9 +24,12 @@ interface CustomerContact {
 interface Shipper {
   id: number;
   Shippers_Name: string;
+}
 
-
-
+interface PickupLocation {
+  id: number;
+  Location_Name?: string;
+  Location_Name_Ar?: string;
 }
 
 interface Order {
@@ -36,8 +39,11 @@ interface Order {
   Total_Price: number;
   Shippers_Id: number;
   Shipping_Price: string
+  Delivery_Type?: 'ship' | 'pickup' | string;
+  Location_Id?: number | null;
   customer_contact?: CustomerContact;
   shipper?: Shipper;
+  location?: PickupLocation | null;
   Status: string;
   created_at?: string;
   updated_at?: string;
@@ -63,6 +69,25 @@ const pagination = ref({
 
 
 const orders = ref<Order[]>([]);
+
+const fulfillmentLabel = (order: Order) => {
+  if (order.Delivery_Type === 'pickup') return 'Local Pickup'
+  if (order.Delivery_Type === 'ship') return 'Ship to Address'
+  return order.Delivery_Type || '-'
+}
+
+const fulfillmentName = (order: Order) => {
+  if (order.Delivery_Type === 'pickup') {
+    return order.location?.Location_Name || order.location?.Location_Name_Ar || '-'
+  }
+  return order.shipper?.Shippers_Name || '-'
+}
+
+const fulfillmentBadgeClass = (order: Order) => {
+  if (order.Delivery_Type === 'pickup') return 'bg-info'
+  if (order.Delivery_Type === 'ship') return 'bg-primary'
+  return 'bg-secondary'
+}
 
 const fetchOrders = async () => {
   try {
@@ -165,7 +190,8 @@ onMounted(async() => {
                   <th class="py-3 px-3">Transaction Number</th>
                   <th class="py-3 px-3">Customer Name</th>
                   <th class="py-3 px-3">Customer Number</th>
-                  <th class="py-3 px-3">Shipper Name</th>
+                  <th class="py-3 px-3">Fulfillment</th>
+                  <th class="py-3 px-3">Shipper / Pickup</th>
                   <th class="py-3 px-3 text-end">Shipping Price</th>
                   <th class="py-3 px-3 text-end">Total Price</th>
                   <th class="py-3 px-3">Status</th>
@@ -199,7 +225,12 @@ onMounted(async() => {
                   <!-- customer -->
                   <td class="py-2 px-3">{{ order.customer_contact?.Contact_Person_Name || '-' }}</td>
                   <td class="py-2 px-3 text-nowrap">{{ order.customer_contact?.Telephone || '-' }}</td>
-                  <td class="py-2 px-3">{{ order.shipper?.Shippers_Name || '-' }}</td>
+                  <td class="py-2 px-3">
+                    <span class="badge rounded-pill" :class="fulfillmentBadgeClass(order)">
+                      {{ fulfillmentLabel(order) }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3">{{ fulfillmentName(order) }}</td>
 
                   <!-- money chips -->
                   <td class="py-2 px-3 text-end text-nowrap">

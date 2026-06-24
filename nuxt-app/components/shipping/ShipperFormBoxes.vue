@@ -4,6 +4,7 @@ import { ref } from 'vue'
 export interface StandardBox {
   Box_Code?: string | null        // e.g. "S", "M", "L"
   Box_Label?: string | null       // e.g. "Small Box"
+  // Carrier box dimensions are entered and stored in centimeters.
   Length_cm: number | null
   Width_cm:  number | null
   Height_cm: number | null
@@ -34,18 +35,18 @@ const volumeCbm = (b: StandardBox) => {
   const W = Number(b.Width_cm ?? 0)
   const H = Number(b.Height_cm ?? 0)
   if (!L || !W || !H) return null
-  return (L * W * H) / 1_000_000 // cm³ → m³
+  return (L * W * H) / 1_000_000
 }
 </script>
 
 <template>
   <div>
     <!-- Header actions -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div>
-        <h6 class="mb-0">Standard Boxes</h6>
-        <small class="text-muted">Packing reference only — not used for pricing</small>
-      </div>
+	    <div class="d-flex align-items-center justify-content-between mb-3">
+	      <div>
+	        <h6 class="mb-0">Standard Boxes</h6>
+	        <small class="text-muted">Enter shipper box dimensions in centimeters. Used for packing recommendations.</small>
+	      </div>
       <button type="button" class="btn btn-primary btn-sm" @click="addBox">Add Box</button>
     </div>
 
@@ -65,17 +66,17 @@ const volumeCbm = (b: StandardBox) => {
         </div>
 
         <div class="col-sm-2 mb-3">
-          <label class="form-label small">Length (cm)</label>
-          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Length_cm" class="form-control">
-        </div>
-        <div class="col-sm-2 mb-3">
-          <label class="form-label small">Width (cm)</label>
-          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Width_cm" class="form-control">
-        </div>
-        <div class="col-sm-2 mb-3">
-          <label class="form-label small">Height (cm)</label>
-          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Height_cm" class="form-control">
-        </div>
+	          <label class="form-label small">Length (cm)</label>
+	          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Length_cm" class="form-control">
+	        </div>
+	        <div class="col-sm-2 mb-3">
+	          <label class="form-label small">Width (cm)</label>
+	          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Width_cm" class="form-control">
+	        </div>
+	        <div class="col-sm-2 mb-3">
+	          <label class="form-label small">Height (cm)</label>
+	          <input type="number" step="0.1" min="0" v-model.number="boxes[i].Height_cm" class="form-control">
+	        </div>
 
         <div class="col-sm-3 mb-3">
           <label class="form-label small">Max Weight (kg)</label>

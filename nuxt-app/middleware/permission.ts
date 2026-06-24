@@ -1,15 +1,21 @@
-import {useNuxtApp,defineAsyncComponent,defineNuxtRouteMiddleware,navigateTo} from  '#imports';
+import { defineNuxtRouteMiddleware, navigateTo } from '#imports'
+
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Run only on client side
-  if (!process.client) return
+  if (!import.meta.client) return
 
-    const { $axios } = (useNuxtApp() as any)
-  const token = localStorage.getItem('token') // ✅ Safe now because it's wrapped
+  const token = localStorage.getItem('token')
+  if (!token) {
+    return navigateTo('/')
+  }
 
-  if (!token) return navigateTo('/')
+  const metaPermission = to.meta?.permission ?? to.meta?.permissions
+  const requiredPermissions = Array.isArray(metaPermission)
+    ? metaPermission.filter((value): value is string => typeof value === 'string')
+    : typeof metaPermission === 'string'
+      ? [metaPermission]
+      : []
 
-  const requiredPermission = typeof to.meta?.permission === 'string' ? to.meta.permission : undefined
-  if (!requiredPermission) return
+  if (!requiredPermissions.length) return
 
   try {
     const { useAuth } = await import('~/stores/auth')
@@ -19,8 +25,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
       await auth.fetchUser()
     }
 
-    if (!auth.permissions.includes(requiredPermission)) {
-      return navigateTo('/403') // Optional: route to a 403 page
+    const missingPermissions = requiredPermissions.filter(
+      (permission) => !auth.permissions.includes(permission),
+    )
+
+    if (missingPermissions.length) {
+      return navigateTo({
+        path: '/403',
+        query: { from: to.fullPath },
+      })
     }
   } catch (e) {
     console.error('Permission check failed:', e)

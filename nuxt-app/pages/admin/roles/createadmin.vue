@@ -9,7 +9,7 @@ const  { $axios } = (useNuxtApp() as any);
 definePageMeta({
      layout: 'admin',
      middleware: ['permission'],
-     permissions: 'add new users'
+     permission: 'add new user'
 
     });
 

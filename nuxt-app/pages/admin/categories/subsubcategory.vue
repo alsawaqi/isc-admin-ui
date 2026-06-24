@@ -5,7 +5,8 @@ import { useFlashStore } from '~/stores/flashs'
 const flash = useFlashStore()
 definePageMeta({
   layout: 'admin',
-  middleware: ['permission']
+  middleware: ['permission'],
+  permission: 'sub sub departments'
 });
 
 const { $axios, $r2Url } = (useNuxtApp() as any);

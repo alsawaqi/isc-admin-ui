@@ -2,7 +2,7 @@
 definePageMeta({
   layout: 'admin',
   middleware: ['permission'],
-  permissions: 'departments'
+  permission: 'departments'
 
 })
  

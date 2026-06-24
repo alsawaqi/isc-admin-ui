@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useFlashStore } from '~/stores/flash'
+import { useFlashStore } from '~/stores/flashs'
 
 const flash = useFlashStore()
 </script>

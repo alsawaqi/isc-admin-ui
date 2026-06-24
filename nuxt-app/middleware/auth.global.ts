@@ -1,9 +1,10 @@
-import {defineNuxtRouteMiddleware,useNuxtApp,useAuth,navigateTo} from '#imports';
+import { defineNuxtRouteMiddleware, useAuth, navigateTo } from '#imports'
+import { getAdminLandingPath } from '~/utils/adminAccess'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!import.meta.client) return
 
   const token = localStorage.getItem('token')
-  const { $axios } = useNuxtApp()
   const auth = useAuth()
 
   if (to.path.startsWith('/admin')) {
@@ -11,6 +12,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     try {
       await auth.fetchUser()
+
+      if (to.path === '/admin' || to.path === '/admin/') {
+        const landingPath = getAdminLandingPath(auth.permissions)
+        if (landingPath !== '/admin') return navigateTo(landingPath)
+      }
     } catch {
       localStorage.removeItem('token')
       return navigateTo('/')
@@ -20,7 +26,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/' && token) {
     try {
       await auth.fetchUser()
-      return navigateTo('/admin')
+      return navigateTo(getAdminLandingPath(auth.permissions))
     } catch {
       localStorage.removeItem('token')
     }
