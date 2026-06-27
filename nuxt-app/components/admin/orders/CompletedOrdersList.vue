@@ -84,7 +84,7 @@ async function fetchOrders() {
       last_page: data.last_page || 1,
     }
   } catch (error: any) {
-    errorMsg.value = error?.response?.data?.message || 'Failed to fetch completed orders.'
+    errorMsg.value = error?.response?.data?.message || 'Failed to fetch orders.'
   } finally {
     loading.value = false
   }
@@ -160,8 +160,8 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
   <div class="dashboard-main-body completed-orders-list">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
       <div>
-        <h6 class="fw-semibold mb-1" style="color: #ef4444">Completed Orders</h6>
-        <div class="text-muted small">Delivered, held, cancelled, and returned orders after fulfillment review.</div>
+        <h6 class="fw-semibold mb-1" style="color: #1d2939">All Orders</h6>
+        <div class="text-muted small">Every order across all fulfillment stages and statuses — pending, packing, dispatch, shipment, pickup, delivered, on-hold, cancelled, and returned.</div>
       </div>
       <ul class="d-flex align-items-center gap-2 mb-0">
         <li class="fw-medium">
@@ -171,7 +171,7 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
           </NuxtLink>
         </li>
         <li>-</li>
-        <li class="fw-medium">Completed Orders</li>
+        <li class="fw-medium">All Orders</li>
       </ul>
     </div>
 
@@ -194,7 +194,13 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
             <div>
               <label for="completed-orders-status" class="form-label small text-muted mb-1">Status</label>
               <select id="completed-orders-status" v-model="table.status" class="form-select form-select-sm">
-                <option value="">Completed page statuses</option>
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="packed">Packed</option>
+                <option value="dispatched">Dispatched</option>
+                <option value="shipped">Shipped</option>
+                <option value="ready_for_collection">Ready for Collection</option>
                 <option value="delivered">Delivered</option>
                 <option value="on-hold">On Hold</option>
                 <option value="cancelled">Cancelled</option>
@@ -216,7 +222,7 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
     <div class="card border-0 shadow-sm">
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 completed-orders-table" :aria-busy="loading ? 'true' : 'false'" aria-describedby="completed-orders-range">
-          <caption class="visually-hidden">Completed orders with customer, fulfillment, payment, vendor split, totals, status, and actions.</caption>
+          <caption class="visually-hidden">All orders with customer, fulfillment, payment, vendor split, totals, status, and actions.</caption>
           <thead class="table-light">
             <tr>
               <th scope="col">Order</th>
@@ -228,16 +234,16 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
               <th scope="col" class="text-end">Shipping</th>
               <th scope="col" class="text-end">Total</th>
               <th scope="col">Status</th>
-              <th scope="col">Completed Date</th>
+              <th scope="col">Order Date</th>
               <th scope="col" class="text-end">Action</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="11" class="text-center text-muted py-4" role="status">Loading completed orders...</td>
+              <td colspan="11" class="text-center text-muted py-4" role="status">Loading orders...</td>
             </tr>
             <tr v-else-if="!orders.length">
-              <td colspan="11" class="text-center text-muted py-4" role="status">No completed orders found. Adjust the filters or search another order reference.</td>
+              <td colspan="11" class="text-center text-muted py-4" role="status">No orders found. Adjust the filters or search another order reference.</td>
             </tr>
             <template v-else>
               <tr
@@ -245,7 +251,7 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
                 :key="order.id"
                 role="row"
                 tabindex="0"
-                :aria-label="adminActionLabel('Open completed order', orderSubject(order))"
+                :aria-label="adminActionLabel('Open order', orderSubject(order))"
                 @click="openOrder(order)"
                 @keydown="onOrderRowKey($event, order)"
               >
