@@ -88,18 +88,6 @@ const openDocument = async (docId: number) => {
   }
 }
 
-// detail modal
-const showDetail = ref(false)
-const detail = ref<VendorRequest | null>(null)
-const openDetail = (v: VendorRequest) => {
-  detail.value = v
-  showDetail.value = true
-}
-const closeDetail = () => {
-  showDetail.value = false
-  detail.value = null
-}
-
 const getRequests = async () => {
   isLoading.value = true
   try {
@@ -351,14 +339,14 @@ onMounted(async () => {
                     </div>
                     <span v-else class="text-muted small">—</span>
                   </td>
-                  <td>
-                    <button
-                      type="button"
+                  <td style="min-width: 230px">
+                    <NuxtLink
+                      :to="`/admin/vendor/registration-requests/${v.id}`"
                       class="btn btn-sm btn-outline-secondary me-1"
-                      @click="openDetail(v)"
                     >
-                      View
-                    </button>
+                      <iconify-icon icon="solar:eye-linear" class="me-1"></iconify-icon>
+                      View details
+                    </NuxtLink>
                     <button
                       v-if="activeTab === 'pending'"
                       type="button"
@@ -450,78 +438,6 @@ onMounted(async () => {
               <span v-if="isRejecting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
               Reject
             </button>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <!-- DETAIL MODAL -->
-    <transition name="fade-scale" appear>
-      <div v-if="showDetail && detail" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-        style="background: rgba(0,0,0,0.5); z-index:1050;">
-        <div class="bg-white radius-12 shadow p-24" style="min-width: 320px; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto;">
-          <div class="d-flex justify-content-between align-items-start mb-16">
-            <div>
-              <h5 class="fw-semibold mb-4">{{ detail.Vendor_Name }}</h5>
-              <small class="text-muted d-block">{{ detail.Vendor_Code }}</small>
-            </div>
-            <button type="button" class="btn-close" aria-label="Close" @click="closeDetail"></button>
-          </div>
-
-          <div class="row g-3 mb-16">
-            <div class="col-md-6">
-              <div class="text-muted small">Email</div>
-              <div class="fw-medium">{{ detail.Email_1 || '-' }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">Phone</div>
-              <div class="fw-medium">{{ detail.Phone_No || '-' }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">CR Number</div>
-              <div class="fw-medium">{{ detail.CR_Number || '-' }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">VAT Number</div>
-              <div class="fw-medium">{{ detail.VAT_Number || '-' }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">Business Type</div>
-              <div class="fw-medium">{{ detail.Business_Type || '-' }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">Submitted</div>
-              <div class="fw-medium">{{ formatDate(detail.Submitted_For_Approval_At) }}</div>
-            </div>
-            <div class="col-md-6">
-              <div class="text-muted small">Approval status</div>
-              <span class="badge" :class="approvalBadgeClass(detail.Approval_Status)">{{ detail.Approval_Status || 'pending' }}</span>
-            </div>
-          </div>
-
-          <div class="mb-16">
-            <div class="fw-semibold mb-2">Uploaded documents</div>
-            <div v-if="detail.documents && detail.documents.length" class="d-flex flex-wrap gap-2">
-              <button
-                v-for="d in detail.documents"
-                :key="d.id"
-                type="button"
-                class="btn btn-sm btn-outline-primary"
-                :disabled="openingDoc === d.id"
-                @click="openDocument(d.id)"
-              >
-                <iconify-icon icon="solar:document-text-linear" class="me-1"></iconify-icon>
-                {{ docLabel(d.Document_Type) }}
-                <span v-if="d.Status" class="badge ms-1" :class="approvalBadgeClass(d.Status)">{{ d.Status }}</span>
-              </button>
-            </div>
-            <div v-else class="text-muted small">No documents uploaded.</div>
-          </div>
-
-          <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-outline-danger" @click="() => { closeDetail(); openReject(detail!) }">Reject</button>
-            <button v-if="activeTab === 'pending'" type="button" class="btn btn-success" :disabled="actingId === detail.id" @click="() => { const v = detail!; closeDetail(); accept(v) }">Accept</button>
-            <button v-else type="button" class="btn btn-success" :disabled="actingId === detail.id" @click="() => { const v = detail!; closeDetail(); approve(v) }">Approve</button>
           </div>
         </div>
       </div>
