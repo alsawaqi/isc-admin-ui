@@ -10,11 +10,16 @@ definePageMeta({
     });
 
     import {ref , onMounted} from 'vue';
+    import OrderLineOwnerBadge from '~/components/admin/orders/OrderLineOwnerBadge.vue';
+    import VendorInfoModal from '~/components/admin/orders/VendorInfoModal.vue';
    const { $axios } = (useNuxtApp() as any);
 
     const Orders_Id = useParam('id');
 
     const orders = ref<any>([]);
+
+    // vendor info modal (shared, one per page)
+    const selectedVendor = ref<any>(null);
 
 
     const getorders = async () => {
@@ -121,7 +126,7 @@ definePageMeta({
                 <h6 class="text-uppercase text-muted small mb-2">Issued For</h6>
                 <div class="border rounded-3 p-3">
                   <div class="fw-semibold">{{ orders.customer_contact?.Contact_Person_Name || '-' }}</div>
-                  <div class="small text-muted">{{ orders.customer_contact?.Designation || '-' }}</div>
+                  <div class="small text-muted">{{ orders.customer_contact?.title_name || orders.customer_contact?.Designation || '-' }}</div>
                   <div class="small text-muted">{{ orders.customer_contact?.Telephone || '-' }}</div>
                 </div>
               </div>
@@ -143,16 +148,20 @@ definePageMeta({
                   <tr class="text-muted text-uppercase small">
                     <th style="width:56px;">SL.</th>
                     <th>Items</th>
+                    <th style="width:160px;">Owner</th>
                     <th class="text-center" style="width:90px;">Qty</th>
                     <th class="text-end" style="width:140px;">Unit Price</th>
                     <th class="text-end" style="width:140px;">Price</th>
-                    
+
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(order, index) in orders.orderlist" :key="order.id">
                     <td class="text-muted">{{ index + 1 }}</td>
                     <td class="fw-semibold">{{ order.product?.Product_Name }}</td>
+                    <td>
+                      <OrderLineOwnerBadge :line="order" @view="selectedVendor = $event" />
+                    </td>
                     <td class="text-center">{{ order.Quantity }}</td>
                     <td class="text-end">OMR {{ Number(order.Price || 0).toFixed(3) }}</td>
                     <td class="text-end">OMR {{ Number(order.Subtotal || 0).toFixed(3) }}</td>
@@ -181,6 +190,8 @@ definePageMeta({
       </div>
     </div>
   </div>
+
+  <VendorInfoModal v-if="selectedVendor" :vendor="selectedVendor" @close="selectedVendor = null" />
 
 </div>
 

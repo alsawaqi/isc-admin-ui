@@ -11,12 +11,17 @@ import { ref, onMounted, computed } from 'vue';
 
 
 import SignaturePad from '@/components/SignaturePad.vue'
+import OrderLineOwnerBadge from '~/components/admin/orders/OrderLineOwnerBadge.vue'
+import VendorInfoModal from '~/components/admin/orders/VendorInfoModal.vue'
 
 const { $axios } = (useNuxtApp() as any);
 
 const Orders_Id = useParam('id');
 
 const orders = ref<any>([]);
+
+// vendor info modal (shared, one per page)
+const selectedVendor = ref<any>(null)
 const isPickupOrder = computed(() => orders.value?.Delivery_Type === 'pickup')
 
 /** Photos keyed by order detail id */
@@ -355,7 +360,7 @@ onMounted(async () => {
                   <ul class="list-unstyled small mb-0">
                     <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-' }}
                     </li>
-                    <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.Designation || '-' }}</li>
+                    <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.title_name || orders.customer_contact?.Designation || '-' }}</li>
                     <li><span class="text-muted">Phone:</span> {{ orders.customer_contact?.Telephone || '-' }}</li>
                   </ul>
                 </div>
@@ -373,6 +378,7 @@ onMounted(async () => {
                     <tr class="text-muted">
                       <th>SL.</th>
                       <th>Items</th>
+                      <th>Owner</th>
                       <th class="text-center">Qty</th>
                       <th class="text-end">Unit Price</th>
                       <th class="text-end">Price</th>
@@ -386,6 +392,9 @@ onMounted(async () => {
                     <tr v-for="(row, index) in orders.orderlist" :key="row.id">
                       <td class="text-muted">{{ index + 1 }}</td>
                       <td>{{ row.product?.Product_Name || '-' }}</td>
+                      <td>
+                        <OrderLineOwnerBadge :line="row" @view="selectedVendor = $event" />
+                      </td>
                       <td class="text-center">{{ row.Quantity }}</td>
                       <td class="text-end">OMR {{ Number(row.Price || 0).toFixed(3) }}</td>
                       <td class="text-end">OMR {{ Number(row.Subtotal || 0).toFixed(3) }}</td>
@@ -462,6 +471,8 @@ onMounted(async () => {
       </div>
     </div>
   </div>
+
+  <VendorInfoModal v-if="selectedVendor" :vendor="selectedVendor" @close="selectedVendor = null" />
 
 </template>
 <style scoped>

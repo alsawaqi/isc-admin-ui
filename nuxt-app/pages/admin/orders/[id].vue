@@ -4,6 +4,8 @@ import { ref, onMounted, computed } from 'vue'
 
 
 import SignaturePad from '~/components/SignaturePad.vue'
+import OrderLineOwnerBadge from '~/components/admin/orders/OrderLineOwnerBadge.vue'
+import VendorInfoModal from '~/components/admin/orders/VendorInfoModal.vue'
 
 definePageMeta({
   layout: 'admin',
@@ -14,6 +16,9 @@ definePageMeta({
 
 const { $axios } = (useNuxtApp() as any);
 const route = useRoute();
+
+// vendor info modal (shared, one per page)
+const selectedVendor = ref<any>(null)
 
 // state + refs
 const showSignature = ref(false)
@@ -330,7 +335,7 @@ onMounted(async()=> await getorders())
                       <ul class="list-unstyled small mb-0">
                         <li><span class="text-muted">Name:</span> {{ orders.customer_contact?.Contact_Person_Name || '-'
                           }}</li>
-                        <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.Designation || '-' }}
+                        <li><span class="text-muted">Address:</span> {{ orders.customer_contact?.title_name || orders.customer_contact?.Designation || '-' }}
                         </li>
                         <li><span class="text-muted">Phone:</span> {{ orders.customer_contact?.Telephone || '-' }}</li>
                       </ul>
@@ -361,6 +366,7 @@ onMounted(async()=> await getorders())
                         <tr class="text-muted">
                           <th>SL.</th>
                           <th>Item</th>
+                          <th>Owner</th>
                           <th class="text-center">Qty</th>
                           <th class="text-end">Unit Price</th>
                           <th class="text-end">Subtotal</th>
@@ -378,6 +384,9 @@ onMounted(async()=> await getorders())
                              {{ i + 1 }}
                           </td>
                           <td>{{ line.product?.Product_Name || '-' }}</td>
+                          <td>
+                            <OrderLineOwnerBadge :line="line" @view="selectedVendor = $event" />
+                          </td>
                           <td class="text-center">{{ line.Quantity }}</td>
                           <td class="text-end">
                             <div>OMR {{ Number(line.Price || 0).toFixed(3) }}</div>
@@ -639,6 +648,8 @@ onMounted(async()=> await getorders())
     </div>
   </div>
   </div>
+
+  <VendorInfoModal v-if="selectedVendor" :vendor="selectedVendor" @close="selectedVendor = null" />
 </template>
 
 <style>

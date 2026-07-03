@@ -38,6 +38,7 @@ interface Order {
   location?: any
   transaction?: any
   vendor_orders?: any[]
+  has_vendor_items?: boolean | number
 }
 
 const table = reactive({
@@ -258,6 +259,9 @@ function onOrderRowKey(event: KeyboardEvent, order: Order) {
                 <td>
                   <div class="fw-semibold font-monospace">{{ order.Order_Code || '-' }}</div>
                   <div class="text-muted small font-monospace">{{ order.Transaction_Number || '-' }}</div>
+                  <span v-if="order.has_vendor_items" class="badge rounded-pill bg-warning text-dark mt-1" title="This order contains vendor-owned items">
+                    Vendor items
+                  </span>
                 </td>
                 <td>
                   <div class="fw-semibold">{{ order.customer_contact?.Contact_Person_Name || '-' }}</div>

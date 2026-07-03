@@ -39,6 +39,7 @@ interface Order {
   customer_contact?: CustomerContact;
   shipper?: Shipper;
   Status: string;
+  has_vendor_items?: boolean | number;
   created_at?: string;
   updated_at?: string;
 }
@@ -184,6 +185,9 @@ onMounted(async () => {
                     <div class="text-truncate fw-semibold font-monospace" style="max-width: 200px;">
                       {{ order.Order_Code || '-' }}
                     </div>
+                    <span v-if="order.has_vendor_items" class="badge rounded-pill bg-warning text-dark mt-1" title="This order contains vendor-owned items">
+                      Vendor items
+                    </span>
                   </td>
                   <td class="py-2 px-3">
                     <div class="text-truncate font-monospace" style="max-width: 200px;">
