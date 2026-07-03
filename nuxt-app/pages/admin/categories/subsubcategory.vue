@@ -270,7 +270,7 @@ const updateSubSubDepartment = async (e: Event) => {
       }
     )
 
-    flash.success('Sub-sub department updated successfully')
+    flash.success('Sub-subcategory updated successfully')
 
     // refresh tree so UI updates
     await fetchFullTree()
@@ -278,7 +278,7 @@ const updateSubSubDepartment = async (e: Event) => {
     // close modal
     isEditOpen.value = false
   } catch (err) {
-    flash.error('Failed to update sub-sub department: ' + (err as any).message)
+    flash.error('Failed to update sub-subcategory: ' + (err as any).message)
   } finally {
     isSubmit.value = false
   }
@@ -333,10 +333,10 @@ const handleSubmit = async () => {
     uploadedImage.value = null;
     previewUrl.value = null;
    
-    flash.success('Sub-sub department created successfully')
+    flash.success('Sub-subcategory created successfully')
 
   } catch (error: any) {
-    flash.error('Failed to create sub-sub department: ' + error.message)
+    flash.error('Failed to create sub-subcategory: ' + error.message)
   } finally {
     await fetchFullTree();
 
@@ -348,7 +348,7 @@ const handleSubmit = async () => {
 
 const deleteSubSubDepartment = async (id: number) => {
   const ok = await flash.confirm({
-    title: 'Delete department?',
+    title: 'Delete sub-subcategory?',
     message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
@@ -383,7 +383,7 @@ onMounted(async () => {
 
   <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-      <h6 class="fw-semibold mb-0" style="color: #41a5e3">Sub Sub Department</h6>
+      <h6 class="fw-semibold mb-0" style="color: #41a5e3">Sub-subcategory</h6>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -392,7 +392,7 @@ onMounted(async () => {
           </a>
         </li>
         <li>-</li>
-        <li class="fw-medium">Sub Sub Department</li>
+        <li class="fw-medium">Sub-subcategory</li>
       </ul>
     </div>
 
@@ -406,7 +406,7 @@ onMounted(async () => {
 
               <div class="mb-20">
 
-                <label class="form-label">Department </label>
+                <label class="form-label">Category </label>
                 <select class="form-control" v-model="selectedDepartmentId" @change="fetchSubDepartments">
                   <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                     {{ dept.Product_Department_Name }}
@@ -418,7 +418,7 @@ onMounted(async () => {
 
               <div class="mb-20">
 
-                <label class="form-label">Sub Department </label>
+                <label class="form-label">Subcategory </label>
                 <select class="form-control" v-model="selectedSubDepartmentId">
                   <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">
                     {{ sub.Sub_Department_Name }}
@@ -539,7 +539,7 @@ onMounted(async () => {
         </div>
         <div class="card-body">
 
-          <h5 class="fw-semibold mb-3">Department → Sub → Sub-Sub Tree</h5>
+          <h5 class="fw-semibold mb-3">Category → Subcategory → Sub-subcategory Tree</h5>
 
 
 
@@ -657,7 +657,7 @@ onMounted(async () => {
       <div class="modal-card" role="dialog" aria-modal="true">
         <!-- Header -->
         <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
-          <h6 class="fw-semibold mb-0">Edit Sub Sub Department</h6>
+          <h6 class="fw-semibold mb-0">Edit Sub-subcategory</h6>
           <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeEditModal">✕</button>
         </div>
 
@@ -666,7 +666,7 @@ onMounted(async () => {
           <!-- Department selector -->
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">
-              Department <span class="text-danger">*</span>
+              Category <span class="text-danger">*</span>
             </label>
             <select class="form-control rounded-lg form-select" v-model="editParentDeptId" @change="onEditDeptChange"
               required>
@@ -679,7 +679,7 @@ onMounted(async () => {
           <!-- Sub Department selector -->
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">
-              Sub Department <span class="text-danger">*</span>
+              Subcategory <span class="text-danger">*</span>
             </label>
             <select class="form-control rounded-lg form-select" v-model="editSubDeptId" required>
               <option v-for="sd in editSubDeptOptions" :key="sd.id" :value="sd.id">
@@ -693,7 +693,7 @@ onMounted(async () => {
             <label class="form-label fw-semibold text-sm">
               Name <span class="text-danger">*</span>
             </label>
-            <input type="text" class="form-control radius-8" placeholder="Enter sub sub department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter sub-subcategory name"
               v-model="editName" required />
           </div>
 
@@ -703,7 +703,7 @@ onMounted(async () => {
             <label class="form-label fw-semibold text-sm">
               Name (Arabic) <span class="text-danger">*</span>
             </label>
-            <input type="text" class="form-control radius-8" placeholder="Enter sub sub department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter sub-subcategory name"
               v-model="editNameAr" required />
           </div>
 

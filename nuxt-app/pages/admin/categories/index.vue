@@ -146,7 +146,7 @@ const getdepartment = async () => {
       last_page: data.last_page,
     }
   } catch (error) {
-    flash.error('Failed to fetch departments: ' + (error as any).message)
+    flash.error('Failed to fetch categories: ' + (error as any).message)
   } finally {
     isLoading.value = false
   }
@@ -177,9 +177,9 @@ const handleSubmit = async (e: Event) => {
     createPreview.value = null;
     await getdepartment();
 
-    flash.success('Department created successfully');
+    flash.success('Category created successfully');
   } catch (err) {
-    flash.error('Failed to create department: ' + (err as any).message);
+    flash.error('Failed to create category: ' + (err as any).message);
   } finally {
     isSubmit.value = false;
   }
@@ -224,12 +224,12 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
 
     await getdepartment();
 
-      flash.success("Department Updated successfully");
+      flash.success("Category Updated successfully");
 
 
   } catch (err: any) {
     
-      flash.error("Failed to update department: " + err.message);
+      flash.error("Failed to update category: " + err.message);
 
   } finally {
     isSubmit.value = false;
@@ -240,7 +240,7 @@ const UpdateSubmit = async (e: Event): Promise<void> => {
 
 const deleteDepartmentHandler = async (id: number) => {
    const ok = await flash.confirm({
-    title: 'Delete department?',
+    title: 'Delete category?',
     message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
@@ -250,9 +250,9 @@ const deleteDepartmentHandler = async (id: number) => {
    const success = await DeleteDepartment(id);
 
    if (success) {
-      flash.success('Department deleted successfully')
+      flash.success('Category deleted successfully')
     } else {
-      flash.error('Failed to delete department')
+      flash.error('Failed to delete category')
     }
 
   } catch (err) {
@@ -310,7 +310,7 @@ const toggleSort = (column: string) => {
 <template>
   <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-      <h6 class="fw-semibold mb-0" style="color: #6b8629">Department</h6>
+      <h6 class="fw-semibold mb-0" style="color: #6b8629">Category</h6>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -319,7 +319,7 @@ const toggleSort = (column: string) => {
           </a>
         </li>
         <li>-</li>
-        <li class="fw-medium">Department</li>
+        <li class="fw-medium">Category</li>
       </ul>
     </div>
 
@@ -570,13 +570,13 @@ const toggleSort = (column: string) => {
         <form @submit.prevent="UpdateSubmit">
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name Arabic<span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter category name"
               v-model="editedDepartment.name" required />
           </div>
 
            <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter category name"
               v-model="editedDepartment.namear" required />
           </div>
 

@@ -244,7 +244,7 @@ onMounted(async () => {
 <template>
   <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-      <h6 class="fw-semibold mb-0" style="color: #4345e3">Products Features Description</h6>
+      <h6 class="fw-semibold mb-0" style="color: #4345e3">View Product Features/Specifications</h6>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -253,7 +253,7 @@ onMounted(async () => {
           </a>
         </li>
         <li>-</li>
-        <li class="fw-medium">Products Features Description</li>
+        <li class="fw-medium">View Product Features/Specifications</li>
       </ul>
     </div>
 
@@ -261,12 +261,12 @@ onMounted(async () => {
     <div class="card h-100 p-0 radius-12 overflow-hidden">
       <div class="card-body p-40">
         <p v-if="isSubmitDisabled" class="text-danger mt-2">
-          Please select a sub sub category and enter at least one feature name.
+          Please select a sub-subcategory and enter at least one feature name.
         </p>
 
         <div class="col-lg-12">
           <div class="card-header">
-            <h5 class="card-title mb-0">Create / Edit Products Descriptions</h5>
+            <h5 class="card-title mb-0">Create / Edit Product Features/Specifications</h5>
           </div>
 
           <div class="card-body">
@@ -281,9 +281,9 @@ onMounted(async () => {
             </div>
 
             <div class="col-md-12">
-              <label class="form-label">Sub Category</label>
+              <label class="form-label">Subcategory</label>
               <select class="form-select" v-model="form.product_sub_department_id" required>
-                <option disabled value="0">Select Sub Category</option>
+                <option disabled value="0">Select Subcategory</option>
                 <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">
                   {{ sub.Sub_Department_Name }}
                 </option>
@@ -291,9 +291,9 @@ onMounted(async () => {
             </div>
 
             <div class="col-md-12">
-              <label class="form-label">Sub Sub Category</label>
+              <label class="form-label">Sub-subcategory</label>
               <select class="form-select" v-model="form.product_sub_sub_department_id" required>
-                <option disabled value="0">Select Sub Sub Category</option>
+                <option disabled value="0">Select Sub-subcategory</option>
                 <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">
                   {{ subsub.Product_Sub_Sub_Department_Name }}
                 </option>

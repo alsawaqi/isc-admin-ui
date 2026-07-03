@@ -29,11 +29,11 @@ const flash = useFlashStore();
         },
       });
 
-      flash.success("Department created successfully");
+      flash.success("Category created successfully");
 
       // return response.data;
     } catch (error) {
-      flash.error("Failed to create department");
+      flash.error("Failed to create category");
 
       throw error;
     }

@@ -209,7 +209,7 @@ const closeEdit = () => {
 /* ---------- DELETE ---------- */
 const deleteRegion = async (id: number) => {
      const ok = await flash.confirm({
-    title: 'Delete department?',
+    title: 'Delete region?',
     message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',

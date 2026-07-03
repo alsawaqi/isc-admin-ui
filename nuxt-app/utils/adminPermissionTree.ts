@@ -17,14 +17,14 @@ export const adminPermissionTree: AdminPermissionNode[] = [
     icon: 'solar:box-outline',
     children: [
       {
-        label: 'Product Departments',
+        label: 'Product Categories',
         permission: 'product category',
         children: [
-          { label: 'Departments', permission: 'departments' },
-          { label: 'Sub Departments', permission: 'sub departments' },
-          { label: 'Sub Sub Departments', permission: 'sub sub departments' },
-          { label: 'Products Features', permission: 'addproductsdescription' },
-          { label: 'View Products Features', permission: 'view products description' },
+          { label: 'Categories', permission: 'departments' },
+          { label: 'Subcategories', permission: 'sub departments' },
+          { label: 'Sub-subcategories', permission: 'sub sub departments' },
+          { label: 'Product Features/Specifications', permission: 'addproductsdescription' },
+          { label: 'View Product Features/Specifications', permission: 'view products description' },
         ],
       },
       { label: 'Product Types', permission: 'product types' },

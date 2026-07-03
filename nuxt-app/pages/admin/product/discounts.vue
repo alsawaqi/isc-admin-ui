@@ -61,9 +61,9 @@ type BulkResult = {
 
 const targetTypes = [
   { value: 'product', label: 'Single product' },
-  { value: 'department', label: 'Department' },
-  { value: 'sub_department', label: 'Sub department' },
-  { value: 'sub_sub_department', label: 'Sub sub department' },
+  { value: 'department', label: 'Category' },
+  { value: 'sub_department', label: 'Subcategory' },
+  { value: 'sub_sub_department', label: 'Sub-subcategory' },
 ] as const
 
 const discountTypes = [
@@ -603,7 +603,7 @@ onBeforeUnmount(() => {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
       <div>
         <h6 class="fw-semibold mb-1" style="color: #7c3aed">Product Discounts</h6>
-        <p class="text-muted small mb-0">Find products by department, select them, and apply one discount to all of them at once.</p>
+        <p class="text-muted small mb-0">Find products by category, select them, and apply one discount to all of them at once.</p>
       </div>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
@@ -709,7 +709,7 @@ onBeforeUnmount(() => {
                     <td class="p-3">
                       <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="target-pill">{{ targetTypeLabel(row.Target_Type) }}</span>
-                        <span v-if="isLegacyRow(row)" class="legacy-pill" title="Department discounts can no longer be created. This one keeps working until you delete it.">legacy</span>
+                        <span v-if="isLegacyRow(row)" class="legacy-pill" title="Category discounts can no longer be created. This one keeps working until you delete it.">legacy</span>
                       </div>
                       <div class="small text-muted mt-1">{{ targetLabel(row) }}</div>
                     </td>
@@ -735,7 +735,7 @@ onBeforeUnmount(() => {
                           type="button"
                           class="btn btn-sm btn-outline-primary"
                           :disabled="isLegacyRow(row)"
-                          :title="isLegacyRow(row) ? 'Legacy department discounts cannot be edited. Delete it and create product discounts instead.' : 'Edit discount'"
+                          :title="isLegacyRow(row) ? 'Legacy category discounts cannot be edited. Delete it and create product discounts instead.' : 'Edit discount'"
                           @click="openEdit(row)"
                         >
                           Edit
@@ -779,7 +779,7 @@ onBeforeUnmount(() => {
               </button>
               <div>
                 <h6 class="mb-0">New Discount</h6>
-                <p class="text-muted small mb-0">Filter products by department, select them across pages, then apply one discount to all of them.</p>
+                <p class="text-muted small mb-0">Filter products by category, select them across pages, then apply one discount to all of them.</p>
               </div>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -798,27 +798,27 @@ onBeforeUnmount(() => {
         <div class="card-body py-3">
           <div class="picker-filter-grid">
             <div>
-              <label class="form-label small text-muted mb-1">Department</label>
+              <label class="form-label small text-muted mb-1">Category</label>
               <select v-model="picker.department_id" class="form-select form-select-sm" @change="onPickerDepartmentChange">
-                <option value="">All departments</option>
+                <option value="">All categories</option>
                 <option v-for="department in departmentOptions" :key="department.id" :value="department.id">
                   {{ department.Product_Department_Name }}
                 </option>
               </select>
             </div>
             <div>
-              <label class="form-label small text-muted mb-1">Sub department</label>
+              <label class="form-label small text-muted mb-1">Subcategory</label>
               <select v-model="picker.sub_department_id" class="form-select form-select-sm" :disabled="!picker.department_id" @change="onPickerSubDepartmentChange">
-                <option value="">All sub departments</option>
+                <option value="">All subcategories</option>
                 <option v-for="subDepartment in subDepartmentOptions" :key="subDepartment.id" :value="subDepartment.id">
                   {{ subDepartment.Sub_Department_Name }}
                 </option>
               </select>
             </div>
             <div>
-              <label class="form-label small text-muted mb-1">Sub sub department</label>
+              <label class="form-label small text-muted mb-1">Sub-subcategory</label>
               <select v-model="picker.sub_sub_department_id" class="form-select form-select-sm" :disabled="!picker.sub_department_id" @change="onPickerSubSubDepartmentChange">
-                <option value="">All sub sub departments</option>
+                <option value="">All sub-subcategories</option>
                 <option v-for="subSubDepartment in subSubDepartmentOptions" :key="subSubDepartment.id" :value="subSubDepartment.id">
                   {{ subSubDepartment.Product_Sub_Sub_Department_Name }}
                 </option>

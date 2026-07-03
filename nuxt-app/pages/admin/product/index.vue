@@ -576,13 +576,13 @@ onMounted(async () => {
 
                 <!-- Sub Category -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Sub Category</label>
+                  <label class="form-label fw-semibold">Subcategory</label>
                   <div class="icon-field">
                     <span class="icon">
                       <iconify-icon icon="carbon:subcategory"></iconify-icon>
                     </span>
                     <select class="form-select" v-model="form.product_sub_department_id" required>
-                      <option disabled value="">Select Sub Category</option>
+                      <option disabled value="">Select Subcategory</option>
                       <option v-for="sub in subDepartments" :key="sub.id" :value="sub.id">
                         {{ sub.Sub_Department_Name }}
                       </option>
@@ -592,13 +592,13 @@ onMounted(async () => {
 
                 <!-- Sub Sub Category -->
                 <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Sub Sub Category</label>
+                  <label class="form-label fw-semibold">Sub-subcategory</label>
                   <div class="icon-field">
                     <span class="icon">
                       <iconify-icon icon="mdi:subdirectory-arrow-right"></iconify-icon>
                     </span>
                     <select class="form-select" v-model="form.product_sub_sub_department_id" required>
-                      <option disabled value="">Select Sub Sub Category</option>
+                      <option disabled value="">Select Sub-subcategory</option>
                       <option v-for="subsub in subSubDepartments" :key="subsub.id" :value="subsub.id">
                         {{ subsub.Product_Sub_Sub_Department_Name }}
                       </option>

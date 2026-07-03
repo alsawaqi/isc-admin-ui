@@ -248,7 +248,7 @@ const closeEdit = () => {
 /* ---------------- DELETE ---------------- */
 const deleteCountry = async (id: number | string) => {
     const ok = await flash.confirm({
-    title: 'Delete department?',
+    title: 'Delete country?',
     message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
@@ -257,7 +257,7 @@ const deleteCountry = async (id: number | string) => {
 
     try {
        const success =   await $axios.delete(`/api/countries/${id}`)
-        flash.success('Department deleted successfully') 
+        flash.success('Country deleted successfully') 
        await fetchCountries()
     } catch (error) {
         flash.error('Failed to delete country.')

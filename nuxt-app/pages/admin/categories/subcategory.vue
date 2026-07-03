@@ -170,7 +170,7 @@ const createSubDepartment = async (e: Event) => {
   e.preventDefault()
 
   if (!selectedDepartmentId.value || !name.value) {
-    alert('Please select a department and enter a name.')
+    alert('Please select a category and enter a name.')
     isSubmit.value = false
     return
   }
@@ -199,10 +199,10 @@ const createSubDepartment = async (e: Event) => {
     uploadedImage.value = null
     previewUrl.value = null
 
-    flash.success('Sub department created successfully')
+    flash.success('Subcategory created successfully')
 
   } catch (error: any) {
-    flash.error('Failed to create sub department: ' + error.message)
+    flash.error('Failed to create subcategory: ' + error.message)
   } finally {
     await getsubDepartments()
     isSubmit.value = false
@@ -246,12 +246,12 @@ const updateSubDepartment = async (e: Event) => {
     )
 
     
-    flash.success('Sub department updated successfully')
+    flash.success('Subcategory updated successfully')
     await getsubDepartments()
     closeEditModal()
 
   } catch (err: any) {
-    flash.error('Failed to update sub department: ' + err.message)
+    flash.error('Failed to update subcategory: ' + err.message)
   } finally {
     isSubmit.value = false
   }
@@ -284,7 +284,7 @@ const getsubDepartments = async () => {
 
 const deleteSubDepartment = async (id: number) => {
   const ok = await flash.confirm({
-    title: 'Delete department?',
+    title: 'Delete subcategory?',
     message: `Are you sure you want to delete "${name}"? This cannot be undone.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
@@ -294,11 +294,11 @@ const deleteSubDepartment = async (id: number) => {
   try {
   const success =  await $axios.delete(`/api/productsubdepartment/${id}`)
     if (success) {
-      flash.success('Sub department deleted successfully')
+      flash.success('Subcategory deleted successfully')
     }  
     await getsubDepartments()
   } catch (error: any) {
-      flash.error('Failed to delete sub department: ' + error.message)
+      flash.error('Failed to delete subcategory: ' + error.message)
     
   }
 }
@@ -313,7 +313,7 @@ onMounted(async () => {
   <!-- CREATE FORM -->
   <div class="dashboard-main-body">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-      <h6 class="fw-semibold mb-0" style="color: #73da1b">Sub Department</h6>
+      <h6 class="fw-semibold mb-0" style="color: #73da1b">Subcategory</h6>
       <ul class="d-flex align-items-center gap-2">
         <li class="fw-medium">
           <a href="index.php" class="d-flex align-items-center gap-1 hover-text-primary">
@@ -322,7 +322,7 @@ onMounted(async () => {
           </a>
         </li>
         <li>-</li>
-        <li class="fw-medium">Sub Department</li>
+        <li class="fw-medium">Subcategory</li>
       </ul>
     </div>
 
@@ -334,9 +334,9 @@ onMounted(async () => {
 
               <!-- Parent Department -->
                 <div class="mb-20">
-                <label class="form-label">Product Department </label>
+                <label class="form-label">Product Category </label>
                 <select class="form-control rounded-lg form-select" v-model="selectedDepartmentId">
-                  <option value="">Select Product Department</option>
+                  <option value="">Select Product Category</option>
                   <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                     {{ dept.Product_Department_Name }}
                   </option>
@@ -547,7 +547,7 @@ onMounted(async () => {
       <div class="modal-card" role="dialog" aria-modal="true">
         <!-- Header -->
         <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
-          <h6 class="fw-semibold mb-0">Edit Sub Department</h6>
+          <h6 class="fw-semibold mb-0">Edit Subcategory</h6>
           <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeEditModal">
             ✕
           </button>
@@ -557,7 +557,7 @@ onMounted(async () => {
         <form @submit.prevent="updateSubDepartment">
           <!-- Parent Dept -->
           <div class="mb-3">
-            <label class="form-label fw-semibold text-sm">Product Department <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold text-sm">Product Category <span class="text-danger">*</span></label>
             <select class="form-control rounded-lg form-select" v-model="editParentDeptId" required>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                 {{ dept.Product_Department_Name }}
@@ -568,14 +568,14 @@ onMounted(async () => {
           <!-- Name -->
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter sub department name" v-model="editName"
+            <input type="text" class="form-control radius-8" placeholder="Enter subcategory name" v-model="editName"
               required />
           </div>
 
 
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name  (Arabic)<span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter sub department name" v-model="editNamear"
+            <input type="text" class="form-control radius-8" placeholder="Enter subcategory name" v-model="editNamear"
               required />
           </div>
           <!-- Image -->

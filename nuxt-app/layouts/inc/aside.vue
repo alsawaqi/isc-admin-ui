@@ -37,7 +37,7 @@ const isAnyChildActive = (paths: string[]) => {
 
 const getActiveColor = (path: string): string => {
   const colorMap: Record<string, string> = {
-    // Categories / Products Features
+    // Categories / Product Features/Specifications
     '/admin/categories': 'color: #6b8629;',
     '/admin/categories/subcategory': 'color: #73da1b;',
     '/admin/categories/subsubcategory': 'color: #41a5e3;',
@@ -398,12 +398,12 @@ onMounted(async () => {
                   :style="isAnyChildActive(['/admin/categories', '/admin/categories/subcategory', '/admin/categories/subsubcategory'])
                       ? getActiveColor(route.path)
                       : ''">
-                       Product Departments</a>
+                       Product Categories</a>
                  <ul>
                         <li v-if="hasPermission('departments')" class="text-blue-600">
                     <NuxtLink to="/admin/categories"
                       :style="isActive('/admin/categories') ? getActiveColor('/admin/categories') : 'color: #17a2b8;'">
-                    Departments
+                    Categories
                     </NuxtLink>
                         </li>
 
@@ -411,8 +411,8 @@ onMounted(async () => {
                       <NuxtLink to="/admin/categories/subcategory"
                       :style="isActive('/admin/categories/subcategory') ? getActiveColor('/admin/categories/subcategory') : 'color: #17a2b8;'"
                           >
-                      Sub Departments
-                      
+                      Subcategories
+
                       </NuxtLink>
                     </li>
 
@@ -423,7 +423,7 @@ onMounted(async () => {
                             to="/admin/categories/subsubcategory"
                             :style="isActive('/admin/categories/subsubcategory') ? getActiveColor('/admin/categories/subsubcategory') : 'color: #17a2b8;'"
                           >
-                            Sub Sub Departments
+                            Sub-subcategories
                           </NuxtLink>
                       </li>
 
@@ -434,7 +434,7 @@ onMounted(async () => {
                             to="/admin/categories/addproductsdescription"
                             :style="isActive('/admin/categories/addproductsdescription') ? getActiveColor('/admin/categories/addproductsdescription') : 'color: #17a2b8;'"
                           >
-                            Products Features
+                            Product Features/Specifications
                           </NuxtLink>
                       </li>
 
@@ -445,7 +445,7 @@ onMounted(async () => {
                             to="/admin/categories/viewproductdescription"
                             :style="isActive('/admin/categories/viewproductdescription') ? getActiveColor('/admin/categories/viewproductdescription') : 'color: #17a2b8;'"
                           >
-                            View Products Features
+                            View Product Features/Specifications
                           </NuxtLink>
                       </li>
 

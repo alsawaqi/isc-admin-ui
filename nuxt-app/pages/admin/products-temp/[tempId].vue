@@ -473,17 +473,17 @@ onMounted(fetchDetails)
 </div>
 
 <div class="col-6">
-  <div class="fw-semibold">Department</div>
+  <div class="fw-semibold">Category</div>
   <div>{{ product.department?.Product_Department_Name ?? ("#" + product.Product_Department_Id) }}</div>
 </div>
 
 <div class="col-6">
-  <div class="fw-semibold">Sub Department</div>
+  <div class="fw-semibold">Subcategory</div>
   <div>{{ product.subDepartment?.Sub_Department_Name ?? ("#" + product.Product_Sub_Department_Id) }}</div>
 </div>
 
 <div class="col-6">
-  <div class="fw-semibold">Sub-Sub Department</div>
+  <div class="fw-semibold">Sub-subcategory</div>
   <div>{{ product.subSubDepartment?.Product_Sub_Sub_Department_Name ?? ("#" + product.Product_Sub_Sub_Department_Id) }}</div>
 </div>
 

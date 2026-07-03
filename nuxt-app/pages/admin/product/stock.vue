@@ -377,9 +377,9 @@ onMounted(async () => {
 
         <div class="stock-filter-grid">
           <div>
-            <label class="form-label small text-muted mb-1">Department</label>
+            <label class="form-label small text-muted mb-1">Category</label>
             <select v-model="table.productDepartmentId" class="form-select form-select-sm">
-              <option value="">All departments</option>
+              <option value="">All categories</option>
               <option
                 v-for="department in departmentOptions"
                 :key="department.id"
@@ -391,13 +391,13 @@ onMounted(async () => {
           </div>
 
           <div>
-            <label class="form-label small text-muted mb-1">Sub Department</label>
+            <label class="form-label small text-muted mb-1">Subcategory</label>
             <select
               v-model="table.productSubDepartmentId"
               class="form-select form-select-sm"
               :disabled="!table.productDepartmentId"
             >
-              <option value="">All sub departments</option>
+              <option value="">All subcategories</option>
               <option
                 v-for="subDepartment in subDepartmentOptions"
                 :key="subDepartment.id"
@@ -409,13 +409,13 @@ onMounted(async () => {
           </div>
 
           <div>
-            <label class="form-label small text-muted mb-1">Sub Sub Department</label>
+            <label class="form-label small text-muted mb-1">Sub-subcategory</label>
             <select
               v-model="table.productSubSubDepartmentId"
               class="form-select form-select-sm"
               :disabled="!table.productSubDepartmentId"
             >
-              <option value="">All sub sub departments</option>
+              <option value="">All sub-subcategories</option>
               <option
                 v-for="subSubDepartment in subSubDepartmentOptions"
                 :key="subSubDepartment.id"

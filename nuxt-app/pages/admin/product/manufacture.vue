@@ -78,7 +78,7 @@ const getProductDepartment = async () => {
         ProductDepartments.value = response.data;
 
     } catch (error) {
-        flash.error('Failed to fetch product departments');
+        flash.error('Failed to fetch product categories');
         throw error;
     }
 };
@@ -251,12 +251,12 @@ onMounted(async () => {
                             <div class="mb-20">
                                 <label for="departmentSelect"
                                     class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                    Department
+                                    Category
                                 </label>
 
                                 <select class="form-control radius-8" id="departmentSelect"
                                     v-model="Product_Department_Id">
-                                    <option value="" disabled>Select Department</option>
+                                    <option value="" disabled>Select Category</option>
                                     <option v-for="department in ProductDepartments" :key="department.id"
                                         :value="department.id">
                                         {{ department.Product_Department_Name }}
@@ -346,7 +346,7 @@ onMounted(async () => {
                                         </label>
                                     </div>
                                 </th>
-                                <th scope="col">Department</th>
+                                <th scope="col">Category</th>
                                 <th scope="col">Name</th>
                                 <th scope="col" class="text-end">Action</th>
                             </tr>
@@ -470,7 +470,7 @@ onMounted(async () => {
                         <div class="modal-header d-flex justify-content-between align-items-start">
                             <div>
                                 <h5 class="modal-title fw-semibold mb-4">Edit Manufacture</h5>
-                                <small class="text-muted d-block">Update name or department</small>
+                                <small class="text-muted d-block">Update name or category</small>
                             </div>
                             <button type="button" class="btn-close" aria-label="Close" @click="closeEdit"></button>
                         </div>
@@ -480,13 +480,13 @@ onMounted(async () => {
                             <div class="mb-20">
                                 <label for="editDepartmentSelect"
                                     class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                    Department
+                                    Category
                                 </label>
 
 
                                 <select class="form-control radius-8" id="editDepartmentSelect"
                                     v-model="edit_department_id">
-                                    <option value="" disabled>Select Department</option>
+                                    <option value="" disabled>Select Category</option>
                                     <option v-for="dep in ProductDepartments" :key="dep.id" :value="dep.id">
                                         {{ dep.Product_Department_Name }}
                                     </option>

@@ -7,11 +7,11 @@ export type AdminAccessTarget = {
 export const adminAccessTargets: AdminAccessTarget[] = [
   { permission: 'dashboard', path: '/admin', label: 'Dashboard' },
 
-  { permission: 'departments', path: '/admin/categories', label: 'Departments' },
-  { permission: 'sub departments', path: '/admin/categories/subcategory', label: 'Sub Departments' },
-  { permission: 'sub sub departments', path: '/admin/categories/subsubcategory', label: 'Sub Sub Departments' },
-  { permission: 'addproductsdescription', path: '/admin/categories/addproductsdescription', label: 'Products Features' },
-  { permission: 'view products description', path: '/admin/categories/viewproductdescription', label: 'View Products Features' },
+  { permission: 'departments', path: '/admin/categories', label: 'Categories' },
+  { permission: 'sub departments', path: '/admin/categories/subcategory', label: 'Subcategories' },
+  { permission: 'sub sub departments', path: '/admin/categories/subsubcategory', label: 'Sub-subcategories' },
+  { permission: 'addproductsdescription', path: '/admin/categories/addproductsdescription', label: 'Product Features/Specifications' },
+  { permission: 'view products description', path: '/admin/categories/viewproductdescription', label: 'View Product Features/Specifications' },
   { permission: 'product types', path: '/admin/product/producttype', label: 'Product Types' },
   { permission: 'product brands', path: '/admin/product/brands', label: 'Product Brands' },
   { permission: 'product manufacture', path: '/admin/product/manufacture', label: 'Product Manufacture' },

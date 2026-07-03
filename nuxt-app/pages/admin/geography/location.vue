@@ -591,13 +591,13 @@ onMounted(async () => {
         <form @submit.prevent="updateLocation" class="space-y-3">
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name<span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter location name"
               v-model="editLocation.Location_Name" required />
           </div>
 
           <div class="mb-3">
             <label class="form-label fw-semibold text-sm">Name (Arabic)<span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter department name"
+            <input type="text" class="form-control radius-8" placeholder="Enter location name in Arabic"
               v-model="editLocation.Location_Name_Ar" required />
           </div>
 
