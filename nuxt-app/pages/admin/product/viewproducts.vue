@@ -56,6 +56,8 @@ interface Products {
   Product_Sku?: string | null;
   created_at: string;
   Product_Price: number;
+  Is_Active?: boolean | number | string | null;
+  deleted_at?: string | null;
   Product_Department_Id?: number | null;
   Product_Sub_Department_Id?: number | null;
   Product_Sub_Sub_Department_Id?: number | null;
@@ -92,6 +94,9 @@ interface ProductSpec {
 
 
 const products = ref<Products[]>([]);
+
+// 'current' shows live products, 'deleted' lists soft-deleted (trashed) products
+const viewMode = ref<'current' | 'deleted'>('current')
 
 const departmentOptions = ref<any[]>([])
 const subDepartmentOptions = ref<any[]>([])
@@ -466,6 +471,7 @@ const fetchProducts = async () => {
         product_department_id: table.productDepartmentId || undefined,
         product_sub_department_id: table.productSubDepartmentId || undefined,
         product_sub_sub_department_id: table.productSubSubDepartmentId || undefined,
+        trashed: viewMode.value === 'deleted' ? 1 : undefined,
       },
     });
     products.value = data.data;
@@ -527,25 +533,77 @@ watch(
   }
 )
 
+watch(viewMode, async () => {
+  if (table.page !== 1) {
+    table.page = 1 // the table watcher refetches
+  } else {
+    await fetchProducts()
+  }
+})
+
+const isActive = (product: Products) =>
+  product.Is_Active === undefined || product.Is_Active === null
+    ? true
+    : Number(product.Is_Active) === 1
+
+const toggleActive = async (product: Products) => {
+  const activating = !isActive(product)
+  const ok = await flash.confirm({
+    title: activating ? 'Activate Product?' : 'Deactivate Product?',
+    message: activating
+      ? `"${product.Product_Name}" will become visible and purchasable on the storefront again.`
+      : `"${product.Product_Name}" will be hidden from the storefront and cannot be purchased until reactivated.`,
+    confirmText: activating ? 'Yes, activate' : 'Yes, deactivate',
+    cancelText: 'Cancel',
+  })
+  if (!ok) return
+
+  try {
+    await $axios.post(`/api/productmaster/${product.id}/${activating ? 'activate' : 'deactivate'}`)
+    flash.success(activating ? 'Product activated.' : 'Product deactivated.')
+    await fetchProducts()
+  } catch (error: any) {
+    flash.error(error?.response?.data?.message || 'Failed to update product status.')
+  }
+}
+
 const deleteProduct = async (id: number) => {
      const ok = await flash.confirm({
     title: 'Delete Product?',
-    message: `Are you sure you want to delete this product? This cannot be undone.`,
+    message: `This moves the product to Deleted; it can be restored later from the Deleted view.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
   })
   if (!ok) return;
- 
+
   try {
     const success = await $axios.delete(`/api/productmaster/${id}`);
      if (success) {
-      flash.success('Product deleted successfully')
+      flash.success('Product moved to Deleted. It can be restored from the Deleted view.')
     }
     await fetchProducts(); // Refresh the product list after deletion
   } catch (error) {
     flash.error('Error deleting product.')
   }
 };
+
+const restoreProduct = async (product: Products) => {
+  const ok = await flash.confirm({
+    title: 'Restore Product?',
+    message: `"${product.Product_Name}" will be restored and returned to the product list.`,
+    confirmText: 'Yes, restore',
+    cancelText: 'Cancel',
+  })
+  if (!ok) return
+
+  try {
+    await $axios.post(`/api/productmaster/${product.id}/restore`)
+    flash.success('Product restored successfully.')
+    await fetchProducts()
+  } catch (error: any) {
+    flash.error(error?.response?.data?.message || 'Failed to restore product.')
+  }
+}
 
 
 onMounted(async () => {
@@ -589,7 +647,15 @@ onMounted(async () => {
                 <option :value="20">20</option>
             </select>
 
-           
+
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted">View</span>
+            <select v-model="viewMode" class="form-select form-select-sm w-auto">
+              <option value="current">Current</option>
+              <option value="deleted">Deleted</option>
+            </select>
           </div>
 
           <div class="icon-field d-flex align-items-center position-relative">
@@ -687,6 +753,7 @@ onMounted(async () => {
               <th scope="col" class="p-3">
                 <div class="d-flex align-items-center gap-1 fw-semibold">Amount</div>
               </th>
+              <th scope="col" class="p-3 text-center fw-semibold">Active</th>
               <th scope="col" class="p-3 text-center fw-semibold">Edit Specifications</th>
               <th scope="col" class="p-3 text-center fw-semibold">Edit Barcodes</th>
               <th scope="col" class="p-3 text-center fw-semibold">Edit Image</th>
@@ -728,12 +795,20 @@ onMounted(async () => {
               </td>
 
               <td class="p-3">
-                <span class="fw-semibold">OMR {{ product.Product_Price }}</span>
+                <span class="fw-semibold">OMR {{ Number(product.Product_Price || 0).toFixed(3) }}</span>
+              </td>
+
+              <!-- Active badge -->
+              <td class="p-3 text-center">
+                <span v-if="viewMode === 'deleted'" class="state-pill state-pill-deleted">Deleted</span>
+                <span v-else-if="isActive(product)" class="state-pill state-pill-active">Active</span>
+                <span v-else class="state-pill state-pill-inactive">Inactive</span>
               </td>
 
               <!-- Edit Specifications -->
               <td class="p-3 text-center">
-                <button type="button" @click.prevent="openSpecModal(product.id)"
+                <span v-if="viewMode === 'deleted'" class="text-muted">—</span>
+                <button v-else type="button" @click.prevent="openSpecModal(product.id)"
                   class="btn-icon-lg bg-yellow-100 text-yellow-700">
                   <iconify-icon icon="mdi:format-list-bulleted-type" class="fs-5"></iconify-icon>
                 </button>
@@ -741,7 +816,8 @@ onMounted(async () => {
 
               <!-- Edit Barcodes -->
               <td class="p-3 text-center">
-                <button type="button" @click.prevent="openBarcodeModal(product.id)"
+                <span v-if="viewMode === 'deleted'" class="text-muted">—</span>
+                <button v-else type="button" @click.prevent="openBarcodeModal(product.id)"
                   class="btn-icon-lg bg-blue-100 text-blue-700">
                   <iconify-icon icon="mdi:barcode-scan" class="fs-5"></iconify-icon>
                 </button>
@@ -749,7 +825,8 @@ onMounted(async () => {
 
               <!-- Edit Image -->
               <td class="p-3 text-center">
-                <button type="button"
+                <span v-if="viewMode === 'deleted'" class="text-muted">—</span>
+                <button v-else type="button"
                   class="btn btn-sm btn-outline-primary px-3 py-2 rounded-pill d-inline-flex align-items-center gap-1"
                   @click="openImagesModal(product.id)">
                   <iconify-icon icon="mdi:image-multiple-outline" class="fs-5"></iconify-icon>
@@ -759,7 +836,19 @@ onMounted(async () => {
 
               <!-- Actions -->
               <td class="p-3 text-center">
-                <div class="d-flex justify-content-center gap-2 table-action-group">
+                <div v-if="viewMode === 'deleted'" class="d-flex justify-content-center gap-2 table-action-group">
+                  <button type="button" class="btn btn-sm btn-outline-success text-nowrap"
+                    @click.prevent="restoreProduct(product)">
+                    Restore
+                  </button>
+                </div>
+                <div v-else class="d-flex justify-content-center gap-2 table-action-group">
+                  <button type="button"
+                    :class="['btn btn-sm text-nowrap', isActive(product) ? 'btn-outline-warning' : 'btn-outline-success']"
+                    @click.prevent="toggleActive(product)">
+                    {{ isActive(product) ? 'Deactivate' : 'Activate' }}
+                  </button>
+
                   <NuxtLink :to="`/admin/product/${product.id}`" class="btn-icon-lg bg-green-100 text-green-700">
                     <iconify-icon icon="lucide:edit" class="fs-5"></iconify-icon>
                   </NuxtLink>
@@ -1087,6 +1176,34 @@ onMounted(async () => {
 
 .table-action-group {
   gap: 0.5rem;
+}
+
+.state-pill {
+  display: inline-flex;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  white-space: nowrap;
+}
+
+.state-pill-active {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+}
+
+.state-pill-inactive {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+.state-pill-deleted {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
 }
 
 .pagination-btn {

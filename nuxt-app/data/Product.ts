@@ -11,6 +11,8 @@ export interface Product {
   description: string;
   inhouse_barcode: string;
   product_sku: string;
+  minimum_selling_price: number | '';
+  cost: number | '' | null;
   price: number;
   stock: number;
   volume_type: string;
