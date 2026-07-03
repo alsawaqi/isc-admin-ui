@@ -2,6 +2,8 @@
 import { definePageMeta, useNuxtApp } from '#imports'
 import { computed, ref, onMounted, watch, reactive } from 'vue'
 import { useFlashStore } from '~/stores/flashs'
+import BulkPriceTable from '~/components/admin/product/BulkPriceTable.vue'
+import { normalizeTiers } from '~/utils/bulkPricing'
 
 definePageMeta({
   layout: 'admin',
@@ -22,17 +24,30 @@ interface VendorRow {
   last_submitted_at?: string
 }
 
+interface ChangeDisplayEntry {
+  key: string
+  label: string
+  current: any
+  requested: any
+}
+
 interface UpdateRequestRow {
   id: number
   Status: string
   Comment?: string | null
   Requested_Changes_Json?: Record<string, any> | null
+  Requested_Changes_Display?: ChangeDisplayEntry[]
+  Requested_Images_Display?: { added: number; removed: number } | null
   Requested_Specifications_Display?: Array<{
     description_id: number
     value_id: number
     description: string
     value: string
   }>
+  Requested_Bulk_Prices_Display?: {
+    current: any[]
+    requested: any[]
+  } | null
   Action_At?: string | null
   vendor?: {
     Vendor_Code?: string | null
@@ -133,6 +148,10 @@ const fetchUpdateRequests = async () => {
       to: data.to,
       last_page: data.last_page,
     }
+    // Prune selection to open rows still on the current page.
+    selectedIds.value = selectedIds.value.filter(id =>
+      updateRequests.value.some(r => r.id === id && isOpenStatus(r))
+    )
   } catch (e: any) {
     flash.error(e?.response?.data?.message || 'Failed to fetch approved product update requests.')
   } finally {
@@ -164,7 +183,9 @@ const changeLabels: Record<string, string> = {
 const changeEntries = (row: UpdateRequestRow) => {
   const changes = row.Requested_Changes_Json || {}
   return Object.entries(changes)
-    .filter(([key]) => !['specifications', 'image_updates'].includes(key))
+    .filter(([key]) => !['specifications', 'image_updates', 'bulk_prices'].includes(key))
+    // Commission fields are admin-controlled: never surface vendor-supplied values.
+    .filter(([key]) => !key.toLowerCase().startsWith('commission'))
     .map(([key, value]) => ({
       key,
       label: changeLabels[key] || key,
@@ -174,6 +195,29 @@ const changeEntries = (row: UpdateRequestRow) => {
 
 const specificationEntries = (row: UpdateRequestRow) =>
   row.Requested_Specifications_Display || []
+
+// ---- Bulk price (quantity tier) changes ----
+// Prefers the server-computed current/requested display; falls back to the raw
+// bulk_prices key in Requested_Changes_Json (requested side only).
+const bulkPricesDisplay = (row: UpdateRequestRow): { current: any[]; requested: any[] } | null => {
+  const display = row.Requested_Bulk_Prices_Display
+  if (display && (Array.isArray(display.current) || Array.isArray(display.requested))) {
+    return {
+      current: normalizeTiers(display.current),
+      requested: normalizeTiers(display.requested),
+    }
+  }
+  const raw = row.Requested_Changes_Json?.bulk_prices
+  if (Array.isArray(raw)) {
+    return { current: [], requested: normalizeTiers(raw) }
+  }
+  return null
+}
+
+const hasBulkPricesChange = (row: UpdateRequestRow) => bulkPricesDisplay(row) !== null
+
+const requestedBulkCount = (row: UpdateRequestRow) =>
+  bulkPricesDisplay(row)?.requested.length ?? 0
 
 const imageChangeSummary = (row: UpdateRequestRow) => {
   const imageUpdates = row.Requested_Changes_Json?.image_updates
@@ -185,6 +229,137 @@ const imageChangeSummary = (row: UpdateRequestRow) => {
   if (!removed && !added) return ''
 
   return `${added} added, ${removed} removed`
+}
+
+const OPEN_STATUSES = ['requested', 'pending', 'under_review', 'needs_changes']
+
+const isOpenStatus = (row?: UpdateRequestRow | null) =>
+  OPEN_STATUSES.includes(String(row?.Status || '').toLowerCase())
+
+const MONEY_KEYS = ['Product_Price', 'Product_Cost']
+const LONG_TEXT_THRESHOLD = 120
+
+const formatChangeValue = (key: string, value: any) => {
+  if (value === null || value === undefined || value === '') return '-'
+  if (MONEY_KEYS.includes(key)) {
+    const n = Number(value)
+    return Number.isNaN(n) ? String(value) : n.toFixed(3)
+  }
+  return String(value)
+}
+
+// Server-computed diff (current -> requested); falls back to the client-side
+// requested-only rendering when the API doesn't return the display field yet.
+const diffEntries = (row: UpdateRequestRow): ChangeDisplayEntry[] => {
+  if (Array.isArray(row.Requested_Changes_Display)) return row.Requested_Changes_Display
+  return changeEntries(row).map(c => ({ key: c.key, label: c.label, current: null, requested: c.value }))
+}
+
+const imagesSummary = (row: UpdateRequestRow) => {
+  const d = row.Requested_Images_Display
+  if (d) {
+    const added = Number(d.added) || 0
+    const removed = Number(d.removed) || 0
+    if (!added && !removed) return ''
+    return `${added} added, ${removed} removed`
+  }
+  return imageChangeSummary(row)
+}
+
+// ---- Changes popup ----
+const showChanges = ref(false)
+const changesRow = ref<UpdateRequestRow | null>(null)
+const expandedFields = ref<Record<string, boolean>>({})
+
+const openChangesModal = (row: UpdateRequestRow) => {
+  changesRow.value = row
+  expandedFields.value = {}
+  showChanges.value = true
+}
+
+const closeChangesModal = () => {
+  showChanges.value = false
+  changesRow.value = null
+}
+
+const fieldToggleKey = (key: string, side: string) => `${key}:${side}`
+
+const cellRaw = (entry: ChangeDisplayEntry, side: 'current' | 'requested') =>
+  formatChangeValue(entry.key, side === 'current' ? entry.current : entry.requested)
+
+const cellExpandable = (entry: ChangeDisplayEntry, side: 'current' | 'requested') =>
+  cellRaw(entry, side).length > LONG_TEXT_THRESHOLD
+
+const cellText = (entry: ChangeDisplayEntry, side: 'current' | 'requested') => {
+  const text = cellRaw(entry, side)
+  if (text.length > LONG_TEXT_THRESHOLD && !expandedFields.value[fieldToggleKey(entry.key, side)]) {
+    return `${text.slice(0, LONG_TEXT_THRESHOLD)}…`
+  }
+  return text
+}
+
+const toggleCellExpand = (entry: ChangeDisplayEntry, side: 'current' | 'requested') => {
+  const key = fieldToggleKey(entry.key, side)
+  expandedFields.value[key] = !expandedFields.value[key]
+}
+
+// ---- Bulk approve ----
+const selectedIds = ref<number[]>([])
+const bulkApproveBusy = ref(false)
+
+const openRows = computed(() => updateRequests.value.filter(r => isOpenStatus(r)))
+
+const isSelected = (id: number) => selectedIds.value.includes(id)
+
+const toggleSelect = (id: number) => {
+  selectedIds.value = isSelected(id)
+    ? selectedIds.value.filter(x => x !== id)
+    : [...selectedIds.value, id]
+}
+
+const allOpenSelected = computed(
+  () => openRows.value.length > 0 && openRows.value.every(r => selectedIds.value.includes(r.id))
+)
+
+const toggleSelectAll = () => {
+  selectedIds.value = allOpenSelected.value ? [] : openRows.value.map(r => r.id)
+}
+
+const bulkApprove = async () => {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+
+  const ok = await flash.confirm({
+    title: 'Approve selected updates?',
+    message: `Apply the requested vendor changes for ${ids.length} update request${ids.length === 1 ? '' : 's'}?`,
+    confirmText: `Approve ${ids.length} selected`,
+    cancelText: 'Cancel',
+  })
+  if (!ok) return
+
+  bulkApproveBusy.value = true
+  try {
+    const { data } = await $axios.post('/api/admin/product-update-requests/bulk/approve', { ids })
+    const approved = Array.isArray(data?.approved_ids) ? data.approved_ids.length : 0
+    const failed: Array<{ id: number; error: string }> = Array.isArray(data?.failed) ? data.failed : []
+
+    if (approved) {
+      flash.success(`Approved ${approved} update request${approved === 1 ? '' : 's'}.`)
+    }
+    if (failed.length) {
+      flash.warning(`${failed.length} failed — ${failed.map(f => `#${f.id}: ${f.error}`).join(' | ')}`)
+    }
+    if (!approved && !failed.length) {
+      flash.success(data?.message || 'Bulk approve completed.')
+    }
+
+    selectedIds.value = []
+    await fetchUpdateRequests()
+  } catch (e: any) {
+    flash.error(e?.response?.data?.message || 'Failed to bulk approve update requests.')
+  } finally {
+    bulkApproveBusy.value = false
+  }
 }
 
 const statusBadge = (status?: string | null) => {
@@ -199,25 +374,40 @@ const openUpdateCount = computed(() =>
   updateRequests.value.filter(r => ['requested', 'pending', 'under_review', 'needs_changes'].includes(String(r.Status || '').toLowerCase())).length
 )
 
-const approveUpdateRequest = async (row: UpdateRequestRow) => {
+const approveUpdateRequest = async (row: UpdateRequestRow): Promise<boolean> => {
   const ok = await flash.confirm({
     title: 'Approve product update?',
     message: `Apply the selected vendor changes to "${row.master_product?.Product_Name || 'this product'}"?`,
     confirmText: 'Approve update',
     cancelText: 'Cancel',
   })
-  if (!ok) return
+  if (!ok) return false
 
   updateActionBusy.value = true
   try {
     await $axios.post(`/api/admin/product-update-requests/${row.id}/approve`)
     flash.success('Vendor product update approved and applied.')
     await fetchUpdateRequests()
+    return true
   } catch (e: any) {
     flash.error(e?.response?.data?.message || 'Failed to approve update request.')
+    return false
   } finally {
     updateActionBusy.value = false
   }
+}
+
+const approveFromChangesModal = async () => {
+  if (!changesRow.value) return
+  const ok = await approveUpdateRequest(changesRow.value)
+  if (ok) closeChangesModal()
+}
+
+const rejectFromChangesModal = () => {
+  if (!changesRow.value) return
+  const row = changesRow.value
+  closeChangesModal()
+  openRejectUpdateRequest(row)
 }
 
 const openRejectUpdateRequest = (row: UpdateRequestRow) => {
@@ -257,7 +447,10 @@ watch(
 
 watch(
   () => [updateTable.page, updateTable.perPage, updateTable.search, updateTable.status],
-  () => fetchUpdateRequests()
+  () => {
+    selectedIds.value = []
+    fetchUpdateRequests()
+  }
 )
 
 onMounted(async () => {
@@ -460,6 +653,15 @@ onMounted(async () => {
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-success px-3 d-inline-flex align-items-center gap-1"
+            :disabled="selectedIds.length === 0 || bulkApproveBusy"
+            @click="bulkApprove"
+          >
+            <iconify-icon icon="solar:check-circle-linear" />
+            {{ bulkApproveBusy ? 'Approving...' : `Approve selected (${selectedIds.length})` }}
+          </button>
           <input
             v-model="updateTable.search"
             type="text"
@@ -481,21 +683,40 @@ onMounted(async () => {
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
+                <th class="text-center" style="width: 2.5rem;">
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    :checked="allOpenSelected"
+                    :disabled="openRows.length === 0"
+                    title="Select all open requests on this page"
+                    @change="toggleSelectAll"
+                  />
+                </th>
                 <th>Product</th>
                 <th>Vendor</th>
                 <th>Requested Changes</th>
                 <th>Status</th>
                 <th>Requested At</th>
-                <th class="text-center" style="width: 12rem;">Review</th>
+                <th class="text-center" style="width: 15rem;">Review</th>
               </tr>
             </thead>
 
             <tbody>
               <tr v-if="updateLoading">
-                <td colspan="6" class="py-4 text-center text-muted">Loading update requests...</td>
+                <td colspan="7" class="py-4 text-center text-muted">Loading update requests...</td>
               </tr>
 
               <tr v-for="row in updateRequests" :key="row.id">
+                <td class="text-center">
+                  <input
+                    v-if="isOpenStatus(row)"
+                    type="checkbox"
+                    class="form-check-input"
+                    :checked="isSelected(row.id)"
+                    @change="toggleSelect(row.id)"
+                  />
+                </td>
                 <td>
                   <div class="fw-semibold">{{ row.master_product?.Product_Name || '-' }}</div>
                   <div class="small text-muted font-monospace">{{ row.master_product?.Product_Code || `#${row.id}` }}</div>
@@ -510,11 +731,11 @@ onMounted(async () => {
                 <td>
                   <div class="d-flex flex-wrap gap-2">
                     <span
-                      v-for="change in changeEntries(row)"
+                      v-for="change in diffEntries(row)"
                       :key="change.key"
                       class="badge bg-primary-50 text-secondary-light border"
                     >
-                      {{ change.label }}: {{ change.value }}
+                      {{ change.label }}: {{ formatChangeValue(change.key, change.requested) }}
                     </span>
                     <span
                       v-for="spec in specificationEntries(row)"
@@ -523,10 +744,13 @@ onMounted(async () => {
                     >
                       {{ spec.description }}: {{ spec.value }}
                     </span>
+                    <span v-if="hasBulkPricesChange(row)" class="badge bg-success-50 text-secondary-light border">
+                      Bulk prices: {{ requestedBulkCount(row) }} tier(s)
+                    </span>
                     <span v-if="imageChangeSummary(row)" class="badge bg-warning-50 text-secondary-light border">
                       Images: {{ imageChangeSummary(row) }}
                     </span>
-                    <span v-if="changeEntries(row).length === 0 && specificationEntries(row).length === 0 && !imageChangeSummary(row)" class="text-muted small">No structured changes</span>
+                    <span v-if="diffEntries(row).length === 0 && specificationEntries(row).length === 0 && !hasBulkPricesChange(row) && !imageChangeSummary(row)" class="text-muted small">No structured changes</span>
                   </div>
                 </td>
 
@@ -541,7 +765,15 @@ onMounted(async () => {
                 </td>
 
                 <td class="text-center">
-                  <div class="d-flex justify-content-center gap-2">
+                  <div class="d-flex justify-content-center flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary px-3 d-inline-flex align-items-center gap-1"
+                      @click="openChangesModal(row)"
+                    >
+                      <iconify-icon icon="solar:eye-linear" />
+                      View changes
+                    </button>
                     <NuxtLink
                       :to="`/admin/products-temp/update-requests/${row.id}`"
                       class="btn btn-sm btn-primary px-3 d-inline-flex align-items-center gap-1"
@@ -554,7 +786,7 @@ onMounted(async () => {
               </tr>
 
               <tr v-if="!updateLoading && updateRequests.length === 0">
-                <td colspan="6" class="py-4 text-center text-muted">No approved product update requests found.</td>
+                <td colspan="7" class="py-4 text-center text-muted">No approved product update requests found.</td>
               </tr>
             </tbody>
           </table>
@@ -623,6 +855,138 @@ onMounted(async () => {
             <button class="btn btn-danger" :disabled="updateActionBusy" @click="rejectUpdateRequest">
               {{ updateActionBusy ? 'Rejecting...' : 'Reject Request' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="fade">
+      <div
+        v-if="showChanges && changesRow"
+        class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+        style="background: rgba(15, 23, 42, 0.55); z-index: 2040;"
+      >
+        <div
+          class="bg-white radius-12 shadow-lg p-24 d-flex flex-column"
+          style="width: min(760px, calc(100vw - 2rem)); max-height: calc(100vh - 4rem);"
+        >
+          <div class="d-flex align-items-start justify-content-between gap-3 mb-16">
+            <div>
+              <h6 class="fw-semibold mb-1">Requested Product Changes</h6>
+              <div class="text-muted small">
+                <span class="fw-semibold">{{ changesRow.master_product?.Product_Name || '-' }}</span>
+                <span class="font-monospace ms-1">{{ changesRow.master_product?.Product_Code || `#${changesRow.id}` }}</span>
+              </div>
+              <div class="text-muted small">
+                Vendor: {{ changesRow.vendor?.Vendor_Name || '-' }}
+                <span v-if="changesRow.vendor?.Vendor_Code" class="font-monospace">({{ changesRow.vendor?.Vendor_Code }})</span>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-pill" :class="statusBadge(changesRow.Status)">{{ changesRow.Status }}</span>
+              <button type="button" class="btn-close" @click="closeChangesModal" />
+            </div>
+          </div>
+
+          <div class="overflow-auto" style="min-height: 0;">
+            <div v-if="diffEntries(changesRow).length" class="table-responsive rounded-3 border mb-16">
+              <table class="table table-sm table-striped align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 10rem;">Field</th>
+                    <th>Current</th>
+                    <th>Requested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="entry in diffEntries(changesRow)" :key="entry.key">
+                    <td class="fw-semibold text-nowrap">{{ entry.label }}</td>
+                    <td style="word-break: break-word; white-space: pre-wrap;">
+                      {{ cellText(entry, 'current') }}
+                      <a
+                        v-if="cellExpandable(entry, 'current')"
+                        href="javascript:void(0)"
+                        class="small ms-1"
+                        @click="toggleCellExpand(entry, 'current')"
+                      >{{ expandedFields[fieldToggleKey(entry.key, 'current')] ? 'less' : 'more' }}</a>
+                    </td>
+                    <td class="fw-semibold text-primary-600" style="word-break: break-word; white-space: pre-wrap;">
+                      {{ cellText(entry, 'requested') }}
+                      <a
+                        v-if="cellExpandable(entry, 'requested')"
+                        href="javascript:void(0)"
+                        class="small ms-1"
+                        @click="toggleCellExpand(entry, 'requested')"
+                      >{{ expandedFields[fieldToggleKey(entry.key, 'requested')] ? 'less' : 'more' }}</a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="specificationEntries(changesRow).length" class="mb-16">
+              <div class="fw-semibold small text-uppercase text-muted mb-2">Specifications</div>
+              <div class="d-flex flex-wrap gap-2">
+                <span
+                  v-for="spec in specificationEntries(changesRow)"
+                  :key="`modal-${changesRow.id}-${spec.description_id}-${spec.value_id}`"
+                  class="badge bg-info-50 text-secondary-light border"
+                >
+                  {{ spec.description }}: {{ spec.value }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="hasBulkPricesChange(changesRow)" class="mb-16">
+              <div class="fw-semibold small text-uppercase text-muted mb-2">Bulk Prices</div>
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <div class="text-muted small mb-1">Current</div>
+                  <BulkPriceTable
+                    :tiers="bulkPricesDisplay(changesRow)?.current || []"
+                    empty-text="No bulk prices on the live product."
+                  />
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="text-muted small mb-1">Requested</div>
+                  <BulkPriceTable
+                    :tiers="bulkPricesDisplay(changesRow)?.requested || []"
+                    empty-text="Vendor requested removing all bulk prices."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="imagesSummary(changesRow)" class="mb-16">
+              <div class="fw-semibold small text-uppercase text-muted mb-2">Images</div>
+              <span class="badge bg-warning-50 text-secondary-light border">{{ imagesSummary(changesRow) }}</span>
+            </div>
+
+            <div v-if="changesRow.Comment" class="mb-16">
+              <div class="fw-semibold small text-uppercase text-muted mb-2">Vendor Comment</div>
+              <div class="text-sm bg-neutral-50 border radius-8 p-12" style="white-space: pre-wrap;">{{ changesRow.Comment }}</div>
+            </div>
+
+            <div
+              v-if="diffEntries(changesRow).length === 0 && specificationEntries(changesRow).length === 0 && !hasBulkPricesChange(changesRow) && !imagesSummary(changesRow)"
+              class="text-muted small mb-16"
+            >
+              No structured changes in this request.
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-16 pt-16 border-top">
+            <button class="btn btn-outline-secondary" :disabled="updateActionBusy" @click="closeChangesModal">
+              Close
+            </button>
+            <template v-if="isOpenStatus(changesRow)">
+              <button class="btn btn-outline-danger" :disabled="updateActionBusy" @click="rejectFromChangesModal">
+                Reject
+              </button>
+              <button class="btn btn-success" :disabled="updateActionBusy" @click="approveFromChangesModal">
+                {{ updateActionBusy ? 'Approving...' : 'Approve' }}
+              </button>
+            </template>
           </div>
         </div>
       </div>

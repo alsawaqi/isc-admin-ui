@@ -3,6 +3,8 @@ import { definePageMeta, useNuxtApp } from '#imports'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useFlashStore } from '~/stores/flashs'
+import BulkPriceTable from '~/components/admin/product/BulkPriceTable.vue'
+import { normalizeTiers } from '~/utils/bulkPricing'
 
 definePageMeta({
   layout: 'admin',
@@ -80,6 +82,7 @@ interface UpdateRequestDetail {
   Requested_Changes_Json?: Record<string, any> | null
   Requested_Change_Details?: FieldChange[]
   Requested_Specifications_Display?: SpecChange[]
+  Requested_Bulk_Prices_Display?: { current: any[]; requested: any[] } | null
   Image_Update_Summary?: ImageSummary
   vendor?: VendorSummary | null
   master_product?: MasterProduct | null
@@ -106,7 +109,7 @@ const fieldChanges = computed<FieldChange[]>(() => {
 
   const changes = detail.value?.Requested_Changes_Json || {}
   return Object.entries(changes)
-    .filter(([key]) => !['specifications', 'image_updates'].includes(key))
+    .filter(([key]) => !['specifications', 'image_updates', 'bulk_prices'].includes(key))
     .map(([key, value]) => ({
       key,
       label: key.replace(/_/g, ' '),
@@ -116,6 +119,23 @@ const fieldChanges = computed<FieldChange[]>(() => {
 })
 
 const specChanges = computed(() => detail.value?.Requested_Specifications_Display || [])
+
+// Bulk price (quantity tier) changes. Prefers the server-computed display and
+// falls back to the raw bulk_prices key (requested side only).
+const bulkChanges = computed<{ current: any[]; requested: any[] } | null>(() => {
+  const display = detail.value?.Requested_Bulk_Prices_Display
+  if (display && (Array.isArray(display.current) || Array.isArray(display.requested))) {
+    return {
+      current: normalizeTiers(display.current),
+      requested: normalizeTiers(display.requested),
+    }
+  }
+  const raw = detail.value?.Requested_Changes_Json?.bulk_prices
+  if (Array.isArray(raw)) {
+    return { current: [], requested: normalizeTiers(raw) }
+  }
+  return null
+})
 
 const imageSummary = computed<ImageSummary>(() => detail.value?.Image_Update_Summary || {
   added_count: 0,
@@ -408,6 +428,34 @@ onMounted(fetchDetail)
 
             <div v-else class="text-muted small py-3">
               No specification updates were submitted.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="bulkChanges" class="col-12">
+        <div class="card radius-12 overflow-hidden">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="fw-semibold">Bulk Price Changes</div>
+            <span class="badge bg-success">{{ bulkChanges.requested.length }} tier(s) requested</span>
+          </div>
+
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <div class="text-muted small mb-1">Current</div>
+                <BulkPriceTable
+                  :tiers="bulkChanges.current"
+                  empty-text="No bulk prices on the live product."
+                />
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="text-muted small mb-1">Requested</div>
+                <BulkPriceTable
+                  :tiers="bulkChanges.requested"
+                  empty-text="Vendor requested removing all bulk prices."
+                />
+              </div>
             </div>
           </div>
         </div>

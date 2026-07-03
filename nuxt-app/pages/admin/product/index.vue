@@ -11,6 +11,8 @@ import { useProductType } from '~/data/producttype'
 import { useProductsBrands } from '~/data/ProductsBrands';
 import { ref, onMounted, watch, computed } from 'vue'
 import { useFlashStore } from '~/stores/flashs'
+import BulkPriceEditor from '~/components/admin/product/BulkPriceEditor.vue'
+import { tiersToPayload, type BulkTierRow } from '~/utils/bulkPricing'
 
 
 const flash = useFlashStore()
@@ -20,8 +22,12 @@ const { $axios } = (useNuxtApp() as any);
 const { getProductType } = useProductType();
 const { getProductBrands } = useProductsBrands();
 
+// Steps: 1 = details, 2 = bulk prices (optional), 3 = images + submit, 4 = specifications
 const steps = ref(1);
 
+// Bulk price tiers (optional quantity-based pricing), posted after the product is created.
+const bulkTiers = ref<BulkTierRow[]>([]);
+const bulkTiersValid = ref(true);
 
 const uploadedImages = ref<File[]>([])
 const previewUrls = ref<string[]>([])
@@ -51,7 +57,7 @@ const addBarcode = () => {
 };
 
 const nextStep = () => {
-  if (steps.value < 5) {
+  if (steps.value < 4) {
     steps.value++;
   }
 };
@@ -78,6 +84,8 @@ const restart = async () => {
     description: '',
     inhouse_barcode: '',
     product_sku: '',
+    minimum_selling_price: 0,
+    cost: null,
     price: 0,
     stock: 0,
     volume_type: '',
@@ -88,6 +96,7 @@ const restart = async () => {
 
   };
   barcodes.value = [];
+  bulkTiers.value = [];
   uploadedImages.value = [];
   previewUrls.value.forEach(url => URL.revokeObjectURL(url));
   previewUrls.value = [];
@@ -162,6 +171,8 @@ const form = ref<Product>({
   description: '',
   inhouse_barcode: '',
   product_sku: '',
+  minimum_selling_price: 0,
+  cost: null,
   price: 0,
   stock: 0,
   volume_type: 'cm' as 'mm' | 'cm' | 'm' | 'in' | 'ft', // default
@@ -194,6 +205,25 @@ const loadingProducts = ref<boolean>(false);
 const randomDigits = ref<Number>(0);
 
 
+// Price floor: price must never be below the minimum selling price
+const hasMinimumSellingPrice = computed(() =>
+  form.value.minimum_selling_price !== '' &&
+  form.value.minimum_selling_price !== null &&
+  !isNaN(Number(form.value.minimum_selling_price)) &&
+  Number(form.value.minimum_selling_price) >= 0
+)
+
+const priceBelowMinimum = computed(() =>
+  hasMinimumSellingPrice.value &&
+  form.value.price !== null &&
+  Number(form.value.price) < Number(form.value.minimum_selling_price)
+)
+
+// Floor passed to the bulk price editor: tiers can never be priced below it.
+const bulkFloor = computed<number | null>(() =>
+  hasMinimumSellingPrice.value ? Number(form.value.minimum_selling_price) : null
+)
+
 const isStep1Valid = computed(() => {
   return (
     form.value.product_department_id &&
@@ -204,6 +234,8 @@ const isStep1Valid = computed(() => {
     form.value.name.trim() !== '' &&
     form.value.name_ar.trim() !== '' &&
     form.value.description.trim() !== '' &&
+    hasMinimumSellingPrice.value &&
+    !priceBelowMinimum.value &&
     form.value.price > 0 &&
     form.value.stock >= 0
   );
@@ -297,6 +329,9 @@ const getLatestProducts = async () => {
 const submitForm = async () => {
   loading.value = true
 
+  // Capture the bulk price tiers before the form state is reset below.
+  const bulkTiersPayload = bulkTiers.value.length ? tiersToPayload(bulkTiers.value) : []
+
   try {
     const formData = new FormData()
 
@@ -314,6 +349,10 @@ const submitForm = async () => {
     formData.append('name_ar', form.value.name_ar)
     formData.append('description', form.value.description)
     formData.append('inhouse_barcode', randomDigits.value.toString())
+    formData.append('minimum_selling_price', String(form.value.minimum_selling_price))
+    if (form.value.cost !== null && form.value.cost !== '' && !isNaN(Number(form.value.cost))) {
+      formData.append('cost', String(form.value.cost))
+    }
     formData.append('price', form.value.price.toString())
     formData.append('stock', form.value.stock.toString())
     formData.append('Weight_Kg', form.value.Weight_Kg.toString())
@@ -355,6 +394,8 @@ const submitForm = async () => {
       inhouse_barcode: '',
       product_sku: '',
 
+      minimum_selling_price: 0,
+      cost: null,
       price: 0,
       stock: 0,
       volume_type: '',
@@ -372,8 +413,29 @@ const submitForm = async () => {
 
 
     product_id.value = response.data.data.id;
-    steps.value = 3
-   
+
+    // Save optional bulk price tiers now that the product exists. A failure here
+    // must NOT lose the created product — surface it and let the admin retry
+    // from the product edit page.
+    if (bulkTiersPayload.length) {
+      try {
+        await $axios.post(`/api/productmaster/${response.data.data.id}/bulk-prices`, {
+          tiers: bulkTiersPayload,
+        })
+      } catch (bulkError: any) {
+        const bulkData = bulkError?.response?.data
+        const bulkErrors = bulkData?.errors ? (Object.values(bulkData.errors).flat() as string[]) : []
+        flash.warning(
+          'Product was created, but saving bulk prices failed: ' +
+          (bulkErrors.length ? bulkErrors.join(' ') : (bulkData?.message || 'Unknown error.')) +
+          ' You can add bulk prices later from the product edit page.'
+        )
+      }
+    }
+    bulkTiers.value = []
+
+    steps.value = 4
+
     flash.success('Product created successfully. Please proceed to add specifications.')
 
 
@@ -382,9 +444,11 @@ const submitForm = async () => {
     if (typeof error === 'object' && error !== null && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
 
       console.error('Submission failed:', error.response.data)
+      const data = (error.response as any).data
+      const validationErrors = data?.errors ? (Object.values(data.errors).flat() as string[]) : []
       flash.error(
         'Submission failed: ' +
-        JSON.stringify(error.response.data)
+        (validationErrors.length ? validationErrors.join(' ') : (data?.message || JSON.stringify(data)))
       )
     } else if (error instanceof Error) {
        flash.error('Submission failed: ' + error.message)
@@ -664,6 +728,33 @@ onMounted(async () => {
                   </div>
                 </div>
 
+                <!-- Minimum Selling Price -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Minimum Selling Price</label>
+                  <div class="icon-field">
+                    <span class="icon">
+                      <iconify-icon icon="mdi:cash-lock"></iconify-icon>
+                    </span>
+                    <input type="number" min="0" step="0.001" v-model="form.minimum_selling_price"
+                      class="form-control" placeholder="Enter Minimum Selling Price" required />
+                  </div>
+                  <small v-if="!hasMinimumSellingPrice" class="text-danger">
+                    Minimum selling price is required (0 or more).
+                  </small>
+                </div>
+
+                <!-- Cost -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Cost <span class="text-muted fw-normal">(optional)</span></label>
+                  <div class="icon-field">
+                    <span class="icon">
+                      <iconify-icon icon="mdi:cash-multiple"></iconify-icon>
+                    </span>
+                    <input type="number" min="0" step="0.001" v-model="form.cost" class="form-control"
+                      placeholder="Enter Cost" />
+                  </div>
+                </div>
+
                 <!-- Price -->
                 <div class="col-12 col-md-6">
                   <label class="form-label fw-semibold">Price</label>
@@ -671,8 +762,12 @@ onMounted(async () => {
                     <span class="icon">
                       <iconify-icon icon="mdi:currency-usd"></iconify-icon>
                     </span>
-                    <input type="number" v-model="form.price" class="form-control" placeholder="Enter Price" required />
+                    <input type="number" min="0" step="0.001" v-model="form.price"
+                      :class="['form-control', priceBelowMinimum ? 'is-invalid' : '']" placeholder="Enter Price" required />
                   </div>
+                  <small v-if="priceBelowMinimum" class="text-danger">
+                    Price cannot be below the minimum selling price ({{ Number(form.minimum_selling_price || 0).toFixed(3) }}).
+                  </small>
                 </div>
 
                 <!-- Stock -->
@@ -748,7 +843,26 @@ onMounted(async () => {
           </div><!-- /.card -->
 
 
-          <div class="card-body" v-show="steps === 2">
+          <!-- Step 2: Bulk prices (optional quantity tiers) -->
+          <div class="card" v-show="steps === 2">
+            <div class="card-header">
+              <h6>Bulk Prices <span class="text-muted fw-normal">(optional)</span></h6>
+            </div>
+            <div class="card-body">
+              <p class="text-muted small mb-16">
+                Define quantity ranges that get a special unit price (e.g. 5-10 pay 6.000, 51+ pay 5.000).
+                Quantities not covered by any range pay the normal price. Leave empty to skip this step.
+              </p>
+              <BulkPriceEditor
+                v-model="bulkTiers"
+                :floor="bulkFloor"
+                @update:valid="bulkTiersValid = $event"
+              />
+            </div>
+          </div><!-- /.card -->
+
+
+          <div class="card-body" v-show="steps === 3">
             <h5 class="mb-3">Upload Image for {{ form.name }}</h5>
 
 
@@ -786,7 +900,7 @@ onMounted(async () => {
 
 
 
-          <div class="card" v-show="steps === 3">
+          <div class="card" v-show="steps === 4">
 
 
             <div class="card-header">
@@ -839,13 +953,14 @@ onMounted(async () => {
 
           <div class="card-footer d-flex justify-content-between">
             <button class="btn btn-secondary border border-primary-600 text-md px-24 py-12 radius-8" @click="prevStep()"
-              :disabled="steps === 1" v-if="steps !== 3">Previous</button>
+              :disabled="steps === 1" v-if="steps !== 4">Previous</button>
 
             <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8" @click="nextStep()"
-              v-if="steps !== 2 && steps !== 3" :disabled="!isStep1Valid"> Next</button>
+              v-if="steps === 1 || steps === 2"
+              :disabled="steps === 1 ? !isStep1Valid : !bulkTiersValid"> Next</button>
 
             <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
-              @click.prevent="submitForm()" v-if="steps === 2" :disabled="loading">
+              @click.prevent="submitForm()" v-if="steps === 3" :disabled="loading">
               <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"
                 aria-hidden="true"></span>
               Submit
@@ -853,9 +968,9 @@ onMounted(async () => {
 
 
             <button class="btn btn-secondary border border-primary-600 text-md px-24 py-12 radius-8" @click="restart()"
-              v-if="steps === 3">Reset</button>
+              v-if="steps === 4">Reset</button>
             <button class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8"
-              @click.prevent="submitSpecs()" v-if="steps === 3">
+              @click.prevent="submitSpecs()" v-if="steps === 4">
               <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"
                 aria-hidden="true"></span>
               Submit Specifications

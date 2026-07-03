@@ -3,6 +3,8 @@ import { definePageMeta, useNuxtApp } from "#imports"
 import { ref, onMounted, computed } from "vue"
 import { useRoute } from "vue-router"
 import { useFlashStore } from '~/stores/flashs'
+import BulkPriceTable from '~/components/admin/product/BulkPriceTable.vue'
+import { normalizeTiers } from '~/utils/bulkPricing'
 
 definePageMeta({
   layout: "admin",
@@ -120,6 +122,11 @@ type?: TypeRow | null
 
   // ✅ NEW
   specs?: TempSpecRow[]
+
+  // Optional bulk price tiers submitted with the temp product
+  // (relation key may arrive snake_cased or camelCased).
+  bulk_prices?: any[]
+  bulkPrices?: any[]
 }
 
 
@@ -139,6 +146,25 @@ const reviewNote = ref('')
 
 const busyAction = ref(false)
 
+// Commission fields (required at approval time)
+const commissionType = ref<'percent' | 'fixed'>('percent')
+const commissionValue = ref<number | null>(null)
+const commissionError = ref<string | null>(null)
+
+function validateCommission(): boolean {
+  commissionError.value = null
+  const v = Number(commissionValue.value)
+  if (commissionValue.value === null || commissionValue.value === ('' as any) || isNaN(v) || v <= 0) {
+    commissionError.value = 'Commission value must be greater than 0.'
+    return false
+  }
+  if (commissionType.value === 'percent' && v > 100) {
+    commissionError.value = 'Percent commission cannot exceed 100.'
+    return false
+  }
+  return true
+}
+
 function resetActionToasts() {
 }
 
@@ -153,6 +179,11 @@ const defaultImg = computed(() => {
   if (!product.value) return null
   return product.value.images?.find(i => i.Is_Default === 1) || product.value.defaultImage || product.value.images?.[0] || null
 })
+
+// Requested bulk price tiers (empty array when the vendor submitted none).
+const tempTiers = computed(() =>
+  normalizeTiers(product.value?.bulk_prices ?? product.value?.bulkPrices)
+)
 
 const fetchDetails = async () => {
   loading.value = true
@@ -171,14 +202,23 @@ const fetchDetails = async () => {
 
 async function approveTemp() {
   resetActionToasts()
+  if (!validateCommission()) return
+
   busyAction.value = true
   try {
-    await $axios.post(`/api/admin/products-temp/${tempId}/approve`)
+    await $axios.post(`/api/admin/products-temp/${tempId}/approve`, {
+      commission_type: commissionType.value,
+      commission_value: Number(commissionValue.value),
+    })
     flash.success('Product approved and moved to master catalog.')
     showApprove.value = false
+    commissionValue.value = null
     await fetchDetails() // your existing fetch
   } catch (e: any) {
-    flash.error(e?.response?.data?.message || e?.message || 'Approve failed')
+    const errs = e?.response?.data?.errors
+    const firstErr = errs ? (Object.values(errs)[0] as string[])?.[0] : null
+    commissionError.value = firstErr || e?.response?.data?.message || null
+    flash.error(firstErr || e?.response?.data?.message || e?.message || 'Approve failed')
   } finally {
     busyAction.value = false
   }
@@ -259,10 +299,41 @@ onMounted(fetchDetails)
 <div v-if="showApprove" class="modal-backdropx">
   <div class="modal-cardx">
     <h6 class="mb-2">Approve Product</h6>
-    <p class="text-muted small mb-3">This will approve and (if enabled) move it to master tables.</p>
+    <p class="text-muted small mb-3">
+      This will approve and (if enabled) move it to master tables.
+      Set the commission the platform takes on this product.
+    </p>
+
+    <div v-if="commissionError" class="alert alert-danger py-2">{{ commissionError }}</div>
+
+    <div class="mb-3">
+      <label class="form-label small">Commission Type</label>
+      <select v-model="commissionType" class="form-select">
+        <option value="percent">percent (%)</option>
+        <option value="fixed">fixed (OMR per unit)</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label small">Commission Value</label>
+      <input
+        v-model.number="commissionValue"
+        type="number"
+        min="0"
+        :max="commissionType === 'percent' ? 100 : undefined"
+        step="0.001"
+        class="form-control"
+        :placeholder="commissionType === 'percent' ? 'e.g. 10 (%)' : 'e.g. 2.500 (OMR per unit)'"
+      />
+      <div class="text-muted small mt-1">
+        {{ commissionType === 'percent'
+          ? 'Percentage of each line subtotal (0 < value ≤ 100).'
+          : 'Fixed amount in OMR charged per unit sold (value > 0).' }}
+      </div>
+    </div>
 
     <div class="d-flex justify-content-end gap-2">
-      <button class="btn btn-light" @click="showApprove = false" :disabled="busyAction">Cancel</button>
+      <button class="btn btn-light" @click="showApprove = false; commissionError = null" :disabled="busyAction">Cancel</button>
       <button class="btn btn-success" @click="approveTemp" :disabled="busyAction">
         {{ busyAction ? 'Approving...' : 'Approve' }}
       </button>
@@ -520,6 +591,24 @@ onMounted(fetchDetails)
     </div>
     <div class="card-body">
       <div class="text-muted small">No specifications submitted for this product.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Bulk prices requested with this temp product (read-only) -->
+<div class="col-12" v-if="tempTiers.length">
+  <div class="card radius-12 overflow-hidden">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-semibold">Bulk Prices Requested</div>
+      <span class="text-muted small">{{ tempTiers.length }} tier(s)</span>
+    </div>
+    <div class="card-body">
+      <div class="text-muted small mb-2">
+        Quantity ranges the vendor wants to sell at a special unit price. Approving this product
+        copies these tiers to the live catalog.
+      </div>
+      <BulkPriceTable :tiers="tempTiers" />
     </div>
   </div>
 </div>

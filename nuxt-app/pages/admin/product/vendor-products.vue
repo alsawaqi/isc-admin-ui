@@ -20,6 +20,11 @@ type ProductRow = {
   Product_Price: number
   Product_Stock?: number | null
   Status?: string | null
+  Is_Active?: boolean | number | string | null
+  deleted_at?: string | null
+  Vendor_Id?: number | null
+  Commission_Type?: string | null
+  Commission_Value?: number | null
   created_at?: string | null
   vendor?: {
     Vendor_Code?: string | null
@@ -63,6 +68,10 @@ const pagination = ref({
 })
 
 const products = ref<ProductRow[]>([])
+
+// 'current' shows live products, 'deleted' lists soft-deleted (trashed) products
+const viewMode = ref<'current' | 'deleted'>('current')
+
 const vendorOptions = ref<any[]>([])
 const departmentOptions = ref<any[]>([])
 const subDepartmentOptions = ref<any[]>([])
@@ -138,6 +147,7 @@ const fetchProducts = async () => {
         product_department_id: table.productDepartmentId || undefined,
         product_sub_department_id: table.productSubDepartmentId || undefined,
         product_sub_sub_department_id: table.productSubSubDepartmentId || undefined,
+        trashed: viewMode.value === 'deleted' ? 1 : undefined,
       },
     })
 
@@ -152,6 +162,129 @@ const fetchProducts = async () => {
     flash.error('Error fetching vendor products.')
   } finally {
     loading.value = false
+  }
+}
+
+// ---- Per-product commission ----
+const showCommission = ref(false)
+const commissionProduct = ref<ProductRow | null>(null)
+const commissionType = ref<'percent' | 'fixed'>('percent')
+const commissionValue = ref<number | null>(null)
+const commissionError = ref<string | null>(null)
+const commissionBusy = ref(false)
+
+const commissionLabel = (product: ProductRow) => {
+  if (!product.Commission_Type || product.Commission_Value == null) return '—'
+  if (product.Commission_Type === 'percent') return `${Number(product.Commission_Value)}%`
+  if (product.Commission_Type === 'fixed') return `${Number(product.Commission_Value).toFixed(3)} fixed/unit`
+  return `${product.Commission_Type} / ${product.Commission_Value}`
+}
+
+const openCommission = (product: ProductRow) => {
+  commissionProduct.value = product
+  commissionType.value = (product.Commission_Type === 'fixed' ? 'fixed' : 'percent')
+  commissionValue.value = product.Commission_Value != null ? Number(product.Commission_Value) : null
+  commissionError.value = null
+  showCommission.value = true
+}
+
+const validateCommission = (): boolean => {
+  commissionError.value = null
+  const v = Number(commissionValue.value)
+  if (commissionValue.value === null || isNaN(v) || v <= 0) {
+    commissionError.value = 'Commission value must be greater than 0.'
+    return false
+  }
+  if (commissionType.value === 'percent' && v > 100) {
+    commissionError.value = 'Percent commission cannot exceed 100.'
+    return false
+  }
+  return true
+}
+
+const saveCommission = async () => {
+  if (!commissionProduct.value) return
+  if (!validateCommission()) return
+
+  commissionBusy.value = true
+  try {
+    await $axios.post(`/api/admin/vendor-products/${commissionProduct.value.id}/commission`, {
+      commission_type: commissionType.value,
+      commission_value: Number(commissionValue.value),
+    })
+    flash.success('Commission saved. It applies to future orders only.')
+    showCommission.value = false
+    commissionProduct.value = null
+    await fetchProducts()
+  } catch (e: any) {
+    const errs = e?.response?.data?.errors
+    const firstErr = errs ? (Object.values(errs)[0] as string[])?.[0] : null
+    commissionError.value = firstErr || e?.response?.data?.message || 'Failed to save commission.'
+  } finally {
+    commissionBusy.value = false
+  }
+}
+
+// ---- Activate / deactivate / soft delete / restore ----
+const isActive = (product: ProductRow) =>
+  product.Is_Active === undefined || product.Is_Active === null
+    ? true
+    : Number(product.Is_Active) === 1
+
+const toggleActive = async (product: ProductRow) => {
+  const activating = !isActive(product)
+  const ok = await flash.confirm({
+    title: activating ? 'Activate Product?' : 'Deactivate Product?',
+    message: activating
+      ? `"${product.Product_Name}" will become visible and purchasable on the storefront again.`
+      : `"${product.Product_Name}" will be hidden from the storefront and cannot be purchased until reactivated.`,
+    confirmText: activating ? 'Yes, activate' : 'Yes, deactivate',
+    cancelText: 'Cancel',
+  })
+  if (!ok) return
+
+  try {
+    await $axios.post(`/api/productmaster/${product.id}/${activating ? 'activate' : 'deactivate'}`)
+    flash.success(activating ? 'Product activated.' : 'Product deactivated.')
+    await fetchProducts()
+  } catch (e: any) {
+    flash.error(e?.response?.data?.message || 'Failed to update product status.')
+  }
+}
+
+const deleteProduct = async (product: ProductRow) => {
+  const ok = await flash.confirm({
+    title: 'Delete Product?',
+    message: `This moves "${product.Product_Name}" to Deleted; it can be restored later from the Deleted view.`,
+    confirmText: 'Yes, delete',
+    cancelText: 'No, cancel',
+  })
+  if (!ok) return
+
+  try {
+    await $axios.delete(`/api/productmaster/${product.id}`)
+    flash.success('Product moved to Deleted. It can be restored from the Deleted view.')
+    await fetchProducts()
+  } catch (e: any) {
+    flash.error(e?.response?.data?.message || 'Error deleting product.')
+  }
+}
+
+const restoreProduct = async (product: ProductRow) => {
+  const ok = await flash.confirm({
+    title: 'Restore Product?',
+    message: `"${product.Product_Name}" will be restored and returned to the product list.`,
+    confirmText: 'Yes, restore',
+    cancelText: 'Cancel',
+  })
+  if (!ok) return
+
+  try {
+    await $axios.post(`/api/productmaster/${product.id}/restore`)
+    flash.success('Product restored successfully.')
+    await fetchProducts()
+  } catch (e: any) {
+    flash.error(e?.response?.data?.message || 'Failed to restore product.')
   }
 }
 
@@ -208,6 +341,14 @@ watch(
   }
 )
 
+watch(viewMode, async () => {
+  if (table.page !== 1) {
+    table.page = 1 // the table watcher refetches
+  } else {
+    await fetchProducts()
+  }
+})
+
 onMounted(async () => {
   await Promise.all([
     fetchVendors(),
@@ -246,6 +387,14 @@ onMounted(async () => {
                 <option :value="10">10</option>
                 <option :value="15">15</option>
                 <option :value="20">20</option>
+              </select>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <span class="text-muted">View</span>
+              <select v-model="viewMode" class="form-select form-select-sm w-auto">
+                <option value="current">Current</option>
+                <option value="deleted">Deleted</option>
               </select>
             </div>
 
@@ -331,18 +480,20 @@ onMounted(async () => {
                 <th class="p-3 fw-semibold">Sub Sub Department</th>
                 <th class="p-3 fw-semibold">Stock</th>
                 <th class="p-3 fw-semibold">Amount</th>
+                <th class="p-3 fw-semibold">Commission</th>
                 <th class="p-3 fw-semibold">Status</th>
+                <th class="p-3 text-center fw-semibold">Active</th>
                 <th class="p-3 text-center fw-semibold">Action</th>
               </tr>
             </thead>
 
             <tbody>
               <tr v-if="loading">
-                <td colspan="10" class="p-4 text-center text-muted">Loading vendor products...</td>
+                <td colspan="12" class="p-4 text-center text-muted">Loading vendor products...</td>
               </tr>
 
               <tr v-else-if="products.length === 0">
-                <td colspan="10" class="p-4 text-center text-muted">No vendor products match the selected filters.</td>
+                <td colspan="12" class="p-4 text-center text-muted">No vendor products match the selected filters.</td>
               </tr>
 
               <template v-else>
@@ -364,14 +515,53 @@ onMounted(async () => {
                   <td class="p-3"><span class="category-pill">{{ categoryName(product, 'subDepartment') }}</span></td>
                   <td class="p-3"><span class="category-pill">{{ categoryName(product, 'subSubDepartment') }}</span></td>
                   <td class="p-3">{{ product.Product_Stock ?? '-' }}</td>
-                  <td class="p-3 fw-semibold">OMR {{ product.Product_Price }}</td>
+                  <td class="p-3 fw-semibold">OMR {{ Number(product.Product_Price || 0).toFixed(3) }}</td>
+                  <td class="p-3">
+                    <span :class="product.Commission_Type ? 'fw-semibold' : 'text-muted'">
+                      {{ commissionLabel(product) }}
+                    </span>
+                  </td>
                   <td class="p-3">
                     <span class="status-pill">{{ product.Status || 'available' }}</span>
                   </td>
                   <td class="p-3 text-center">
-                    <NuxtLink :to="`/admin/product/${product.id}`" class="btn-icon-lg bg-green-100 text-green-700">
-                      <iconify-icon icon="lucide:edit" class="fs-5"></iconify-icon>
-                    </NuxtLink>
+                    <span v-if="viewMode === 'deleted'" class="state-pill state-pill-deleted">Deleted</span>
+                    <span v-else-if="isActive(product)" class="state-pill state-pill-active">Active</span>
+                    <span v-else class="state-pill state-pill-inactive">Inactive</span>
+                  </td>
+                  <td class="p-3 text-center">
+                    <div v-if="viewMode === 'deleted'" class="d-flex align-items-center justify-content-center gap-2">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-success text-nowrap"
+                        @click="restoreProduct(product)"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                    <div v-else class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary text-nowrap"
+                        @click="openCommission(product)"
+                      >
+                        Set commission
+                      </button>
+                      <button
+                        type="button"
+                        :class="['btn btn-sm text-nowrap', isActive(product) ? 'btn-outline-warning' : 'btn-outline-success']"
+                        @click="toggleActive(product)"
+                      >
+                        {{ isActive(product) ? 'Deactivate' : 'Activate' }}
+                      </button>
+                      <NuxtLink :to="`/admin/product/${product.id}`" class="btn-icon-lg bg-green-100 text-green-700">
+                        <iconify-icon icon="lucide:edit" class="fs-5"></iconify-icon>
+                      </NuxtLink>
+                      <button type="button" @click.prevent="deleteProduct(product)"
+                        class="btn-icon-lg bg-red-100 text-red-700">
+                        <iconify-icon icon="mingcute:delete-2-line" class="fs-5"></iconify-icon>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </template>
@@ -408,10 +598,76 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- Set commission modal -->
+    <div v-if="showCommission" class="modal-backdropx">
+      <div class="modal-cardx">
+        <h6 class="mb-1">Set Product Commission</h6>
+        <div class="text-muted small mb-3">
+          {{ commissionProduct?.Product_Name }}
+          <span class="font-monospace">({{ commissionProduct?.Product_Code || commissionProduct?.Product_Sku || `#${commissionProduct?.id}` }})</span>
+          — applies to future orders only.
+        </div>
+
+        <div v-if="commissionError" class="alert alert-danger py-2">{{ commissionError }}</div>
+
+        <div class="mb-3">
+          <label class="form-label small">Commission Type</label>
+          <select v-model="commissionType" class="form-select">
+            <option value="percent">percent (%)</option>
+            <option value="fixed">fixed (OMR per unit)</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small">Commission Value</label>
+          <input
+            v-model.number="commissionValue"
+            type="number"
+            min="0"
+            :max="commissionType === 'percent' ? 100 : undefined"
+            step="0.001"
+            class="form-control"
+            :placeholder="commissionType === 'percent' ? 'e.g. 10 (%)' : 'e.g. 2.500 (OMR per unit)'"
+          />
+          <div class="text-muted small mt-1">
+            {{ commissionType === 'percent'
+              ? 'Percentage of each line subtotal (0 < value ≤ 100).'
+              : 'Fixed amount in OMR charged per unit sold (value > 0).' }}
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-light" @click="showCommission = false" :disabled="commissionBusy">Cancel</button>
+          <button class="btn btn-primary" @click="saveCommission" :disabled="commissionBusy">
+            {{ commissionBusy ? 'Saving...' : 'Save Commission' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.modal-backdropx {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.modal-cardx {
+  width: min(520px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+  padding: 1.25rem;
+}
+
 .activation-filter-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(180px, 1fr));
@@ -442,6 +698,34 @@ onMounted(async () => {
   border-color: #bbf7d0;
   color: #047857;
   text-transform: capitalize;
+}
+
+.state-pill {
+  display: inline-flex;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  white-space: nowrap;
+}
+
+.state-pill-active {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+}
+
+.state-pill-inactive {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+.state-pill-deleted {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
 }
 
 .btn-icon-lg {

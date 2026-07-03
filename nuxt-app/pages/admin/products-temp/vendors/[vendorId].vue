@@ -2,6 +2,7 @@
 import { definePageMeta, useNuxtApp } from "#imports"
 import { ref, reactive, watch, onMounted, computed } from "vue"
 import { useRoute } from "vue-router"
+import { useFlashStore } from "~/stores/flashs"
 
 definePageMeta({
   layout: "admin",
@@ -11,6 +12,7 @@ definePageMeta({
 
 const { $axios, $r2Url } = useNuxtApp() as any
 const route = useRoute()
+const flash = useFlashStore()
 
 const vendorId = Number(route.params.vendorId)
 
@@ -78,6 +80,97 @@ function slaBadgeClass(s?: string) {
 }
 
 const pageTitle = computed(() => `Vendor #${vendorId} — Temp Products`)
+
+// ---- Bulk approve with commission ----
+const selectedIds = ref<number[]>([])
+const showBulkApprove = ref(false)
+const bulkBusy = ref(false)
+
+const bulkCommissionType = ref<"percent" | "fixed">("percent")
+const bulkCommissionValue = ref<number | null>(null)
+const bulkCommissionError = ref<string | null>(null)
+
+const pendingProducts = computed(() =>
+  products.value.filter((p) => p.Submission_Status === "pending")
+)
+
+const allPendingSelected = computed(
+  () =>
+    pendingProducts.value.length > 0 &&
+    pendingProducts.value.every((p) => selectedIds.value.includes(p.id))
+)
+
+const toggleSelectAll = () => {
+  if (allPendingSelected.value) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = pendingProducts.value.map((p) => p.id)
+  }
+}
+
+const toggleRow = (id: number) => {
+  if (selectedIds.value.includes(id)) {
+    selectedIds.value = selectedIds.value.filter((x) => x !== id)
+  } else {
+    selectedIds.value = [...selectedIds.value, id]
+  }
+}
+
+const openBulkApprove = () => {
+  if (selectedIds.value.length === 0) return
+  bulkCommissionError.value = null
+  showBulkApprove.value = true
+}
+
+const validateBulkCommission = (): boolean => {
+  bulkCommissionError.value = null
+  const v = Number(bulkCommissionValue.value)
+  if (bulkCommissionValue.value === null || isNaN(v) || v <= 0) {
+    bulkCommissionError.value = "Commission value must be greater than 0."
+    return false
+  }
+  if (bulkCommissionType.value === "percent" && v > 100) {
+    bulkCommissionError.value = "Percent commission cannot exceed 100."
+    return false
+  }
+  return true
+}
+
+const bulkApprove = async () => {
+  if (!validateBulkCommission()) return
+
+  bulkBusy.value = true
+  try {
+    const { data } = await $axios.post("/api/admin/products-temp/bulk/approve", {
+      ids: selectedIds.value,
+      commission_type: bulkCommissionType.value,
+      commission_value: Number(bulkCommissionValue.value),
+    })
+
+    const approvedCount = data?.approved_ids?.length ?? 0
+    const failed: { id: number; error: string }[] = data?.failed ?? []
+
+    if (failed.length > 0) {
+      flash.warning(
+        `Approved ${approvedCount} product(s). Skipped ${failed.length}: ` +
+          failed.map((f) => `#${f.id} — ${f.error}`).join("; ")
+      )
+    } else {
+      flash.success(`Approved ${approvedCount} product(s).`)
+    }
+
+    showBulkApprove.value = false
+    selectedIds.value = []
+    bulkCommissionValue.value = null
+    await fetchVendorProducts()
+  } catch (e: any) {
+    const errs = e?.response?.data?.errors
+    const firstErr = errs ? (Object.values(errs)[0] as string[])?.[0] : null
+    bulkCommissionError.value = firstErr || e?.response?.data?.message || "Bulk approve failed."
+  } finally {
+    bulkBusy.value = false
+  }
+}
 
 const fetchVendorProducts = async () => {
   loading.value = true
@@ -174,7 +267,14 @@ onMounted(fetchVendorProducts)
             </div>
           </div>
 
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 align-items-center">
+            <button
+              class="btn btn-sm btn-success"
+              :disabled="selectedIds.length === 0 || bulkBusy"
+              @click="openBulkApprove"
+            >
+              Approve selected ({{ selectedIds.length }})
+            </button>
             <NuxtLink to="/admin/products-temp" class="btn btn-sm btn-outline-secondary">
               ← Back to Vendors
             </NuxtLink>
@@ -186,6 +286,15 @@ onMounted(fetchVendorProducts)
             <table class="table table-hover table-striped align-middle mb-0 table-sticky">
               <thead class="table-header-gradient text-white">
                 <tr class="text-uppercase small">
+                  <th class="py-3 px-3" style="width: 2.5rem;">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :checked="allPendingSelected"
+                      :disabled="pendingProducts.length === 0"
+                      @change="toggleSelectAll"
+                    />
+                  </th>
                   <th class="py-3 px-3">S.L</th>
                   <th class="py-3 px-3">Thumbnail</th>
                   <th class="py-3 px-3">Temp Code</th>
@@ -201,14 +310,23 @@ onMounted(fetchVendorProducts)
 
               <tbody>
                 <tr v-if="loading">
-                  <td colspan="10" class="py-4 text-center text-muted">Loading...</td>
+                  <td colspan="11" class="py-4 text-center text-muted">Loading...</td>
                 </tr>
 
                 <tr v-else-if="products.length === 0">
-                  <td colspan="10" class="py-4 text-center text-muted">No temp products found.</td>
+                  <td colspan="11" class="py-4 text-center text-muted">No temp products found.</td>
                 </tr>
 
                 <tr v-else v-for="(p, index) in products" :key="p.id">
+                  <td class="py-2 px-3">
+                    <input
+                      v-if="p.Submission_Status === 'pending'"
+                      type="checkbox"
+                      class="form-check-input"
+                      :checked="selectedIds.includes(p.id)"
+                      @change="toggleRow(p.id)"
+                    />
+                  </td>
                   <td class="py-2 px-3 text-muted small">{{ index + 1 }}</td>
 
                   <td class="py-2 px-3">
@@ -309,5 +427,71 @@ onMounted(fetchVendorProducts)
         </div>
       </div>
     </div>
+
+    <!-- Bulk approve modal: ONE commission applied to all selected -->
+    <div v-if="showBulkApprove" class="modal-backdropx">
+      <div class="modal-cardx">
+        <h6 class="mb-2">Bulk Approve Products</h6>
+        <p class="text-muted small mb-3">
+          The commission below will be <b>applied to all {{ selectedIds.length }} selected products</b>.
+        </p>
+
+        <div v-if="bulkCommissionError" class="alert alert-danger py-2">{{ bulkCommissionError }}</div>
+
+        <div class="mb-3">
+          <label class="form-label small">Commission Type</label>
+          <select v-model="bulkCommissionType" class="form-select">
+            <option value="percent">percent (%)</option>
+            <option value="fixed">fixed (OMR per unit)</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small">Commission Value</label>
+          <input
+            v-model.number="bulkCommissionValue"
+            type="number"
+            min="0"
+            :max="bulkCommissionType === 'percent' ? 100 : undefined"
+            step="0.001"
+            class="form-control"
+            :placeholder="bulkCommissionType === 'percent' ? 'e.g. 10 (%)' : 'e.g. 2.500 (OMR per unit)'"
+          />
+          <div class="text-muted small mt-1">
+            {{ bulkCommissionType === 'percent'
+              ? 'Percentage of each line subtotal (0 < value ≤ 100).'
+              : 'Fixed amount in OMR charged per unit sold (value > 0).' }}
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-light" @click="showBulkApprove = false" :disabled="bulkBusy">Cancel</button>
+          <button class="btn btn-success" @click="bulkApprove" :disabled="bulkBusy">
+            {{ bulkBusy ? 'Approving...' : `Approve ${selectedIds.length} product(s)` }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.modal-backdropx {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.modal-cardx {
+  width: min(520px, 100%);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+  padding: 1.25rem;
+}
+</style>

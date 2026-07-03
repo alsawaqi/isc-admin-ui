@@ -11,6 +11,8 @@ import { useRoute } from 'vue-router'
 import { useProductType } from '~/data/producttype'
 import { useProductsBrands } from '~/data/ProductsBrands';
 import { definePageMeta,useNuxtApp } from '#imports';
+import BulkPriceEditor from '~/components/admin/product/BulkPriceEditor.vue'
+import { normalizeTiers, tiersToPayload, validateTierRows, type BulkTierRow } from '~/utils/bulkPricing'
 
 
 interface Product {
@@ -25,6 +27,8 @@ interface Product {
   Product_Description: string;
   Inhouse_Barcode: string;
   Product_Sku: string;
+  Minimum_Selling_Price: number | '' | null;
+  Product_Cost: number | '' | null;
   Product_Price: number;
   Product_Stock: number;
   volume_type: string;
@@ -86,6 +90,8 @@ const form = ref<Product>({
   Product_Description: '',
   Inhouse_Barcode: '',
   Product_Sku: '',
+  Minimum_Selling_Price: null,
+  Product_Cost: null,
   Product_Price: 0,
   Product_Stock: 0,
   volume_type: 'cm' as 'mm' | 'cm' | 'm' | 'in' | 'ft', // default
@@ -139,6 +145,11 @@ const convertUnitValue = (value: number | null | undefined, fromUnit: DimensionU
 
 const hydratingProduct = ref(false)
 
+// Bulk (quantity-tier) prices — loaded with the product, saved via a dedicated endpoint.
+const bulkTiers = ref<BulkTierRow[]>([])
+const bulkTiersValid = ref(true)
+const savingBulk = ref(false)
+
 
 
 const fetchDepartments = async () => {
@@ -188,6 +199,8 @@ const getproducts = async (): Promise<void> => {
       Width_Cm: metersToUnit(product.Width_Cm, unit),
       Height_Cm: metersToUnit(product.Height_Cm, unit),
     };
+    // Relation key may be bulk_prices (Laravel snake-cased) or bulkPrices.
+    bulkTiers.value = normalizeTiers((product as any).bulk_prices ?? (product as any).bulkPrices);
     await nextTick();
     hydratingProduct.value = false;
     console.log('Fetched product:', response.data);
@@ -215,22 +228,75 @@ watch(() => form.value.volume_type, (newUnit, oldUnit) => {
 })
 
 
-const updateproducts = async (): Promise<void> => {
-  
+// Price floor: price must never fall below the minimum selling price
+const normalizedMoney = (value: number | '' | null): number | null =>
+  (value === '' || value === null || isNaN(Number(value))) ? null : Number(value)
+
+const priceBelowMinimum = computed(() => {
+  const min = normalizedMoney(form.value.Minimum_Selling_Price)
+  const price = normalizedMoney(form.value.Product_Price)
+  return min !== null && price !== null && price < min
+})
+
+// Floor passed to the bulk price editor: tiers can never be priced below it.
+const bulkFloor = computed<number | null>(() => normalizedMoney(form.value.Minimum_Selling_Price))
+
+const saveBulkPrices = async (): Promise<void> => {
+  const errors = validateTierRows(bulkTiers.value, bulkFloor.value)
+  if (errors.length) {
+    alert(errors.join('\n'))
+    return
+  }
+
+  savingBulk.value = true
   try {
-   let response = await $axios.put(`/api/productmaster/${id.value}`, form.value);
-     console.log('Product updated:', response.data); 
+    const payload = tiersToPayload(bulkTiers.value)
+    const { data } = await $axios.post(`/api/productmaster/${id.value}/bulk-prices`, { tiers: payload })
+
+    // Re-sync from the server response when it returns the saved tiers.
+    const saved = normalizeTiers(data?.tiers ?? data?.data ?? data)
+    if (saved.length || payload.length === 0) {
+      bulkTiers.value = saved
+    }
+
+    alert(payload.length ? 'Bulk prices saved successfully!' : 'Bulk prices cleared.')
+  } catch (error: any) {
+    console.error('Failed to save bulk prices:', error)
+    const data = error?.response?.data
+    const validationErrors = data?.errors ? (Object.values(data.errors).flat() as string[]) : []
+    alert(validationErrors.length ? validationErrors.join(' ') : (data?.message || 'Failed to save bulk prices. Please try again.'))
+  } finally {
+    savingBulk.value = false
+  }
+}
+
+const updateproducts = async (): Promise<void> => {
+
+  if (priceBelowMinimum.value) {
+    alert(`Price cannot be below the minimum selling price (${Number(form.value.Minimum_Selling_Price || 0).toFixed(3)}).`)
+    return;
+  }
+
+  try {
+   const payload = {
+     ...form.value,
+     Minimum_Selling_Price: normalizedMoney(form.value.Minimum_Selling_Price),
+     Product_Cost: normalizedMoney(form.value.Product_Cost),
+   }
+   let response = await $axios.put(`/api/productmaster/${id.value}`, payload);
+     console.log('Product updated:', response.data);
    alert('Product updated successfully!');
     await getproducts();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update product:', error);
-    alert('Failed to update product. Please try again.');
-    throw error;
+    const data = error?.response?.data
+    const validationErrors = data?.errors ? (Object.values(data.errors).flat() as string[]) : []
+    alert(validationErrors.length ? validationErrors.join(' ') : (data?.message || 'Failed to update product. Please try again.'));
   } finally {
 
   }
-   
- 
+
+
 };
 
 
@@ -431,6 +497,30 @@ onMounted(async () => {
                   </div>
                 </div>
 
+                <!-- Minimum Selling Price -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Minimum Selling Price</label>
+                  <div class="icon-field">
+                    <span class="icon">
+                      <iconify-icon icon="mdi:cash-lock"></iconify-icon>
+                    </span>
+                    <input type="number" min="0" step="0.001" v-model="form.Minimum_Selling_Price" class="form-control"
+                      placeholder="Enter Minimum Selling Price" />
+                  </div>
+                </div>
+
+                <!-- Cost -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Cost <span class="text-muted fw-normal">(optional)</span></label>
+                  <div class="icon-field">
+                    <span class="icon">
+                      <iconify-icon icon="mdi:cash-multiple"></iconify-icon>
+                    </span>
+                    <input type="number" min="0" step="0.001" v-model="form.Product_Cost" class="form-control"
+                      placeholder="Enter Cost" />
+                  </div>
+                </div>
+
                 <!-- Price -->
                 <div class="col-12 col-md-6">
                   <label class="form-label fw-semibold">Price</label>
@@ -438,8 +528,12 @@ onMounted(async () => {
                     <span class="icon">
                       <iconify-icon icon="mdi:currency-usd"></iconify-icon>
                     </span>
-                    <input type="number" v-model="form.Product_Price" class="form-control" placeholder="Enter Price" required />
+                    <input type="number" min="0" step="0.001" v-model="form.Product_Price"
+                      :class="['form-control', priceBelowMinimum ? 'is-invalid' : '']" placeholder="Enter Price" required />
                   </div>
+                  <small v-if="priceBelowMinimum" class="text-danger">
+                    Price cannot be below the minimum selling price ({{ Number(form.Minimum_Selling_Price || 0).toFixed(3) }}).
+                  </small>
                 </div>
 
                 <!-- Stock -->
@@ -512,6 +606,32 @@ onMounted(async () => {
 
               </div><!-- /.row -->
             </div><!-- /.card-body -->
+          </div><!-- /.card -->
+
+
+          <!-- Bulk prices (quantity tiers) -->
+          <div class="card">
+            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <h6 class="mb-0">Bulk Prices <span class="text-muted fw-normal">(quantity tiers)</span></h6>
+              <button
+                class="btn btn-primary btn-sm"
+                :disabled="savingBulk || !bulkTiersValid"
+                @click="saveBulkPrices()"
+              >
+                {{ savingBulk ? 'Saving...' : 'Save Bulk Prices' }}
+              </button>
+            </div>
+            <div class="card-body">
+              <p class="text-muted small mb-16">
+                Quantity ranges that get a special unit price. Quantities outside every range pay the
+                normal price. Saving replaces the existing tiers; removing all rows clears bulk pricing.
+              </p>
+              <BulkPriceEditor
+                v-model="bulkTiers"
+                :floor="bulkFloor"
+                @update:valid="bulkTiersValid = $event"
+              />
+            </div>
           </div><!-- /.card -->
 
 
