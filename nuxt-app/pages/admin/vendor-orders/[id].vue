@@ -55,6 +55,37 @@ const fetchDetails = async () => {
   }
 }
 
+// Per-line commission columns are shown only when the API returns them
+const hasLineCommission = computed(() =>
+  items.value.some((it: any) =>
+    it.Commission_Type != null || it.Commission_Value != null || it.Commission_Amount != null
+  )
+)
+
+const lineCommissionLabel = (it: any) => {
+  if (!it.Commission_Type) return "—"
+  if (it.Commission_Type === "percent") return `${Number(it.Commission_Value || 0)}%`
+  if (it.Commission_Type === "fixed") return `${Number(it.Commission_Value || 0).toFixed(3)} fixed/unit`
+  return it.Commission_Type
+}
+
+const confirmBusy = ref(false)
+
+const confirmCommission = async () => {
+  saveError.value = null
+  saveSuccess.value = null
+  confirmBusy.value = true
+  try {
+    await $axios.post(`/api/admin/vendor-orders/${id}/confirm-commission`)
+    saveSuccess.value = "Commission confirmed ✅"
+    await fetchDetails()
+  } catch (e: any) {
+    saveError.value = e?.response?.data?.message || "Failed to confirm commission."
+  } finally {
+    confirmBusy.value = false
+  }
+}
+
 const saveCommission = async () => {
   saveError.value = null
   saveSuccess.value = null
@@ -158,6 +189,8 @@ onMounted(fetchDetails)
                         <th class="text-end">Qty</th>
                         <th class="text-end">Price</th>
                         <th class="text-end">Subtotal</th>
+                        <th v-if="hasLineCommission" class="text-end">Commission</th>
+                        <th v-if="hasLineCommission" class="text-end">Comm. Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -169,9 +202,15 @@ onMounted(fetchDetails)
                         <td class="text-end">{{ it.Quantity }}</td>
                         <td class="text-end">{{ Number(it.Price || 0).toFixed(3) }}</td>
                         <td class="text-end">{{ Number(it.Subtotal || 0).toFixed(3) }}</td>
+                        <td v-if="hasLineCommission" class="text-end text-nowrap">
+                          {{ lineCommissionLabel(it) }}
+                        </td>
+                        <td v-if="hasLineCommission" class="text-end">
+                          {{ it.Commission_Amount != null ? Number(it.Commission_Amount).toFixed(3) : "—" }}
+                        </td>
                       </tr>
                       <tr v-if="items.length === 0">
-                        <td colspan="4" class="text-center text-muted py-3">No items.</td>
+                        <td :colspan="hasLineCommission ? 6 : 4" class="text-center text-muted py-3">No items.</td>
                       </tr>
                     </tbody>
                   </table>
@@ -194,6 +233,21 @@ onMounted(fetchDetails)
           <div class="card-body">
             <div v-if="saveError" class="alert alert-danger">{{ saveError }}</div>
             <div v-if="saveSuccess" class="alert alert-success">{{ saveSuccess }}</div>
+
+            <!-- Auto-computed commission awaiting confirmation -->
+            <div v-if="vendorOrder?.Status === 'commission_auto'" class="alert alert-warning">
+              <div class="fw-semibold mb-1">Auto-computed commission awaiting confirmation</div>
+              <div class="small mb-2">
+                Amount: <b>{{ Number(vendorOrder?.Commission_Amount || 0).toFixed(3) }}</b>
+                — computed from the per-product commissions below.
+              </div>
+              <button class="btn btn-success w-100" @click="confirmCommission" :disabled="confirmBusy || busy">
+                {{ confirmBusy ? "Confirming..." : "Confirm commission" }}
+              </button>
+              <div class="text-muted small mt-2">
+                Or override it manually with the form below.
+              </div>
+            </div>
 
             <div class="mb-3">
               <label class="form-label small">Commission Type</label>
