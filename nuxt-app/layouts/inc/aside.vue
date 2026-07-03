@@ -825,6 +825,7 @@ onMounted(async () => {
 
                 <li v-if="hasPermission('customers')"><NuxtLink to="/admin/customer">Customers</NuxtLink></li>
                 <li v-if="hasPermission('system parameters')"><NuxtLink to="/admin/system-parameters">System Parameters</NuxtLink></li>
+                <li v-if="hasPermission('titles and designations')"><NuxtLink to="/admin/system/titles-designations">Titles &amp; Designations</NuxtLink></li>
                 <!-- <li v-if="hasPermission('companies')"><a href="#">Companies</a></li>
                 <li v-if="hasPermission('currencies')"><a href="#">Currencies</a></li>
                 <li v-if="hasPermission('merchant')"><a href="#">Merchant</a></li>

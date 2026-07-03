@@ -11,6 +11,8 @@ export interface ContactRow {
   Shippers_Contact_Email_Address?: string | null
   Shippers_Is_Primary?: boolean
   Contact_Department_Id?: number | null
+  Title_Id?: number | null
+  Designation_Id?: number | null
 }
 
 /**
@@ -19,6 +21,8 @@ export interface ContactRow {
  */
 const rows = defineModel<ContactRow[]>({ default: [] })
 const departments = ref<any[]>([]);
+const titles = ref<any[]>([]);
+const designations = ref<any[]>([]);
 
 const addRow = () => {
   const isFirst = rows.value.length === 0
@@ -29,7 +33,9 @@ const addRow = () => {
     Shippers_Contact_GSM_No: '',
     Shippers_Contact_Email_Address: '',
     Shippers_Is_Primary: isFirst,
-    Contact_Department_Id: null
+    Contact_Department_Id: null,
+    Title_Id: null,
+    Designation_Id: null
   })
 }
 
@@ -56,8 +62,26 @@ const getDepartments = async () => {
   }
 };
 
+const getTitles = async () => {
+  try {
+    const response = await $axios.get('/api/titles/all');
+    titles.value = response.data;
+  } catch (error) {
+    console.error('Failed to fetch titles:', error);
+  }
+};
+
+const getDesignations = async () => {
+  try {
+    const response = await $axios.get('/api/designations/all');
+    designations.value = response.data;
+  } catch (error) {
+    console.error('Failed to fetch designations:', error);
+  }
+};
+
 onMounted(async () => {
-  await getDepartments();
+  await Promise.all([getDepartments(), getTitles(), getDesignations()]);
 });
 </script>
 
@@ -77,11 +101,27 @@ onMounted(async () => {
         </div>
 
         <div class="col-sm-4 mb-12">
-          <label class="form-label text-sm">Contact Designation <span class="text-danger-600">*</span></label>
-            
+          <label class="form-label text-sm">Title</label>
+          <select v-model="rows[i].Title_Id" class="form-select radius-8">
+            <option :value="null">Select Title</option>
+            <option v-for="title in titles" :key="title.id" :value="title.id">
+              {{ title.Title_Name }}
+            </option>
+          </select>
+        </div>
 
-       
+        <div class="col-sm-4 mb-12">
+          <label class="form-label text-sm">Designation</label>
+          <select v-model="rows[i].Designation_Id" class="form-select radius-8">
+            <option :value="null">Select Designation</option>
+            <option v-for="designation in designations" :key="designation.id" :value="designation.id">
+              {{ designation.Designation_Name }}
+            </option>
+          </select>
+        </div>
 
+        <div class="col-sm-4 mb-12">
+          <label class="form-label text-sm">Contact Department <span class="text-danger-600">*</span></label>
             <select v-model="rows[i].Contact_Department_Id" class="form-select radius-8">
               <option value="" disabled selected>Select Department</option>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">

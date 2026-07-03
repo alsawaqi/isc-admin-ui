@@ -48,6 +48,7 @@ export const adminAccessTargets: AdminAccessTarget[] = [
   { permission: 'customer types', path: '/admin/customer/type', label: 'Customer Types' },
   { permission: 'customers', path: '/admin/customer', label: 'Customers' },
   { permission: 'system parameters', path: '/admin/system-parameters', label: 'System Parameters' },
+  { permission: 'titles and designations', path: '/admin/system/titles-designations', label: 'Titles & Designations' },
 ]
 
 export const getFirstAllowedAdminTarget = (permissions: string[] = []) => {

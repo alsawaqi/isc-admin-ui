@@ -176,6 +176,8 @@ async function loadShipper() {
       Shippers_Contact_Email_Address: c.Shippers_Contact_Email_Address,
       Shippers_Is_Primary: !!c.Shippers_Is_Primary,
       Contact_Department_Id: c.Contact_Department_Id ?? null,
+      Title_Id: c.Title_Id ?? null,
+      Designation_Id: c.Designation_Id ?? null,
     }))
 
     // Destinations (+flags embedded)

@@ -126,6 +126,7 @@ export const adminPermissionTree: AdminPermissionNode[] = [
       { label: 'Customer Types', permission: 'customer types' },
       { label: 'Customers', permission: 'customers' },
       { label: 'System Parameters', permission: 'system parameters' },
+      { label: 'Titles & Designations', permission: 'titles and designations' },
       { label: 'Companies', permission: 'companies' },
       { label: 'Currencies', permission: 'currencies' },
       { label: 'Merchant', permission: 'merchant' },
