@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { definePageMeta, useNuxtApp, useRoute } from '#imports'
 import SignaturePad from '~/components/SignaturePad.vue'
+import OrderLineOwnerBadge from '~/components/admin/orders/OrderLineOwnerBadge.vue'
+import VendorInfoModal from '~/components/admin/orders/VendorInfoModal.vue'
 
 definePageMeta({
   layout: 'admin',
@@ -30,6 +32,9 @@ const actionMsg = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 
 const selected = ref<number[]>([])
+
+// vendor info modal (shared, one per page)
+const selectedVendor = ref<any>(null)
 
 const showHold = ref(false)
 const showRelease = ref(false)
@@ -464,6 +469,37 @@ async function submitReturnRefund() {
   }
 }
 
+const idUrlLoading = ref(false)
+
+const pickedUpByLabel = computed(() => {
+  const order_ = order.value
+  if (!order_) return '-'
+  return order_.picked_up_by_name
+    || order_.picked_up_by?.name
+    || order_.picked_up_by?.User_Name
+    || (order_.Picked_Up_By ? `User #${order_.Picked_Up_By}` : '-')
+})
+
+async function viewIdCopy() {
+  if (idUrlLoading.value) return
+
+  idUrlLoading.value = true
+  actionError.value = null
+
+  try {
+    const { data } = await $axios.get(`/api/orders-placed/${orderId.value}/pickup-id-url`)
+    if (data?.url) {
+      window.open(data.url, '_blank', 'noopener')
+    } else {
+      actionError.value = 'The ID copy link is unavailable.'
+    }
+  } catch (error: any) {
+    actionError.value = error?.response?.data?.message || 'Failed to load the ID copy link.'
+  } finally {
+    idUrlLoading.value = false
+  }
+}
+
 function printA5(orientation: 'portrait' | 'landscape' = 'portrait') {
   const id = 'a5-orientation-style'
   let style = document.getElementById(id) as HTMLStyleElement | null
@@ -626,7 +662,9 @@ onMounted(load)
                         </div>
                       </div>
                     </td>
-                    <td>{{ lineVendorName(line) }}</td>
+                    <td>
+                      <OrderLineOwnerBadge :line="line" @view="selectedVendor = $event" />
+                    </td>
                     <td class="text-center">{{ Number(line.Quantity || 0) }}</td>
                     <td class="text-end">
                       <div>{{ money(line.Discounted_Unit_Price || line.Price) }}</div>
@@ -732,9 +770,46 @@ onMounted(load)
               <div>
                 <span class="text-muted d-block">Customer address/contact</span>
                 <strong>{{ customer?.Contact_Person_Name || '-' }}</strong>
-                <div>{{ customer?.Designation || '-' }}</div>
+                <div>{{ customer?.title_name || customer?.Designation || '-' }}</div>
                 <div>{{ customer?.Telephone || '-' }}</div>
                 <div>{{ customer?.Email || '-' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="order?.Pickup_Person_Name" class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white">
+              <h6 class="mb-0">Pickup Information</h6>
+            </div>
+            <div class="card-body small">
+              <div class="mb-2">
+                <span class="text-muted d-block">Collected by</span>
+                <strong>{{ order?.Pickup_Person_Name }}</strong>
+              </div>
+              <div class="mb-2">
+                <span class="text-muted d-block">Collector contact</span>
+                <strong>{{ order?.Pickup_Person_Contact || '-' }}</strong>
+              </div>
+              <div class="mb-2">
+                <span class="text-muted d-block">Picked up at</span>
+                <strong>{{ fmt(order?.Picked_Up_At) }}</strong>
+              </div>
+              <div class="mb-2">
+                <span class="text-muted d-block">Recorded by</span>
+                <strong>{{ pickedUpByLabel }}</strong>
+              </div>
+              <button
+                v-if="order?.Pickup_Id_Image_Path"
+                type="button"
+                class="btn btn-sm btn-outline-primary mt-1"
+                :disabled="idUrlLoading"
+                @click="viewIdCopy"
+              >
+                <span v-if="idUrlLoading" class="spinner-border spinner-border-sm me-1"></span>
+                View ID copy
+              </button>
+              <div v-if="order?.Pickup_Id_Image_Path" class="text-muted mt-1">
+                Opens a private link that expires after a few minutes.
               </div>
             </div>
           </div>
@@ -1078,6 +1153,8 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <VendorInfoModal v-if="selectedVendor" :vendor="selectedVendor" @close="selectedVendor = null" />
 </template>
 
 <style scoped>
