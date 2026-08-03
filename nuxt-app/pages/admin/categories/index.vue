@@ -11,7 +11,9 @@ import { useDepartment } from '../../../data/useDepartment'
 import { definePageMeta, useNuxtApp } from '#imports'
 
 import { useFlashStore } from '~/stores/flashs'
+import { useAuth } from '~/stores/auth'
 const flash = useFlashStore()
+const auth = useAuth()
 
 const { $r2Url, $axios } = useNuxtApp() as any
 
@@ -431,8 +433,14 @@ const toggleSort = (column: string) => {
             </div>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-3">
-
-
+            <NuxtLink
+              v-if="auth.permissions.includes('import product categories')"
+              to="/admin/categories/import"
+              class="btn btn-primary d-inline-flex align-items-center gap-2 px-16 py-9 radius-8"
+            >
+              <iconify-icon icon="solar:file-download-outline" class="text-lg"></iconify-icon>
+              Import hierarchy
+            </NuxtLink>
           </div>
         </div>
         <div class="card-body">
