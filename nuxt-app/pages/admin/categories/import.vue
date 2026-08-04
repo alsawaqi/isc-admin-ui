@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { definePageMeta, useNuxtApp } from '#imports'
 import { useFlashStore } from '~/stores/flashs'
+import { apiErrorMessage } from '~/utils/apiError'
 
 definePageMeta({
   layout: 'admin',
@@ -190,14 +191,20 @@ const formatDate = (date?: string | null) => {
   return Number.isNaN(value.getTime()) ? date : value.toLocaleString()
 }
 
-const errorMessage = (error: any, fallback: string) => {
-  const response = error?.response?.data
-  if (response?.errors && typeof response.errors === 'object') {
-    const first = Object.values(response.errors).flat().find(Boolean)
-    if (first) return String(first)
-  }
-  return response?.message || error?.message || fallback
-}
+const hierarchyImportErrorMessage = (
+  error: unknown,
+  fallback: string,
+  validation: string,
+  server: string,
+) => apiErrorMessage(error, {
+  fallback,
+  forbidden: 'Your account does not have permission to import product categories. Ask an administrator to update your role.',
+  payloadTooLarge: 'The server rejected this workbook because it is too large. Select an .xlsx file no larger than 5 MB.',
+  validation,
+  rateLimited: 'Too many import attempts were made. Wait one minute, then try again.',
+  server,
+  network: 'The import service could not be reached. Check your connection and try again.',
+})
 
 const normaliseIssues = (issues: unknown): ImportIssue[] => {
   if (!Array.isArray(issues)) return []
@@ -300,7 +307,12 @@ const previewWorkbook = async () => {
   } catch (error: any) {
     const parsed = normalisePreview(error?.response?.data)
     if (parsed) preview.value = parsed
-    requestError.value = errorMessage(error, 'The workbook could not be previewed.')
+    requestError.value = hierarchyImportErrorMessage(
+      error,
+      'The workbook could not be previewed.',
+      'The workbook request was not valid. Review the file and code period, then try again.',
+      'The server could not preview this workbook. No categories were imported. Try again or contact support.',
+    )
     flash.error(requestError.value)
   } finally {
     isPreviewing.value = false
@@ -331,7 +343,12 @@ const commitImport = async () => {
     commitResult.value = response.data?.data ?? response.data
     flash.success(response.data?.message || 'Product hierarchy imported successfully.')
   } catch (error: any) {
-    requestError.value = errorMessage(error, 'The hierarchy could not be imported.')
+    requestError.value = hierarchyImportErrorMessage(
+      error,
+      'The hierarchy could not be imported.',
+      'The saved preview is no longer valid. Create a new preview and try again.',
+      'The server could not confirm whether the hierarchy import completed. Refresh the category lists before trying again.',
+    )
     flash.error(requestError.value)
   } finally {
     isCommitting.value = false

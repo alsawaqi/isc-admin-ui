@@ -21,6 +21,7 @@ export const adminPermissionTree: AdminPermissionNode[] = [
         permission: 'product category',
         children: [
           { label: 'Categories', permission: 'departments' },
+          { label: 'Import Hierarchy', permission: 'import product categories' },
           { label: 'Subcategories', permission: 'sub departments' },
           { label: 'Sub-subcategories', permission: 'sub sub departments' },
           { label: 'Product Features/Specifications', permission: 'addproductsdescription' },

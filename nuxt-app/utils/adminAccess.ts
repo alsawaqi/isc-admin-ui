@@ -8,6 +8,7 @@ export const adminAccessTargets: AdminAccessTarget[] = [
   { permission: 'dashboard', path: '/admin', label: 'Dashboard' },
 
   { permission: 'departments', path: '/admin/categories', label: 'Categories' },
+  { permission: 'import product categories', path: '/admin/categories/import', label: 'Import Product Hierarchy' },
   { permission: 'sub departments', path: '/admin/categories/subcategory', label: 'Subcategories' },
   { permission: 'sub sub departments', path: '/admin/categories/subsubcategory', label: 'Sub-subcategories' },
   { permission: 'addproductsdescription', path: '/admin/categories/addproductsdescription', label: 'Product Features/Specifications' },
