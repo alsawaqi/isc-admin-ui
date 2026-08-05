@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { definePageMeta, useNuxtApp } from '#imports'
 import { useFlashStore } from '~/stores/flashs'
 import { apiErrorMessage } from '~/utils/apiError'
@@ -89,8 +89,31 @@ interface PreviewData {
 interface CommitData {
   created?: Counts
   skipped?: Counts
+  linked?: Counts
   warnings?: Array<ImportIssue | string>
   errors?: number
+}
+
+interface ImportHistoryJob {
+  id: number
+  file_name?: string
+  file_size?: number
+  status: string
+  can_rollback: boolean
+  code_period?: string | null
+  result?: {
+    created?: Counts | null
+    skipped?: Counts | null
+    linked?: Counts | null
+    rollback?: {
+      deleted?: Counts
+      metadata_cleared?: Counts
+      rolled_back_at?: string
+    } | null
+  }
+  committed_at?: string | null
+  rolled_back_at?: string | null
+  created_at?: string | null
 }
 
 type IssueFilter = 'all' | 'error' | 'warning' | 'duplicate'
@@ -105,9 +128,13 @@ const codePeriod = ref('')
 const isDragging = ref(false)
 const isPreviewing = ref(false)
 const isCommitting = ref(false)
+const isLoadingHistory = ref(false)
+const isExporting = ref(false)
+const rollingBackId = ref<number | null>(null)
 const requestError = ref('')
 const preview = ref<PreviewData | null>(null)
 const commitResult = ref<CommitData | null>(null)
+const importHistory = ref<ImportHistoryJob[]>([])
 const issueFilter = ref<IssueFilter>('all')
 
 const numberValue = (value: unknown) => {
@@ -191,6 +218,25 @@ const formatDate = (date?: string | null) => {
   return Number.isNaN(value.getTime()) ? date : value.toLocaleString()
 }
 
+const countTotal = (counts?: Counts | null) => (
+  numberValue(counts?.departments)
+  + numberValue(counts?.sub_departments)
+  + numberValue(counts?.sub_sub_departments)
+)
+
+const historyStatusClass = (status?: string) => {
+  const value = String(status ?? '').toLowerCase()
+  if (value === 'committed') return 'is-committed'
+  if (value === 'rolled_back') return 'is-rolled-back'
+  if (value === 'expired') return 'is-expired'
+  return 'is-pending'
+}
+
+const fileNameFromDisposition = (disposition?: string) => {
+  const match = disposition?.match(/filename="?([^";]+)"?/i)
+  return match?.[1] || 'product-hierarchy.xlsx'
+}
+
 const hierarchyImportErrorMessage = (
   error: unknown,
   fallback: string,
@@ -246,6 +292,83 @@ const resetImport = () => {
   selectedFile.value = null
   clearPreview()
   if (fileInput.value) fileInput.value.value = ''
+}
+
+const loadImportHistory = async () => {
+  isLoadingHistory.value = true
+  try {
+    const { data } = await $axios.get('/api/product-hierarchy-import/history', {
+      params: { limit: 20 },
+    })
+    importHistory.value = Array.isArray(data?.data) ? data.data : []
+  } catch (error: any) {
+    flash.error(hierarchyImportErrorMessage(
+      error,
+      'The import history could not be loaded.',
+      'The import history request was not valid.',
+      'The server could not load import history.',
+    ))
+  } finally {
+    isLoadingHistory.value = false
+  }
+}
+
+const exportHierarchy = async () => {
+  isExporting.value = true
+  try {
+    const response = await $axios.get('/api/product-hierarchy-import/export', {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileNameFromDisposition(response.headers?.['content-disposition'])
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    flash.success('Product hierarchy export downloaded.')
+  } catch (error: any) {
+    flash.error(hierarchyImportErrorMessage(
+      error,
+      'The product hierarchy could not be exported.',
+      'The export request was not valid.',
+      'The server could not create the product hierarchy export.',
+    ))
+  } finally {
+    isExporting.value = false
+  }
+}
+
+const rollbackImport = async (job: ImportHistoryJob) => {
+  if (!job.can_rollback || rollingBackId.value) return
+  const changedTotal = countTotal(job.result?.created) + countTotal(job.result?.linked)
+  const confirmed = await flash.confirm({
+    title: 'Roll back hierarchy import?',
+    message: 'This will remove only records created by this import and clear metadata it added. If products or later categories now depend on it, the server will refuse the rollback.',
+    confirmText: 'Yes, roll back',
+    cancelText: 'Keep import',
+  })
+  if (!confirmed) return
+
+  rollingBackId.value = job.id
+  try {
+    const response = await $axios.post(`/api/product-hierarchy-import/${job.id}/rollback`)
+    flash.success(response.data?.message || `Rolled back ${changedTotal.toLocaleString()} hierarchy changes.`)
+    await loadImportHistory()
+  } catch (error: any) {
+    flash.error(hierarchyImportErrorMessage(
+      error,
+      'The import could not be rolled back.',
+      'This import batch can no longer be rolled back from this page.',
+      'The server could not safely roll back this import.',
+    ))
+  } finally {
+    rollingBackId.value = null
+  }
 }
 
 const selectFile = (file?: File | null) => {
@@ -342,6 +465,7 @@ const commitImport = async () => {
     })
     commitResult.value = response.data?.data ?? response.data
     flash.success(response.data?.message || 'Product hierarchy imported successfully.')
+    await loadImportHistory()
   } catch (error: any) {
     requestError.value = hierarchyImportErrorMessage(
       error,
@@ -361,6 +485,10 @@ const statusClass = (status?: string) => {
   if (/exist|skip/.test(value)) return 'status-existing'
   return 'status-neutral'
 }
+
+onMounted(() => {
+  loadImportHistory()
+})
 </script>
 
 <template>
@@ -372,16 +500,93 @@ const statusClass = (status?: string) => {
           Preview departments, sub-departments and sub-sub-departments before saving anything.
         </p>
       </div>
-      <ul class="d-flex align-items-center gap-2 mb-0">
-        <li class="fw-medium">
-          <NuxtLink to="/admin/categories" class="d-flex align-items-center gap-1 hover-text-primary">
-            <iconify-icon icon="solar:folder-with-files-outline" class="icon text-lg"></iconify-icon>
-            Categories
-          </NuxtLink>
-        </li>
-        <li>-</li>
-        <li class="fw-medium">Import</li>
-      </ul>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button
+          type="button"
+          class="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+          :disabled="isExporting"
+          @click="exportHierarchy"
+        >
+          <span v-if="isExporting" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <iconify-icon v-else icon="solar:download-outline" class="text-lg"></iconify-icon>
+          {{ isExporting ? 'Exporting...' : 'Export hierarchy' }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+          :disabled="isLoadingHistory"
+          @click="loadImportHistory"
+        >
+          <span v-if="isLoadingHistory" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <iconify-icon v-else icon="solar:refresh-outline" class="text-lg"></iconify-icon>
+          History
+        </button>
+      </div>
+    </div>
+
+    <div class="card radius-12 border-0 shadow-sm mb-24 overflow-hidden">
+      <div class="card-header bg-base border-bottom py-16 px-24">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div>
+            <h6 class="fw-semibold mb-4">Import history</h6>
+            <p class="text-secondary-light text-sm mb-0">Recent hierarchy batches and rollback status.</p>
+          </div>
+          <span class="text-secondary-light text-sm">{{ importHistory.length }} shown</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 import-history-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Status</th>
+              <th class="text-end">Created</th>
+              <th class="text-end">Linked</th>
+              <th>Date</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="isLoadingHistory && !importHistory.length">
+              <td colspan="6" class="text-center text-secondary-light py-24">Loading import history...</td>
+            </tr>
+            <tr v-else-if="!importHistory.length">
+              <td colspan="6" class="text-center text-secondary-light py-24">No hierarchy imports yet.</td>
+            </tr>
+            <template v-else>
+              <tr v-for="job in importHistory" :key="job.id">
+                <td>
+                  <div class="fw-semibold text-break">{{ job.file_name || 'Hierarchy workbook' }}</div>
+                  <small class="text-secondary-light">
+                    <template v-if="job.code_period">Code period: {{ job.code_period }} · </template>
+                    {{ fileSize(job.file_size) }}
+                  </small>
+                </td>
+                <td>
+                  <span class="history-status" :class="historyStatusClass(job.status)">{{ job.status.replace('_', ' ') }}</span>
+                </td>
+                <td class="text-end fw-semibold">{{ countTotal(job.result?.created).toLocaleString() }}</td>
+                <td class="text-end">{{ countTotal(job.result?.linked).toLocaleString() }}</td>
+                <td>
+                  <span>{{ formatDate(job.committed_at || job.rolled_back_at || job.created_at) }}</span>
+                </td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                    :disabled="!job.can_rollback || rollingBackId === job.id"
+                    @click="rollbackImport(job)"
+                  >
+                    <span v-if="rollingBackId === job.id" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <iconify-icon v-else icon="solar:undo-left-outline" class="text-md"></iconify-icon>
+                    Rollback
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div v-if="commitResult" class="card radius-12 border import-success-card mb-24" aria-live="polite">
@@ -860,6 +1065,7 @@ const statusClass = (status?: string) => {
 
 .preview-state,
 .tree-status,
+.history-status,
 .issue-severity {
   display: inline-flex;
   align-items: center;
@@ -873,6 +1079,40 @@ const statusClass = (status?: string) => {
 }
 
 .preview-state { padding: 8px 12px; }
+
+.import-history-table th {
+  color: var(--import-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.import-history-table td {
+  vertical-align: middle;
+}
+
+.history-status {
+  padding: 6px 10px;
+}
+
+.history-status.is-committed {
+  color: #047857;
+  background: #d1fae5;
+}
+
+.history-status.is-rolled-back {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.history-status.is-expired {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.history-status.is-pending {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
 
 .preview-state.is-valid,
 .status-new,
