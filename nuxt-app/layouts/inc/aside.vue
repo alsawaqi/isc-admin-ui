@@ -40,6 +40,7 @@ const getActiveColor = (path: string): string => {
     // Categories / Product Features/Specifications
     '/admin/categories': 'color: #6b8629;',
     '/admin/categories/import': 'color: #2563eb;',
+    '/admin/categories/order': 'color: #7c3aed;',
     '/admin/categories/subcategory': 'color: #73da1b;',
     '/admin/categories/subsubcategory': 'color: #41a5e3;',
     '/admin/categories/addproductsdescription': 'color: #4345e3;',
@@ -396,7 +397,7 @@ onMounted(async () => {
               <ul class="open" style="display: block;">
                 <li v-if="hasPermission('product category')" class="has-child">
                   <a href="javascript:void(0)"
-                  :style="isAnyChildActive(['/admin/categories', '/admin/categories/import', '/admin/categories/subcategory', '/admin/categories/subsubcategory'])
+                  :style="isAnyChildActive(['/admin/categories', '/admin/categories/import', '/admin/categories/order', '/admin/categories/subcategory', '/admin/categories/subsubcategory'])
                       ? getActiveColor(route.path)
                       : ''">
                        Product Categories</a>
@@ -414,6 +415,15 @@ onMounted(async () => {
                         :style="isActive('/admin/categories/import') ? getActiveColor('/admin/categories/import') : 'color: #17a2b8;'"
                       >
                         Import hierarchy
+                      </NuxtLink>
+                    </li>
+
+                    <li v-if="hasPermission('product category')">
+                      <NuxtLink
+                        to="/admin/categories/order"
+                        :style="isActive('/admin/categories/order') ? getActiveColor('/admin/categories/order') : 'color: #17a2b8;'"
+                      >
+                        Display order
                       </NuxtLink>
                     </li>
 
