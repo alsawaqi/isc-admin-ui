@@ -1,0 +1,237 @@
+const LEVELS = new Set(['department', 'sub_department', 'sub_sub_department'])
+
+const LEVEL_FIELD_MAP = {
+  department: {
+    name: ['name', 'Product_Department_Name', 'department_name'],
+    nameAr: ['name_ar', 'Product_Department_Name_Ar', 'department_name_ar'],
+    code: ['code', 'Product_Department_Code', 'department_code'],
+    parentId: [],
+  },
+  sub_department: {
+    name: ['name', 'Sub_Department_Name', 'sub_department_name'],
+    nameAr: ['name_ar', 'Sub_Department_Name_Ar', 'sub_department_name_ar'],
+    code: ['code', 'Products_Sub_Department_Code', 'sub_department_code'],
+    parentId: ['parent_id', 'Products_Departments_Id', 'department_id'],
+  },
+  sub_sub_department: {
+    name: ['name', 'Product_Sub_Sub_Department_Name', 'sub_sub_department_name'],
+    nameAr: ['name_ar', 'Product_Sub_Sub_Department_Name_Ar', 'sub_sub_department_name_ar'],
+    code: ['code', 'Product_Sub_Sub_Department_Code', 'sub_sub_department_code'],
+    parentId: ['parent_id', 'Product_Sub_Department_Id', 'sub_department_id'],
+  },
+}
+
+const firstValue = (source, keys) => {
+  for (const key of keys) {
+    if (source?.[key] !== undefined && source[key] !== null) return source[key]
+  }
+  return null
+}
+
+const optionalNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export const normalizeHierarchyLevel = (value, fallback = 'department') => {
+  const level = String(value || fallback).trim().toLowerCase()
+  return LEVELS.has(level) ? level : fallback
+}
+
+export const normalizeHierarchyOrderRow = (raw, fallbackLevel = 'department', index = 0) => {
+  const level = normalizeHierarchyLevel(raw?.level, fallbackLevel)
+  const fields = LEVEL_FIELD_MAP[level]
+  const id = Number(firstValue(raw, ['id', 'ID']))
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new TypeError('Hierarchy order rows require a positive integer id.')
+  }
+
+  const displayOrder = optionalNumber(firstValue(raw, [
+    'display_order',
+    'Display_Order',
+    'sort_order',
+    'position',
+  ]))
+  const explicitBreadcrumb = Array.isArray(raw?.breadcrumb)
+    ? raw.breadcrumb.map(value => String(value)).filter(Boolean)
+    : []
+  const fallbackBreadcrumb = [
+    raw?.department_name,
+    level === 'sub_sub_department' ? raw?.sub_department_name : null,
+  ].map(value => String(value ?? '').trim()).filter(Boolean)
+
+  return {
+    id,
+    level,
+    parentId: level === 'department' ? null : optionalNumber(firstValue(raw, fields.parentId)),
+    name: String(firstValue(raw, fields.name) ?? '').trim(),
+    nameAr: String(firstValue(raw, fields.nameAr) ?? '').trim(),
+    code: String(firstValue(raw, fields.code) ?? '').trim(),
+    displayOrder: displayOrder ?? index + 1,
+    childCount: optionalNumber(firstValue(raw, [
+      'child_count',
+      'children_count',
+      'sub_departments_count',
+      'sub_sub_departments_count',
+    ])) ?? 0,
+    breadcrumb: explicitBreadcrumb.length ? explicitBreadcrumb : fallbackBreadcrumb,
+    raw,
+  }
+}
+
+export const normalizeHierarchyOrderRows = (rows, level) => {
+  if (!Array.isArray(rows)) return []
+
+  return rows
+    .map((row, index) => normalizeHierarchyOrderRow(row, level, index))
+    .sort((left, right) => (
+      Number(left.displayOrder) - Number(right.displayOrder)
+      || Number(left.id) - Number(right.id)
+    ))
+    .map((row, index) => ({ ...row, displayOrder: index + 1 }))
+}
+
+export const extractHierarchyOrderPage = (payload, level) => {
+  const responseBody = payload ?? {}
+  const nested = !Array.isArray(responseBody) ? responseBody?.data : null
+  const root = (
+    nested
+    && typeof nested === 'object'
+    && !Array.isArray(nested)
+    && (
+      Array.isArray(nested.data)
+      || Array.isArray(nested.items)
+      || Array.isArray(nested.rows)
+    )
+  ) ? nested : responseBody
+  const rows = Array.isArray(root)
+    ? root
+    : (Array.isArray(root?.data) ? root.data : (root?.items ?? root?.rows ?? []))
+  const meta = Array.isArray(root) ? {} : (root?.meta ?? root)
+  const currentPage = Number(meta?.current_page ?? meta?.currentPage ?? 1) || 1
+  const lastPage = Number(meta?.last_page ?? meta?.lastPage ?? currentPage) || currentPage
+  const total = Number(meta?.total ?? rows.length) || 0
+  const revision = Number(meta?.revision ?? root?.revision ?? 0)
+
+  return {
+    rows: normalizeHierarchyOrderRows(rows, level),
+    currentPage,
+    lastPage,
+    total,
+    revision: Number.isInteger(revision) && revision > 0 ? revision : null,
+  }
+}
+
+const searchText = value => String(value ?? '')
+  .normalize('NFKC')
+  .toLocaleLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim()
+
+export const hierarchyRowMatchesSearch = (row, query) => {
+  const needle = searchText(query)
+  if (!needle) return true
+
+  return [
+    row?.name,
+    row?.nameAr,
+    row?.code,
+    ...(Array.isArray(row?.breadcrumb) ? row.breadcrumb : []),
+  ].some(value => searchText(value).includes(needle))
+}
+
+export const filterHierarchyOrderRows = (rows, query) => (
+  (Array.isArray(rows) ? rows : []).filter(row => hierarchyRowMatchesSearch(row, query))
+)
+
+const scopeKey = row => (
+  normalizeHierarchyLevel(row?.level) + ':' + String(row?.parentId ?? 'root')
+)
+
+export const moveBeforeSibling = (rows, movedId, beforeId = null) => {
+  const source = Array.isArray(rows) ? rows : []
+  const movedIndex = source.findIndex(row => Number(row.id) === Number(movedId))
+  if (movedIndex < 0) throw new RangeError('The moved hierarchy item was not found.')
+
+  const moved = source[movedIndex]
+  if (source.some(row => scopeKey(row) !== scopeKey(moved))) {
+    throw new TypeError('Hierarchy items can only be reordered within the same parent.')
+  }
+  if (beforeId !== null && Number(beforeId) === Number(movedId)) {
+    return source.map((row, index) => ({ ...row, displayOrder: index + 1 }))
+  }
+
+  const anchor = beforeId === null
+    ? null
+    : source.find(row => Number(row.id) === Number(beforeId))
+  if (beforeId !== null && !anchor) {
+    throw new RangeError('The hierarchy anchor item was not found.')
+  }
+  if (anchor && scopeKey(anchor) !== scopeKey(moved)) {
+    throw new TypeError('Hierarchy items can only be reordered within the same parent.')
+  }
+
+  const next = source.filter(row => Number(row.id) !== Number(movedId))
+  const insertAt = anchor
+    ? next.findIndex(row => Number(row.id) === Number(anchor.id))
+    : next.length
+  next.splice(insertAt < 0 ? next.length : insertAt, 0, moved)
+
+  return next.map((row, index) => ({ ...row, displayOrder: index + 1 }))
+}
+
+export const moveHierarchyRow = (rows, movedId, action) => {
+  const source = Array.isArray(rows) ? rows : []
+  const index = source.findIndex(row => Number(row.id) === Number(movedId))
+  if (index < 0) throw new RangeError('The moved hierarchy item was not found.')
+
+  let beforeId
+  if (action === 'top') beforeId = source[0]?.id ?? null
+  else if (action === 'up') beforeId = source[index - 1]?.id ?? source[index]?.id ?? null
+  else if (action === 'down') beforeId = source[index + 2]?.id ?? null
+  else if (action === 'bottom') beforeId = null
+  else throw new TypeError('Unknown hierarchy move action.')
+
+  const nextRows = moveBeforeSibling(source, movedId, beforeId)
+  const nextIndex = nextRows.findIndex(row => Number(row.id) === Number(movedId))
+  const changed = nextIndex !== index
+
+  return {
+    rows: nextRows,
+    changed,
+    beforeId: changed ? (nextRows[nextIndex + 1]?.id ?? null) : (source[index + 1]?.id ?? null),
+  }
+}
+
+export const buildHierarchyMovePayload = (level, id, beforeId = null, revision) => {
+  const normalizedLevel = normalizeHierarchyLevel(level, '')
+  const normalizedId = Number(id)
+  const normalizedBeforeId = beforeId === null ? null : Number(beforeId)
+  const normalizedRevision = Number(revision)
+
+  if (!LEVELS.has(normalizedLevel)) throw new TypeError('A valid hierarchy level is required.')
+  if (!Number.isInteger(normalizedId) || normalizedId < 1) {
+    throw new TypeError('A valid hierarchy item id is required.')
+  }
+  if (
+    normalizedBeforeId !== null
+    && (!Number.isInteger(normalizedBeforeId) || normalizedBeforeId < 1)
+  ) {
+    throw new TypeError('The hierarchy anchor id must be null or a positive integer.')
+  }
+  if (normalizedBeforeId === normalizedId) {
+    throw new TypeError('A hierarchy item cannot be moved before itself.')
+  }
+  if (!Number.isInteger(normalizedRevision) || normalizedRevision < 1) {
+    throw new TypeError('A valid hierarchy order revision is required.')
+  }
+
+  return {
+    level: normalizedLevel,
+    id: normalizedId,
+    before_id: normalizedBeforeId,
+    revision: normalizedRevision,
+  }
+}
