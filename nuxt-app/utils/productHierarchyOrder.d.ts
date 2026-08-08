@@ -54,6 +54,17 @@ export function moveHierarchyRow(
   movedId: number,
   action: HierarchyMoveAction,
 ): { rows: HierarchyOrderRow[]; changed: boolean; beforeId: number | null }
+export function moveHierarchyRowToPosition(
+  rows: HierarchyOrderRow[],
+  movedId: number,
+  targetPosition: number,
+): { rows: HierarchyOrderRow[]; changed: boolean; beforeId: number | null }
+export function hierarchyDragAutoScrollDelta(
+  pointerY: number,
+  top: number,
+  bottom: number,
+  options?: { edge?: number; maxSpeed?: number },
+): number
 export function buildHierarchyMovePayload(
   level: HierarchyOrderLevel,
   id: number,

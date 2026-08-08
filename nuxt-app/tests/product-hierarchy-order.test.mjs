@@ -4,8 +4,10 @@ import {
   buildHierarchyMovePayload,
   extractHierarchyOrderPage,
   filterHierarchyOrderRows,
+  hierarchyDragAutoScrollDelta,
   moveBeforeSibling,
   moveHierarchyRow,
+  moveHierarchyRowToPosition,
   normalizeHierarchyOrderRows,
 } from '../utils/productHierarchyOrder.js'
 
@@ -72,6 +74,71 @@ test('accessible move actions calculate the backend before anchor', () => {
   const bottom = moveHierarchyRow(rows(), 10, 'bottom')
   assert.deepEqual(bottom.rows.map(row => row.id), [20, 30, 10])
   assert.equal(bottom.beforeId, null)
+})
+
+test('numeric positions move rows to the requested final position', () => {
+  const first = moveHierarchyRowToPosition(rows(), 30, 1)
+  assert.deepEqual(first.rows.map(row => row.id), [30, 10, 20])
+  assert.equal(first.beforeId, 10)
+
+  const middle = moveHierarchyRowToPosition(rows(), 10, 2)
+  assert.deepEqual(middle.rows.map(row => row.id), [20, 10, 30])
+  assert.equal(middle.beforeId, 30)
+
+  const last = moveHierarchyRowToPosition(rows(), 10, 3)
+  assert.deepEqual(last.rows.map(row => row.id), [20, 30, 10])
+  assert.equal(last.beforeId, null)
+  assert.deepEqual(last.rows.map(row => row.displayOrder), [1, 2, 3])
+})
+
+test('numeric positions reject invalid values and preserve no-op moves', () => {
+  const unchanged = moveHierarchyRowToPosition(rows(), 20, 2)
+  assert.equal(unchanged.changed, false)
+  assert.deepEqual(unchanged.rows.map(row => row.id), [10, 20, 30])
+  assert.equal(unchanged.beforeId, 30)
+
+  for (const position of [0, -1, 1.5, 4, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => moveHierarchyRowToPosition(rows(), 20, position),
+      /between 1 and 3/i,
+    )
+  }
+  assert.throws(
+    () => moveHierarchyRowToPosition(rows(), 999, 1),
+    /not found/i,
+  )
+})
+
+test('numeric positions cannot reorder a mixed-parent list', () => {
+  const mixedRows = [
+    ...rows(),
+    { ...rows()[0], id: 99, parentId: 8 },
+  ]
+
+  assert.throws(
+    () => moveHierarchyRowToPosition(mixedRows, 10, 4),
+    /same parent/i,
+  )
+})
+
+test('drag auto-scroll speed is directional, proportional, and bounded', () => {
+  const options = { edge: 60, maxSpeed: 24 }
+
+  assert.equal(hierarchyDragAutoScrollDelta(100, 0, 200, options), 0)
+  assert.equal(hierarchyDragAutoScrollDelta(0, 0, 200, options), -24)
+  assert.equal(hierarchyDragAutoScrollDelta(200, 0, 200, options), 24)
+  assert.equal(hierarchyDragAutoScrollDelta(50, 0, 200, options), -4)
+  assert.equal(hierarchyDragAutoScrollDelta(150, 0, 200, options), 4)
+  assert.equal(hierarchyDragAutoScrollDelta(-50, 0, 200, options), -24)
+  assert.equal(hierarchyDragAutoScrollDelta(250, 0, 200, options), 24)
+})
+
+test('drag auto-scroll handles short and invalid scroll areas safely', () => {
+  assert.equal(hierarchyDragAutoScrollDelta(0, 0, 40, { edge: 60, maxSpeed: 20 }), -20)
+  assert.equal(hierarchyDragAutoScrollDelta(40, 0, 40, { edge: 60, maxSpeed: 20 }), 20)
+  assert.equal(hierarchyDragAutoScrollDelta(10, 20, 20), 0)
+  assert.equal(hierarchyDragAutoScrollDelta(Number.NaN, 0, 200), 0)
+  assert.equal(hierarchyDragAutoScrollDelta(10, 0, 200, { edge: 0 }), 0)
 })
 
 test('move payload uses the exact level/id/before_id/revision API contract', () => {

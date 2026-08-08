@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import type {
   HierarchyMoveAction,
   HierarchyOrderRow,
 } from '~/utils/productHierarchyOrder'
-import { moveHierarchyRow } from '~/utils/productHierarchyOrder.js'
+import {
+  hierarchyDragAutoScrollDelta,
+  moveHierarchyRow,
+  moveHierarchyRowToPosition,
+} from '~/utils/productHierarchyOrder.js'
 
 const props = withDefaults(defineProps<{
   title: string
@@ -47,6 +51,15 @@ type DropPosition = 'before' | 'after'
 const draggedId = ref<number | null>(null)
 const dropTargetId = ref<number | null>(null)
 const dropPosition = ref<DropPosition>('before')
+const columnRef = ref<HTMLElement | null>(null)
+const bodyRef = ref<HTMLElement | null>(null)
+const editingPositionId = ref<number | null>(null)
+const positionDraft = ref('')
+const positionAnnouncement = ref('')
+let autoScrollFrame: number | null = null
+let dragPointerX = 0
+let dragPointerY = 0
+let dragListenerActive = false
 
 const visibleTotal = computed(() => props.total || props.rows.length)
 const canReorder = computed(() => (
@@ -60,7 +73,105 @@ const selectRow = (id: number) => {
   emit('select', id)
 }
 
+const updateDropTarget = (element: HTMLElement, targetId: number, clientY: number) => {
+  if (draggedId.value === null || draggedId.value === targetId) return
+
+  const bounds = element.getBoundingClientRect()
+  dropTargetId.value = targetId
+  dropPosition.value = clientY < bounds.top + (bounds.height / 2) ? 'before' : 'after'
+}
+
+const updateDropTargetFromPoint = () => {
+  if (!bodyRef.value || draggedId.value === null) return
+
+  const element = document.elementFromPoint(dragPointerX, dragPointerY)
+  const rowElement = element?.closest<HTMLElement>('[data-order-row-id]')
+  if (!rowElement || !bodyRef.value.contains(rowElement)) return
+
+  const targetId = Number(rowElement.dataset.orderRowId)
+  if (!Number.isInteger(targetId)) return
+  updateDropTarget(rowElement, targetId, dragPointerY)
+}
+
+const canScrollElement = (element: HTMLElement, delta: number) => {
+  if (delta < 0) return element.scrollTop > 0
+  if (delta > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1
+  return false
+}
+
+const autoScrollTick = () => {
+  autoScrollFrame = null
+  if (draggedId.value === null || !bodyRef.value) return
+
+  const body = bodyRef.value
+  const bounds = body.getBoundingClientRect()
+  const localDelta = hierarchyDragAutoScrollDelta(dragPointerY, bounds.top, bounds.bottom)
+  let didScroll = false
+
+  if (localDelta && canScrollElement(body, localDelta)) {
+    const previousTop = body.scrollTop
+    body.scrollTop += localDelta
+    didScroll = body.scrollTop !== previousTop
+  } else {
+    const viewportDelta = hierarchyDragAutoScrollDelta(
+      dragPointerY,
+      0,
+      window.innerHeight,
+      { edge: 84, maxSpeed: 16 },
+    )
+    const documentHeight = document.documentElement.scrollHeight
+    const canScrollWindow = viewportDelta < 0
+      ? window.scrollY > 0
+      : window.scrollY + window.innerHeight < documentHeight - 1
+
+    if (viewportDelta && canScrollWindow) {
+      const previousY = window.scrollY
+      window.scrollBy({ top: viewportDelta, left: 0, behavior: 'auto' })
+      didScroll = window.scrollY !== previousY
+    }
+  }
+
+  if (didScroll) updateDropTargetFromPoint()
+  autoScrollFrame = window.requestAnimationFrame(autoScrollTick)
+}
+
+const scheduleAutoScroll = () => {
+  if (autoScrollFrame === null && draggedId.value !== null) {
+    autoScrollFrame = window.requestAnimationFrame(autoScrollTick)
+  }
+}
+
+const onDocumentDragOver = (event: DragEvent) => {
+  if (draggedId.value === null) return
+
+  dragPointerX = event.clientX
+  dragPointerY = event.clientY
+  const target = event.target
+  if (target instanceof Node && columnRef.value?.contains(target)) event.preventDefault()
+  scheduleAutoScroll()
+}
+
+const startAutoScroll = () => {
+  if (!dragListenerActive) {
+    document.addEventListener('dragover', onDocumentDragOver, { passive: false })
+    dragListenerActive = true
+  }
+  scheduleAutoScroll()
+}
+
+const stopAutoScroll = () => {
+  if (autoScrollFrame !== null) {
+    window.cancelAnimationFrame(autoScrollFrame)
+    autoScrollFrame = null
+  }
+  if (dragListenerActive) {
+    document.removeEventListener('dragover', onDocumentDragOver)
+    dragListenerActive = false
+  }
+}
+
 const clearDragState = () => {
+  stopAutoScroll()
   draggedId.value = null
   dropTargetId.value = null
   dropPosition.value = 'before'
@@ -74,6 +185,9 @@ const onDragStart = (event: DragEvent, row: HierarchyOrderRow) => {
 
   draggedId.value = row.id
   dropTargetId.value = null
+  dragPointerX = event.clientX
+  dragPointerY = event.clientY
+  startAutoScroll()
   event.dataTransfer?.setData('text/plain', String(row.id))
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
 }
@@ -86,9 +200,21 @@ const onDragOver = (event: DragEvent, row: HierarchyOrderRow) => {
 
   event.preventDefault()
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-  const bounds = element.getBoundingClientRect()
-  dropTargetId.value = row.id
-  dropPosition.value = event.clientY < bounds.top + (bounds.height / 2) ? 'before' : 'after'
+  dragPointerX = event.clientX
+  dragPointerY = event.clientY
+  updateDropTarget(element, row.id, event.clientY)
+  scheduleAutoScroll()
+}
+
+const onBodyDragOver = (event: DragEvent) => {
+  if (!canReorder.value || draggedId.value === null) return
+
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragPointerX = event.clientX
+  dragPointerY = event.clientY
+  updateDropTargetFromPoint()
+  scheduleAutoScroll()
 }
 
 const resolveDropAnchor = (targetId: number, position: DropPosition) => {
@@ -120,13 +246,62 @@ const moveWithControl = (row: HierarchyOrderRow, action: HierarchyMoveAction) =>
   emit('move', { id: row.id, beforeId: result.beforeId })
 }
 
+const focusPositionInput = (id: number) => {
+  nextTick(() => {
+    const input = bodyRef.value?.querySelector<HTMLInputElement>(`[data-position-input="${id}"]`)
+    input?.focus()
+    input?.select()
+  })
+}
+
+const startPositionEdit = (row: HierarchyOrderRow, index: number) => {
+  if (!canReorder.value) return
+
+  editingPositionId.value = row.id
+  positionDraft.value = String(index + 1)
+  positionAnnouncement.value = `Editing ${row.name || 'category'} position.`
+  focusPositionInput(row.id)
+}
+
+const cancelPositionEdit = () => {
+  editingPositionId.value = null
+  positionDraft.value = ''
+  positionAnnouncement.value = 'Position change cancelled.'
+}
+
+const commitPosition = (row: HierarchyOrderRow) => {
+  if (editingPositionId.value !== row.id) return
+
+  const targetPosition = Number(positionDraft.value)
+  if (!Number.isInteger(targetPosition) || targetPosition < 1 || targetPosition > props.rows.length) {
+    editingPositionId.value = null
+    positionDraft.value = ''
+    positionAnnouncement.value = `Enter a position between 1 and ${props.rows.length}.`
+    return
+  }
+
+  const result = moveHierarchyRowToPosition(props.rows, row.id, targetPosition)
+  editingPositionId.value = null
+  positionDraft.value = ''
+  if (!result.changed) {
+    positionAnnouncement.value = `${row.name || 'Category'} is already at position ${targetPosition}.`
+    return
+  }
+
+  positionAnnouncement.value = `${row.name || 'Category'} moved to position ${targetPosition}.`
+  emit('move', { id: row.id, beforeId: result.beforeId })
+}
+
 const rowIndex = (id: number) => props.rows.findIndex(row => row.id === id)
 const isFirst = (id: number) => rowIndex(id) <= 0
 const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
+
+onBeforeUnmount(stopAutoScroll)
 </script>
 
 <template>
-  <section class="order-column" :aria-busy="loading || busy">
+  <section ref="columnRef" class="order-column" :aria-busy="loading || busy">
+    <span class="visually-hidden" aria-live="polite">{{ positionAnnouncement }}</span>
     <header class="order-column__header">
       <div class="order-column__heading">
         <div>
@@ -182,12 +357,13 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
       <span>{{ emptyCopy }}</span>
     </div>
 
-    <div v-else class="order-column__body">
+    <div v-else ref="bodyRef" class="order-column__body" @dragover="onBodyDragOver">
       <div class="order-column__list" role="list" :aria-label="title">
         <article
           v-for="(row, index) in rows"
           :key="row.level + '-' + row.id"
           class="order-row"
+          :data-order-row-id="row.id"
           :class="{
             'order-row--selected': selectedId === row.id,
             'order-row--saving': busy,
@@ -207,6 +383,7 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
             :disabled="!canReorder"
             :aria-label="'Drag to reorder ' + row.name"
             :title="canReorder ? 'Drag to reorder' : dragDisabledReason"
+            tabindex="-1"
             @click.stop
             @dragstart="onDragStart($event, row)"
             @dragend="clearDragState"
@@ -214,8 +391,31 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
             <iconify-icon icon="solar:hamburger-menu-linear" aria-hidden="true" />
           </button>
 
-          <span class="order-row__position" aria-label="Position">
-            {{ index + 1 }}
+          <span class="order-row__position-wrap" @click.stop>
+            <input
+              v-if="editingPositionId === row.id"
+              v-model="positionDraft"
+              class="order-row__position order-row__position--input"
+              type="number"
+              inputmode="numeric"
+              :min="1"
+              :max="rows.length"
+              :data-position-input="row.id"
+              :aria-label="'Move ' + row.name + ' to position'"
+              @click.stop
+              @keydown.enter.prevent="commitPosition(row)"
+              @keydown.esc.prevent="cancelPositionEdit"
+              @blur="commitPosition(row)"
+            >
+            <button
+              v-else
+              type="button"
+              class="order-row__position"
+              :disabled="!canReorder"
+              :aria-label="'Position ' + (index + 1) + '. Click to change ' + row.name + ' position'"
+              title="Click to set position"
+              @click.stop="startPositionEdit(row, index)"
+            >{{ index + 1 }}</button>
           </span>
 
           <button
@@ -320,7 +520,7 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
 
 .order-column__header {
   z-index: 2;
-  padding: 1rem;
+  padding: 0.82rem;
   border-bottom: 1px solid var(--order-border);
   background: var(--order-surface);
 }
@@ -335,7 +535,8 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
 .order-column__heading h2 {
   margin: 0;
   color: #0f172a;
-  font-size: 0.98rem;
+  font-size: 0.9rem !important;
+  line-height: 1.25 !important;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -425,7 +626,7 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
 .order-row {
   position: relative;
   display: grid;
-  grid-template-columns: 1.65rem 1.7rem minmax(0, 1fr) auto;
+  grid-template-columns: 1.65rem 2.15rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.35rem;
   min-height: 4.3rem;
@@ -510,18 +711,53 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
   opacity: 0.35;
 }
 
+.order-row__position-wrap {
+  display: inline-flex;
+  width: 2.15rem;
+  align-items: center;
+  justify-content: center;
+}
+
 .order-row__position {
   display: inline-flex;
-  width: 1.65rem;
+  width: 2.05rem;
   height: 1.65rem;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid transparent;
   border-radius: 0.45rem;
   background: #f1f5f9;
   color: #475569;
+  cursor: pointer;
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+.order-row__position:hover:not(:disabled),
+.order-row__position:focus-visible {
+  border-color: #93c5fd;
+  outline: none;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.order-row__position:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.order-row__position--input {
+  appearance: textfield;
+  padding: 0.12rem;
+  text-align: center;
+}
+
+.order-row__position--input::-webkit-inner-spin-button,
+.order-row__position--input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
 }
 
 .order-row__content {
@@ -792,7 +1028,7 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
 
 @media (max-width: 1400px) {
   .order-row {
-    grid-template-columns: 1.45rem 1.55rem minmax(0, 1fr);
+    grid-template-columns: 1.45rem 2.15rem minmax(0, 1fr);
     grid-template-rows: auto auto;
   }
 
@@ -801,7 +1037,7 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
     grid-row: 1 / span 2;
   }
 
-  .order-row__position {
+  .order-row__position-wrap {
     grid-column: 2;
     grid-row: 1 / span 2;
   }
@@ -828,6 +1064,12 @@ const isLast = (id: number) => rowIndex(id) === props.rows.length - 1
 @media (max-width: 1199px) {
   .order-column {
     max-height: 36rem;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .order-row__actions {
+    opacity: 1;
   }
 }
 

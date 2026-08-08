@@ -205,6 +205,68 @@ export const moveHierarchyRow = (rows, movedId, action) => {
   }
 }
 
+export const moveHierarchyRowToPosition = (rows, movedId, targetPosition) => {
+  const source = Array.isArray(rows) ? rows : []
+  const position = Number(targetPosition)
+  const currentIndex = source.findIndex(row => Number(row.id) === Number(movedId))
+
+  if (currentIndex < 0) throw new RangeError('The moved hierarchy item was not found.')
+  if (!Number.isInteger(position) || position < 1 || position > source.length) {
+    throw new RangeError(`The hierarchy position must be between 1 and ${source.length}.`)
+  }
+
+  const remaining = source.filter(row => Number(row.id) !== Number(movedId))
+  const beforeId = remaining[position - 1]?.id ?? null
+  const nextRows = moveBeforeSibling(source, movedId, beforeId)
+  const nextIndex = nextRows.findIndex(row => Number(row.id) === Number(movedId))
+  const changed = nextIndex !== currentIndex
+
+  return {
+    rows: nextRows,
+    changed,
+    beforeId: changed ? (nextRows[nextIndex + 1]?.id ?? null) : (source[currentIndex + 1]?.id ?? null),
+  }
+}
+
+export const hierarchyDragAutoScrollDelta = (
+  pointerY,
+  top,
+  bottom,
+  { edge = 72, maxSpeed = 18 } = {},
+) => {
+  const y = Number(pointerY)
+  const start = Number(top)
+  const end = Number(bottom)
+  const requestedEdge = Number(edge)
+  const requestedMaxSpeed = Number(maxSpeed)
+
+  if (
+    !Number.isFinite(y)
+    || !Number.isFinite(start)
+    || !Number.isFinite(end)
+    || !Number.isFinite(requestedEdge)
+    || !Number.isFinite(requestedMaxSpeed)
+    || end <= start
+    || requestedEdge <= 0
+    || requestedMaxSpeed <= 0
+  ) return 0
+
+  const edgeSize = Math.min(requestedEdge, (end - start) / 2)
+  const topLimit = start + edgeSize
+  const bottomLimit = end - edgeSize
+
+  if (y < topLimit) {
+    const intensity = Math.min(1, (topLimit - y) / edgeSize)
+    return -Math.ceil(requestedMaxSpeed * intensity)
+  }
+  if (y > bottomLimit) {
+    const intensity = Math.min(1, (y - bottomLimit) / edgeSize)
+    return Math.ceil(requestedMaxSpeed * intensity)
+  }
+
+  return 0
+}
+
 export const buildHierarchyMovePayload = (level, id, beforeId = null, revision) => {
   const normalizedLevel = normalizeHierarchyLevel(level, '')
   const normalizedId = Number(id)

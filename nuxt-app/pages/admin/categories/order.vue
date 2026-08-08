@@ -117,12 +117,12 @@ const selectedSubSubDepartment = computed(() => (
 
 const departmentContext = computed(() => (
   selectedDepartment.value?.name
-  || (selectedDepartmentId.value ? 'Department #' + selectedDepartmentId.value : '')
+  || (selectedDepartmentId.value ? 'Category #' + selectedDepartmentId.value : '')
 ))
 
 const subDepartmentContext = computed(() => (
   selectedSubDepartment.value?.name
-  || (selectedSubDepartmentId.value ? 'Sub-department #' + selectedSubDepartmentId.value : '')
+  || (selectedSubDepartmentId.value ? 'Subcategory #' + selectedSubDepartmentId.value : '')
 ))
 
 const selectedPath = computed(() => [
@@ -538,7 +538,7 @@ const focusGlobalResult = async (result: GlobalHierarchyResult) => {
 
   if (result.level === 'sub_department') {
     if (!result.departmentId) {
-      flash.error('This search result does not include its parent department.')
+      flash.error('This search result does not include its parent category.')
       return
     }
     await selectDepartment(result.departmentId, result.id)
@@ -553,9 +553,9 @@ const focusGlobalResult = async (result: GlobalHierarchyResult) => {
 }
 
 const levelLabel = (level: HierarchyOrderLevel) => {
-  if (level === 'department') return 'Department'
-  if (level === 'sub_department') return 'Sub-department'
-  return 'Sub-sub-department'
+  if (level === 'department') return 'Category'
+  if (level === 'sub_department') return 'Subcategory'
+  return 'Sub-subcategory'
 }
 
 const onDocumentPointerDown = (event: PointerEvent) => {
@@ -680,7 +680,7 @@ onBeforeUnmount(() => {
           <iconify-icon icon="solar:hamburger-menu-linear" aria-hidden="true" />
         </span>
         <span>
-          <strong>Drag or use arrow controls</strong>
+          <strong>Drag, type a position, or use arrow controls</strong>
           Reordering pauses while a pane is filtered or partially loaded.
         </span>
       </div>
@@ -701,7 +701,7 @@ onBeforeUnmount(() => {
         </template>
       </template>
       <span v-else class="hierarchy-context__empty">
-        Select a department to start exploring its hierarchy.
+        Select a category to start exploring its hierarchy.
       </span>
     </nav>
 
@@ -713,7 +713,7 @@ onBeforeUnmount(() => {
     <div class="hierarchy-order-grid">
       <ClientOnly>
         <AdminHierarchyOrderColumn
-          title="Departments"
+          title="Categories"
           subtitle="Storefront root categories"
           :rows="departmentPane.rows"
           :selected-id="selectedDepartmentId"
@@ -725,26 +725,26 @@ onBeforeUnmount(() => {
           :has-more="hasMore(departmentPane)"
           :drag-disabled="!canReorderPane(departmentPane)"
           :drag-disabled-reason="reorderDisabledReason(departmentPane)"
-          empty-title="No departments found"
+          empty-title="No categories found"
           :empty-copy="departmentPane.search
-            ? 'No departments match this filter.'
-            : 'Create or import a product department before arranging it.'"
+            ? 'No categories match this filter.'
+            : 'Create or import a product category before arranging it.'"
           @select="selectDepartment"
           @move="handleMove('department', $event)"
           @retry="retryPane('department')"
           @load-more="loadMorePane('department')"
         />
         <template #fallback>
-          <div class="hierarchy-order-placeholder">Loading department controls...</div>
+          <div class="hierarchy-order-placeholder">Loading category controls...</div>
         </template>
       </ClientOnly>
 
       <ClientOnly>
         <AdminHierarchyOrderColumn
-          title="Sub-departments"
+          title="Subcategories"
           :subtitle="selectedDepartmentId
             ? 'Inside ' + departmentContext
-            : 'Select a department first'"
+            : 'Select a category first'"
           :rows="subDepartmentPane.rows"
           :selected-id="selectedSubDepartmentId"
           v-model:search="subDepartmentPane.search"
@@ -755,28 +755,28 @@ onBeforeUnmount(() => {
           :has-more="hasMore(subDepartmentPane)"
           :drag-disabled="!selectedDepartmentId || !canReorderPane(subDepartmentPane)"
           :drag-disabled-reason="reorderDisabledReason(subDepartmentPane)"
-          :empty-title="selectedDepartmentId ? 'No sub-departments found' : 'Choose a department'"
+          :empty-title="selectedDepartmentId ? 'No subcategories found' : 'Choose a category'"
           :empty-copy="selectedDepartmentId
             ? (subDepartmentPane.search
-              ? 'No sub-departments match this filter.'
-              : 'This department has no sub-departments yet.')
-            : 'The selected department’s children will appear here.'"
+              ? 'No subcategories match this filter.'
+              : 'This category has no subcategories yet.')
+            : 'The selected category’s children will appear here.'"
           @select="selectSubDepartment"
           @move="handleMove('sub_department', $event)"
           @retry="retryPane('sub_department')"
           @load-more="loadMorePane('sub_department')"
         />
         <template #fallback>
-          <div class="hierarchy-order-placeholder">Loading sub-department controls...</div>
+          <div class="hierarchy-order-placeholder">Loading subcategory controls...</div>
         </template>
       </ClientOnly>
 
       <ClientOnly>
         <AdminHierarchyOrderColumn
-          title="Sub-sub-departments"
+          title="Sub-subcategories"
           :subtitle="selectedSubDepartmentId
             ? 'Inside ' + subDepartmentContext
-            : 'Select a sub-department first'"
+            : 'Select a subcategory first'"
           :rows="subSubDepartmentPane.rows"
           :selected-id="selectedSubSubDepartmentId"
           v-model:search="subSubDepartmentPane.search"
@@ -787,11 +787,11 @@ onBeforeUnmount(() => {
           :has-more="hasMore(subSubDepartmentPane)"
           :drag-disabled="!selectedSubDepartmentId || !canReorderPane(subSubDepartmentPane)"
           :drag-disabled-reason="reorderDisabledReason(subSubDepartmentPane)"
-          :empty-title="selectedSubDepartmentId ? 'No sub-sub-departments found' : 'Choose a sub-department'"
+          :empty-title="selectedSubDepartmentId ? 'No sub-subcategories found' : 'Choose a subcategory'"
           :empty-copy="selectedSubDepartmentId
             ? (subSubDepartmentPane.search
-              ? 'No sub-sub-departments match this filter.'
-              : 'This sub-department has no final categories yet.')
+              ? 'No sub-subcategories match this filter.'
+              : 'This subcategory has no sub-subcategories yet.')
             : 'The final category level will appear here.'"
           @select="selectedSubSubDepartmentId = $event"
           @move="handleMove('sub_sub_department', $event)"
@@ -799,7 +799,7 @@ onBeforeUnmount(() => {
           @load-more="loadMorePane('sub_sub_department')"
         />
         <template #fallback>
-          <div class="hierarchy-order-placeholder">Loading final category controls...</div>
+          <div class="hierarchy-order-placeholder">Loading sub-subcategory controls...</div>
         </template>
       </ClientOnly>
     </div>
@@ -826,7 +826,8 @@ onBeforeUnmount(() => {
 .hierarchy-order-hero h1 {
   margin: 0;
   color: #172033;
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem) !important;
+  line-height: 1.3 !important;
   font-weight: 750;
   letter-spacing: -0.025em;
 }
