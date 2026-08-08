@@ -2,9 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildHierarchyMovePayload,
+  buildHierarchyResetPayload,
+  buildHierarchyUndoMove,
+  classifyHierarchyRevision,
   extractHierarchyOrderPage,
   filterHierarchyOrderRows,
   hierarchyDragAutoScrollDelta,
+  hierarchyOrderScopeKey,
   moveBeforeSibling,
   moveHierarchyRow,
   moveHierarchyRowToPosition,
@@ -119,6 +123,77 @@ test('numeric positions cannot reorder a mixed-parent list', () => {
     () => moveHierarchyRowToPosition(mixedRows, 10, 4),
     /same parent/i,
   )
+})
+
+test('undo anchors restore first, middle, and last moves exactly', () => {
+  for (const [movedId, beforeId] of [
+    [10, null],
+    [20, 10],
+    [30, 10],
+  ]) {
+    const original = rows()
+    const undo = buildHierarchyUndoMove(original, movedId)
+    const moved = moveBeforeSibling(original, movedId, beforeId)
+    const restored = moveBeforeSibling(moved, undo.id, undo.beforeId)
+
+    assert.deepEqual(restored.map(row => row.id), original.map(row => row.id))
+    assert.deepEqual(restored.map(row => row.displayOrder), [1, 2, 3])
+  }
+
+  assert.deepEqual(buildHierarchyUndoMove(rows(), 10), { id: 10, beforeId: 20 })
+  assert.deepEqual(buildHierarchyUndoMove(rows(), 20), { id: 20, beforeId: 30 })
+  assert.deepEqual(buildHierarchyUndoMove(rows(), 30), { id: 30, beforeId: null })
+})
+
+test('undo anchors reject missing rows and mixed parent scopes', () => {
+  assert.throws(() => buildHierarchyUndoMove(rows(), 999), /not found/i)
+  assert.throws(
+    () => buildHierarchyUndoMove([
+      ...rows(),
+      { ...rows()[0], id: 99, parentId: 8 },
+    ], 10),
+    /same parent/i,
+  )
+})
+
+test('hierarchy scope keys distinguish every level and parent', () => {
+  assert.equal(hierarchyOrderScopeKey('department', null), 'department:root')
+  assert.equal(hierarchyOrderScopeKey('sub_department', 7), 'sub_department:7')
+  assert.equal(hierarchyOrderScopeKey('sub_sub_department', 9), 'sub_sub_department:9')
+  assert.notEqual(
+    hierarchyOrderScopeKey('sub_department', 7),
+    hierarchyOrderScopeKey('sub_department', 8),
+  )
+  assert.throws(() => hierarchyOrderScopeKey('department', 7), /cannot have a parent/i)
+  assert.throws(() => hierarchyOrderScopeKey('sub_department', null), /positive parent id/i)
+})
+
+test('reset payload preserves exact scope and revision contract', () => {
+  assert.deepEqual(
+    buildHierarchyResetPayload('department', null, 4),
+    { level: 'department', parent_id: null, revision: 4 },
+  )
+  assert.deepEqual(
+    buildHierarchyResetPayload('sub_department', 7, 5),
+    { level: 'sub_department', parent_id: 7, revision: 5 },
+  )
+  assert.deepEqual(
+    buildHierarchyResetPayload('sub_sub_department', 9, 6),
+    { level: 'sub_sub_department', parent_id: 9, revision: 6 },
+  )
+  assert.throws(() => buildHierarchyResetPayload('department', 7, 4), /cannot have a parent/i)
+  assert.throws(() => buildHierarchyResetPayload('sub_department', null, 4), /positive parent id/i)
+  assert.throws(() => buildHierarchyResetPayload('sub_department', 7, 0), /revision/i)
+})
+
+test('revision classification never accepts a lower or invalid GET revision', () => {
+  assert.equal(classifyHierarchyRevision(null, 7), 'newer')
+  assert.equal(classifyHierarchyRevision(7, 7), 'current')
+  assert.equal(classifyHierarchyRevision(7, 8), 'newer')
+  assert.equal(classifyHierarchyRevision(7, 6), 'stale')
+  assert.equal(classifyHierarchyRevision(7, null), 'invalid')
+  assert.equal(classifyHierarchyRevision(7, 0), 'invalid')
+  assert.equal(classifyHierarchyRevision(7, Number.NaN), 'invalid')
 })
 
 test('drag auto-scroll speed is directional, proportional, and bounded', () => {

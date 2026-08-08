@@ -22,6 +22,10 @@ const props = withDefaults(defineProps<{
   total?: number
   hasMore?: boolean
   dragDisabled?: boolean
+  canUndo?: boolean
+  undoDisabledReason?: string
+  canReset?: boolean
+  resetDisabledReason?: string
   dragDisabledReason?: string
   emptyTitle?: string
   emptyCopy?: string
@@ -33,6 +37,10 @@ const props = withDefaults(defineProps<{
   total: 0,
   hasMore: false,
   dragDisabled: false,
+  canUndo: false,
+  undoDisabledReason: 'There is no saved move to undo in this list.',
+  canReset: false,
+  resetDisabledReason: 'This list is not ready to reset.',
   dragDisabledReason: '',
   emptyTitle: 'Nothing here yet',
   emptyCopy: 'There are no categories to display in this level.',
@@ -43,6 +51,8 @@ const emit = defineEmits<{
   move: [payload: { id: number; beforeId: number | null }]
   retry: []
   loadMore: []
+  undo: []
+  reset: []
   'update:search': [value: string]
 }>()
 
@@ -308,9 +318,38 @@ onBeforeUnmount(stopAutoScroll)
           <h2>{{ title }}</h2>
           <p>{{ subtitle }}</p>
         </div>
-        <span class="order-column__count" :aria-label="visibleTotal + ' total items'">
-          {{ rows.length }}<template v-if="visibleTotal !== rows.length"> / {{ visibleTotal }}</template>
-        </span>
+        <div class="order-column__summary">
+          <span class="order-column__count" :aria-label="visibleTotal + ' total items'">
+            {{ rows.length }}<template v-if="visibleTotal !== rows.length"> / {{ visibleTotal }}</template>
+          </span>
+          <div
+            class="order-column__tools"
+            role="group"
+            :aria-label="title + ' order history controls'"
+          >
+            <button
+              type="button"
+              :disabled="!canUndo"
+              :title="canUndo ? 'Undo the last saved move' : undoDisabledReason"
+              :aria-label="'Undo the last saved move in ' + title"
+              @click="emit('undo')"
+            >
+              <iconify-icon icon="solar:undo-left-outline" aria-hidden="true" />
+              <span>Undo last move</span>
+            </button>
+            <button
+              type="button"
+              class="order-column__reset"
+              :disabled="!canReset"
+              :title="canReset ? 'Reset to the original imported order' : resetDisabledReason"
+              :aria-label="'Reset ' + title + ' to the original imported order'"
+              @click="emit('reset')"
+            >
+              <iconify-icon icon="solar:refresh-circle-linear" aria-hidden="true" />
+              <span>Reset default</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <label class="order-column__search">
@@ -546,6 +585,57 @@ onBeforeUnmount(stopAutoScroll)
   color: var(--order-muted);
   font-size: 0.74rem;
   line-height: 1.35;
+}
+
+.order-column__summary {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.38rem;
+}
+
+.order-column__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.order-column__tools button {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  background: #fff;
+  padding: 0.22rem 0.42rem;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.order-column__tools button:hover:not(:disabled),
+.order-column__tools button:focus-visible {
+  border-color: #93c5fd;
+  outline: none;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.order-column__tools button:focus-visible {
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.14);
+}
+
+.order-column__tools button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.order-column__tools iconify-icon {
+  font-size: 0.82rem;
 }
 
 .order-column__count {
@@ -997,6 +1087,7 @@ onBeforeUnmount(stopAutoScroll)
   color: #e2e8f0;
 }
 
+:global(.dark) .order-column__tools button,
 :global(.dark) .order-column__count,
 :global(.dark) .order-row__position,
 :global(.dark) .order-row__actions button,

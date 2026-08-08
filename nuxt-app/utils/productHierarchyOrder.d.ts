@@ -44,6 +44,14 @@ export function filterHierarchyOrderRows(
   rows: HierarchyOrderRow[],
   query: string,
 ): HierarchyOrderRow[]
+export function classifyHierarchyRevision(
+  knownRevision: number | null,
+  candidateRevision: number | null,
+): 'invalid' | 'stale' | 'current' | 'newer'
+export function hierarchyOrderScopeKey(
+  level: HierarchyOrderLevel,
+  parentId?: number | null,
+): string
 export function moveBeforeSibling(
   rows: HierarchyOrderRow[],
   movedId: number,
@@ -59,6 +67,10 @@ export function moveHierarchyRowToPosition(
   movedId: number,
   targetPosition: number,
 ): { rows: HierarchyOrderRow[]; changed: boolean; beforeId: number | null }
+export function buildHierarchyUndoMove(
+  rows: HierarchyOrderRow[],
+  movedId: number,
+): { id: number; beforeId: number | null }
 export function hierarchyDragAutoScrollDelta(
   pointerY: number,
   top: number,
@@ -74,5 +86,14 @@ export function buildHierarchyMovePayload(
   level: HierarchyOrderLevel
   id: number
   before_id: number | null
+  revision: number
+}
+export function buildHierarchyResetPayload(
+  level: HierarchyOrderLevel,
+  parentId: number | null,
+  revision: number,
+): {
+  level: HierarchyOrderLevel
+  parent_id: number | null
   revision: number
 }

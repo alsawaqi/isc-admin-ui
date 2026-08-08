@@ -16,8 +16,12 @@ import type {
 } from '~/utils/productHierarchyOrder'
 import {
   buildHierarchyMovePayload,
+  buildHierarchyResetPayload,
+  buildHierarchyUndoMove,
+  classifyHierarchyRevision,
   extractHierarchyOrderPage,
   filterHierarchyOrderRows,
+  hierarchyOrderScopeKey,
   moveBeforeSibling,
   normalizeHierarchyLevel,
   normalizeHierarchyOrderRow,
@@ -41,6 +45,16 @@ interface PaneState {
   total: number
   revision: number | null
   requestId: number
+}
+
+interface SavedHierarchyMove {
+  level: HierarchyOrderLevel
+  parentId: number | null
+  scopeKey: string
+  id: number
+  beforeId: number | null
+  name: string
+  postRevision: number
 }
 
 interface GlobalHierarchyResult {
@@ -84,6 +98,9 @@ const selectedDepartmentId = ref<number | null>(null)
 const selectedSubDepartmentId = ref<number | null>(null)
 const selectedSubSubDepartmentId = ref<number | null>(null)
 const initialising = ref(true)
+const lastSavedMove = ref<SavedHierarchyMove | null>(null)
+const latestHierarchyRevision = ref<number | null>(null)
+const hierarchyActionAnnouncement = ref('')
 
 const globalSearchBox = ref<HTMLElement | null>(null)
 const globalQuery = ref('')
@@ -101,6 +118,59 @@ const paneForLevel = (level: HierarchyOrderLevel) => {
   if (level === 'department') return departmentPane
   if (level === 'sub_department') return subDepartmentPane
   return subSubDepartmentPane
+}
+
+const invalidateOtherPanes = (loadedLevel: HierarchyOrderLevel) => {
+  const staleMessage = 'Category order changed in another session. Reload this list before reordering.'
+  for (const pane of [departmentPane, subDepartmentPane, subSubDepartmentPane]) {
+    if (pane.level === loadedLevel) continue
+    if (!pane.rows.length && !pane.loading && pane.page === 0) continue
+
+    pane.requestId += 1
+    pane.loading = false
+    pane.revision = null
+    pane.error = staleMessage
+  }
+}
+
+const acceptTrustedMutationRevision = (
+  revision: number,
+  expectedRevision: number,
+) => {
+  const status = classifyHierarchyRevision(latestHierarchyRevision.value, revision)
+  if (status === 'invalid' || status === 'stale') return false
+
+  latestHierarchyRevision.value = revision
+  for (const pane of [departmentPane, subDepartmentPane, subSubDepartmentPane]) {
+    if (!pane.error && pane.revision === expectedRevision) {
+      pane.revision = revision
+    }
+  }
+  if (
+    lastSavedMove.value
+    && lastSavedMove.value.postRevision !== revision
+  ) {
+    lastSavedMove.value = null
+  }
+  return true
+}
+
+const acceptFetchedRevision = (level: HierarchyOrderLevel, revision: number) => {
+  const previousRevision = latestHierarchyRevision.value
+  const status = classifyHierarchyRevision(previousRevision, revision)
+  if (status === 'invalid' || status === 'stale') return false
+
+  const externallyAdvanced = previousRevision !== null && status === 'newer'
+  latestHierarchyRevision.value = revision
+  paneForLevel(level).revision = revision
+
+  if (externallyAdvanced) {
+    lastSavedMove.value = null
+    invalidateOtherPanes(level)
+    hierarchyActionAnnouncement.value = 'Category order changed elsewhere. Other loaded lists must be refreshed before reordering.'
+  }
+
+  return true
 }
 
 const selectedDepartment = computed(() => (
@@ -137,6 +207,12 @@ const loadedCount = computed(() => (
   + subSubDepartmentPane.rows.length
 ))
 
+const hierarchyMutationBusy = computed(() => (
+  departmentPane.busy
+  || subDepartmentPane.busy
+  || subSubDepartmentPane.busy
+))
+
 const hasMore = (pane: PaneState) => pane.page < pane.lastPage
 
 const parentIdForLevel = (level: HierarchyOrderLevel) => {
@@ -157,29 +233,42 @@ const resetPane = (pane: PaneState) => {
   pane.revision = null
 }
 
-const hierarchyOrderError = (error: unknown, action: 'load' | 'save') => apiErrorMessage(error, {
-  fallback: action === 'save'
-    ? 'The new display order could not be saved.'
-    : 'The category display order could not be loaded.',
-  forbidden: action === 'save'
-    ? 'Your account can view categories but cannot change their display order.'
-    : 'Your account does not have permission to view the category display order.',
-  validation: 'This move is no longer valid. Refresh the list and try again.',
+type HierarchyOrderAction = 'load' | 'save' | 'undo' | 'reset'
+
+const hierarchyOrderError = (error: unknown, action: HierarchyOrderAction) => apiErrorMessage(error, {
+  fallback: action === 'load'
+    ? 'The category display order could not be loaded.'
+    : action === 'undo'
+      ? 'The last move could not be undone.'
+      : action === 'reset'
+        ? 'The default display order could not be restored.'
+        : 'The new display order could not be saved.',
+  forbidden: action === 'load'
+    ? 'Your account does not have permission to view the category display order.'
+    : 'Your account can view categories but cannot change their display order.',
+  validation: action === 'reset'
+    ? 'This category scope is no longer valid. Refresh the list and try again.'
+    : 'This move is no longer valid. Refresh the list and try again.',
   rateLimited: 'Too many order changes were made. Wait a moment and try again.',
-  server: action === 'save'
-    ? 'The server could not save this move. The previous order has been restored.'
-    : 'The server could not load this category level. Try again shortly.',
-  network: action === 'save'
-    ? 'The server could not be reached. The previous order has been restored.'
-    : 'The server could not be reached. Check your connection and try again.',
+  server: action === 'load'
+    ? 'The server could not load this category level. Try again shortly.'
+    : action === 'reset'
+      ? 'The server could not reset this order. The current order was kept.'
+      : 'The server could not save this change. The previous order has been restored.',
+  network: action === 'load'
+    ? 'The server could not be reached. Check your connection and try again.'
+    : action === 'reset'
+      ? 'The reset could not be confirmed. Refresh before making another order change.'
+      : 'The server could not be reached. The previous order has been restored.',
 })
 
 const fetchPane = async (
   level: HierarchyOrderLevel,
-  options: { reset?: boolean } = {},
+  options: { reset?: boolean; staleRetry?: number } = {},
 ) => {
   const pane = paneForLevel(level)
   const reset = options.reset !== false
+  const staleRetry = options.staleRetry ?? 0
   const parentId = parentIdForLevel(level)
 
   if (level !== 'department' && !parentId) {
@@ -192,11 +281,6 @@ const fetchPane = async (
   pane.loading = true
   pane.error = ''
 
-  if (reset) {
-    pane.page = 0
-    pane.lastPage = 1
-    pane.total = 0
-  }
 
   const requestedPage = reset ? 1 : pane.page + 1
 
@@ -214,6 +298,23 @@ const fetchPane = async (
     if (pane.requestId !== requestId) return false
 
     const page = extractHierarchyOrderPage(response.data, level)
+    const revisionStatus = classifyHierarchyRevision(
+      latestHierarchyRevision.value,
+      page.revision,
+    )
+    if (revisionStatus === 'invalid' || revisionStatus === 'stale') {
+      if (staleRetry < 1) {
+        flash.info('An outdated category response was ignored. Reloading the latest order.')
+        return fetchPane(level, { staleRetry: staleRetry + 1 })
+      }
+
+      pane.error = 'The server returned an outdated category order. Try loading this list again.'
+      hierarchyActionAnnouncement.value = 'An outdated category response was rejected. No category rows were changed.'
+      return false
+    }
+    if (!reset && pane.revision === null) {
+      return fetchPane(level, { staleRetry })
+    }
     if (
       !reset
       && pane.revision !== null
@@ -221,7 +322,7 @@ const fetchPane = async (
       && pane.revision !== page.revision
     ) {
       flash.info('Category order changed while more items were loading. The latest list was reloaded.')
-      return fetchPane(level)
+      return fetchPane(level, { staleRetry })
     }
     if (reset) {
       pane.rows = page.rows
@@ -236,7 +337,7 @@ const fetchPane = async (
     pane.page = page.currentPage
     pane.lastPage = Math.max(page.lastPage, page.currentPage)
     pane.total = Math.max(page.total, pane.rows.length)
-    pane.revision = page.revision
+    if (page.revision) acceptFetchedRevision(level, page.revision)
     return true
   } catch (error) {
     if (pane.requestId !== requestId) return false
@@ -286,7 +387,12 @@ const selectDepartment = async (
 
 const loadMorePane = (level: HierarchyOrderLevel) => {
   const pane = paneForLevel(level)
-  if (pane.loading || !hasMore(pane)) return
+  if (pane.loading) return
+  if (pane.error || !pane.revision) {
+    fetchPane(level)
+    return
+  }
+  if (!hasMore(pane)) return
   fetchPane(level, { reset: false })
 }
 
@@ -294,11 +400,19 @@ const retryPane = (level: HierarchyOrderLevel) => {
   fetchPane(level)
 }
 
+const scopeKeyForLevel = (level: HierarchyOrderLevel) => {
+  try {
+    return hierarchyOrderScopeKey(level, parentIdForLevel(level))
+  } catch {
+    return ''
+  }
+}
+
 const reorderDisabledReason = (pane: PaneState) => {
   if (pane.search.trim()) return 'Clear this filter before reordering all siblings.'
   if (hasMore(pane)) return 'Load every sibling before reordering this level.'
   if (pane.loading) return 'Wait for this level to finish loading.'
-  if (pane.busy) return 'Saving the previous move.'
+  if (hierarchyMutationBusy.value) return 'Wait for the current order change to finish.'
   if (pane.error) return 'Reload this list before reordering.'
   if (!pane.revision) return 'Refresh this list before reordering.'
   return ''
@@ -308,11 +422,68 @@ const canReorderPane = (pane: PaneState) => (
   !pane.search.trim()
   && !hasMore(pane)
   && !pane.loading
-  && !pane.busy
+  && !hierarchyMutationBusy.value
   && !pane.error
   && Number.isInteger(pane.revision)
   && Number(pane.revision) > 0
 )
+
+const undoEntryForPane = (pane: PaneState) => {
+  if (!lastSavedMove.value) return null
+  return lastSavedMove.value.scopeKey === scopeKeyForLevel(pane.level)
+    ? lastSavedMove.value
+    : null
+}
+
+const canUndoPane = (pane: PaneState) => {
+  const entry = undoEntryForPane(pane)
+  return Boolean(
+    entry
+    && canReorderPane(pane)
+    && pane.revision === entry.postRevision
+    && pane.rows.some(row => row.id === entry.id)
+    && (entry.beforeId === null || pane.rows.some(row => row.id === entry.beforeId)),
+  )
+}
+
+const undoDisabledReason = (pane: PaneState) => {
+  const entry = undoEntryForPane(pane)
+  if (!lastSavedMove.value) return 'There is no saved move to undo.'
+  if (!entry) return 'The last saved move belongs to another category list.'
+  if (pane.revision !== entry.postRevision) return 'This list changed after the saved move.'
+  return reorderDisabledReason(pane) || 'The saved move can no longer be undone from this list.'
+}
+
+const canResetPane = (pane: PaneState) => (
+  !pane.search.trim()
+  && !pane.loading
+  && !hierarchyMutationBusy.value
+  && !pane.error
+  && Number.isInteger(pane.revision)
+  && Number(pane.revision) > 0
+  && (pane.level === 'department' || Boolean(parentIdForLevel(pane.level)))
+  && Math.max(pane.total, pane.rows.length) > 1
+)
+
+const resetDisabledReason = (pane: PaneState) => {
+  if (pane.level !== 'department' && !parentIdForLevel(pane.level)) {
+    return pane.level === 'sub_department'
+      ? 'Select a category before resetting its subcategories.'
+      : 'Select a subcategory before resetting its sub-subcategories.'
+  }
+  if (pane.search.trim()) return 'Clear this filter before resetting the full list.'
+  if (pane.loading) return 'Wait for this level to finish loading.'
+  if (hierarchyMutationBusy.value) return 'Wait for the current order change to finish.'
+  if (pane.error) return 'Reload this list before resetting it.'
+  if (!pane.revision) return 'Refresh this list before resetting it.'
+  if (Math.max(pane.total, pane.rows.length) < 2) return 'This list has no alternate order to reset.'
+  return ''
+}
+
+const reloadAfterConflict = async (level: HierarchyOrderLevel) => {
+  lastSavedMove.value = null
+  await fetchPane(level)
+}
 
 const handleMove = async (
   level: HierarchyOrderLevel,
@@ -324,7 +495,10 @@ const handleMove = async (
     return
   }
 
+  const parentId = parentIdForLevel(level)
   const previous = pane.rows.map(row => ({ ...row }))
+  const inverse = buildHierarchyUndoMove(previous, move.id)
+  const movedName = previous.find(row => row.id === move.id)?.name || 'Category'
   const revision = pane.revision
   if (!revision) {
     flash.warning('Refresh this list before reordering.')
@@ -339,19 +513,177 @@ const handleMove = async (
       buildHierarchyMovePayload(level, move.id, move.beforeId, revision),
     )
     const nextRevision = Number(response.data?.meta?.revision)
-    if (Number.isInteger(nextRevision) && nextRevision > 0) {
-      pane.revision = nextRevision
+    const acceptedRevision = Number.isInteger(nextRevision)
+      && nextRevision > 0
+      && acceptTrustedMutationRevision(nextRevision, revision)
+    const trustedRevision = acceptedRevision
+      && pane.revision === nextRevision
+    if (!trustedRevision) {
+      await fetchPane(level)
+    }
+    if (response.data?.meta?.moved !== false && trustedRevision && pane.revision) {
+      lastSavedMove.value = {
+        level,
+        parentId,
+        scopeKey: hierarchyOrderScopeKey(level, parentId),
+        id: inverse.id,
+        beforeId: inverse.beforeId,
+        name: movedName,
+        postRevision: pane.revision,
+      }
     }
     flash.success('Category display order saved.')
+    hierarchyActionAnnouncement.value = `${movedName} order saved. Undo is available in this list.`
   } catch (error: any) {
     pane.rows = previous
     if (Number(error?.response?.status ?? 0) === 409) {
       flash.warning(
         'Category order changed in another session. The latest order has been reloaded; try your move again.',
       )
-      await fetchPane(level)
+      hierarchyActionAnnouncement.value = 'The order changed elsewhere. The latest list was reloaded.'
+      await reloadAfterConflict(level)
     } else {
       flash.error(hierarchyOrderError(error, 'save'))
+      hierarchyActionAnnouncement.value = 'The move was not saved. The previous order was restored.'
+    }
+  } finally {
+    pane.busy = false
+  }
+}
+
+const handleUndo = async (level: HierarchyOrderLevel) => {
+  const pane = paneForLevel(level)
+  const entry = undoEntryForPane(pane)
+  if (!entry || !canUndoPane(pane)) {
+    flash.warning(undoDisabledReason(pane))
+    return
+  }
+
+  const revision = pane.revision
+  if (!revision) {
+    flash.warning('Refresh this list before undoing the move.')
+    return
+  }
+
+  const previous = pane.rows.map(row => ({ ...row }))
+  try {
+    pane.rows = moveBeforeSibling(pane.rows, entry.id, entry.beforeId)
+    pane.busy = true
+    const response = await $axios.patch(
+      DISPLAY_ORDER_API,
+      buildHierarchyMovePayload(level, entry.id, entry.beforeId, revision),
+    )
+    const nextRevision = Number(response.data?.meta?.revision)
+    const trustedRevision = Number.isInteger(nextRevision)
+      && acceptTrustedMutationRevision(nextRevision, revision)
+      && pane.revision === nextRevision
+    if (!trustedRevision) {
+      await fetchPane(level)
+    }
+    lastSavedMove.value = null
+    flash.success(`The last move for ${entry.name} was undone.`)
+    hierarchyActionAnnouncement.value = `${entry.name} returned to its previous position.`
+  } catch (error: any) {
+    pane.rows = previous
+    if (Number(error?.response?.status ?? 0) === 409) {
+      flash.warning(
+        'Category order changed in another session. Undo was cancelled and the latest list was reloaded.',
+      )
+      hierarchyActionAnnouncement.value = 'Undo was cancelled because the list changed elsewhere.'
+      await reloadAfterConflict(level)
+    } else {
+      flash.error(hierarchyOrderError(error, 'undo'))
+      hierarchyActionAnnouncement.value = 'Undo was not saved. You can try again.'
+    }
+  } finally {
+    pane.busy = false
+  }
+}
+
+const resetCopy = (level: HierarchyOrderLevel, count: number) => {
+  if (level === 'department') {
+    return {
+      title: 'Reset category order?',
+      message: `Restore all ${count.toLocaleString()} categories to their original imported sequence?`,
+    }
+  }
+  if (level === 'sub_department') {
+    return {
+      title: 'Reset subcategory order?',
+      message: `Restore all ${count.toLocaleString()} subcategories inside “${departmentContext.value}” to their original imported sequence?`,
+    }
+  }
+  return {
+    title: 'Reset sub-subcategory order?',
+    message: `Restore all ${count.toLocaleString()} sub-subcategories inside “${subDepartmentContext.value}” to their original imported sequence?`,
+  }
+}
+
+const handleReset = async (level: HierarchyOrderLevel) => {
+  const pane = paneForLevel(level)
+  if (!canResetPane(pane)) {
+    flash.warning(resetDisabledReason(pane))
+    return
+  }
+
+  const count = Math.max(pane.total, pane.rows.length)
+  const confirmedScopeKey = scopeKeyForLevel(level)
+  const copy = resetCopy(level, count)
+  const confirmed = await flash.confirm({
+    title: copy.title,
+    message: copy.message,
+    confirmText: 'Reset order',
+    cancelText: 'Keep current order',
+  })
+  if (!confirmed) {
+    hierarchyActionAnnouncement.value = 'Reset cancelled. The current order was kept.'
+    return
+  }
+  if (scopeKeyForLevel(level) !== confirmedScopeKey) {
+    flash.warning('The selected category list changed. Review it before resetting the order.')
+    hierarchyActionAnnouncement.value = 'Reset cancelled because the selected category list changed.'
+    return
+  }
+  if (!canResetPane(pane) || !pane.revision) {
+    flash.warning(resetDisabledReason(pane) || 'Refresh this list before resetting it.')
+    return
+  }
+
+  const parentId = parentIdForLevel(level)
+  const revision = pane.revision
+  try {
+    pane.busy = true
+    const response = await $axios.post(
+      `${DISPLAY_ORDER_API}/reset`,
+      buildHierarchyResetPayload(level, parentId, revision),
+    )
+    const nextRevision = Number(response.data?.meta?.revision)
+    const wasReset = response.data?.meta?.changed !== false
+    if (Number.isInteger(nextRevision) && nextRevision > 0) {
+      if (!acceptTrustedMutationRevision(nextRevision, revision)) {
+        hierarchyActionAnnouncement.value = 'The reset response was older than the latest known category order. Reloading.'
+      }
+    }
+    lastSavedMove.value = null
+    await fetchPane(level)
+
+    if (wasReset) {
+      flash.success('The original imported order was restored.')
+      hierarchyActionAnnouncement.value = 'The original imported order was restored for this list.'
+    } else {
+      flash.info('This list is already using its original imported order.')
+      hierarchyActionAnnouncement.value = 'This list is already using its original imported order.'
+    }
+  } catch (error: any) {
+    if (Number(error?.response?.status ?? 0) === 409) {
+      flash.warning(
+        'Category order changed in another session. Reset was cancelled and the latest list was reloaded.',
+      )
+      hierarchyActionAnnouncement.value = 'Reset was cancelled because the list changed elsewhere.'
+      await reloadAfterConflict(level)
+    } else {
+      flash.error(hierarchyOrderError(error, 'reset'))
+      hierarchyActionAnnouncement.value = 'The list was not reset. Its current order was kept.'
     }
   } finally {
     pane.busy = false
@@ -582,6 +914,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="dashboard-main-body hierarchy-order-page">
+    <span class="visually-hidden" aria-live="polite">
+      {{ hierarchyActionAnnouncement }}
+    </span>
     <header class="hierarchy-order-hero">
       <div>
         <h1>Category display order</h1>
@@ -725,12 +1060,18 @@ onBeforeUnmount(() => {
           :has-more="hasMore(departmentPane)"
           :drag-disabled="!canReorderPane(departmentPane)"
           :drag-disabled-reason="reorderDisabledReason(departmentPane)"
+          :can-undo="canUndoPane(departmentPane)"
+          :undo-disabled-reason="undoDisabledReason(departmentPane)"
+          :can-reset="canResetPane(departmentPane)"
+          :reset-disabled-reason="resetDisabledReason(departmentPane)"
           empty-title="No categories found"
           :empty-copy="departmentPane.search
             ? 'No categories match this filter.'
             : 'Create or import a product category before arranging it.'"
           @select="selectDepartment"
           @move="handleMove('department', $event)"
+          @undo="handleUndo('department')"
+          @reset="handleReset('department')"
           @retry="retryPane('department')"
           @load-more="loadMorePane('department')"
         />
@@ -755,6 +1096,10 @@ onBeforeUnmount(() => {
           :has-more="hasMore(subDepartmentPane)"
           :drag-disabled="!selectedDepartmentId || !canReorderPane(subDepartmentPane)"
           :drag-disabled-reason="reorderDisabledReason(subDepartmentPane)"
+          :can-undo="canUndoPane(subDepartmentPane)"
+          :undo-disabled-reason="undoDisabledReason(subDepartmentPane)"
+          :can-reset="canResetPane(subDepartmentPane)"
+          :reset-disabled-reason="resetDisabledReason(subDepartmentPane)"
           :empty-title="selectedDepartmentId ? 'No subcategories found' : 'Choose a category'"
           :empty-copy="selectedDepartmentId
             ? (subDepartmentPane.search
@@ -763,6 +1108,8 @@ onBeforeUnmount(() => {
             : 'The selected category’s children will appear here.'"
           @select="selectSubDepartment"
           @move="handleMove('sub_department', $event)"
+          @undo="handleUndo('sub_department')"
+          @reset="handleReset('sub_department')"
           @retry="retryPane('sub_department')"
           @load-more="loadMorePane('sub_department')"
         />
@@ -787,6 +1134,10 @@ onBeforeUnmount(() => {
           :has-more="hasMore(subSubDepartmentPane)"
           :drag-disabled="!selectedSubDepartmentId || !canReorderPane(subSubDepartmentPane)"
           :drag-disabled-reason="reorderDisabledReason(subSubDepartmentPane)"
+          :can-undo="canUndoPane(subSubDepartmentPane)"
+          :undo-disabled-reason="undoDisabledReason(subSubDepartmentPane)"
+          :can-reset="canResetPane(subSubDepartmentPane)"
+          :reset-disabled-reason="resetDisabledReason(subSubDepartmentPane)"
           :empty-title="selectedSubDepartmentId ? 'No sub-subcategories found' : 'Choose a subcategory'"
           :empty-copy="selectedSubDepartmentId
             ? (subSubDepartmentPane.search
@@ -795,6 +1146,8 @@ onBeforeUnmount(() => {
             : 'The final category level will appear here.'"
           @select="selectedSubSubDepartmentId = $event"
           @move="handleMove('sub_sub_department', $event)"
+          @undo="handleUndo('sub_sub_department')"
+          @reset="handleReset('sub_sub_department')"
           @retry="retryPane('sub_sub_department')"
           @load-more="loadMorePane('sub_sub_department')"
         />

@@ -146,9 +146,41 @@ export const filterHierarchyOrderRows = (rows, query) => (
   (Array.isArray(rows) ? rows : []).filter(row => hierarchyRowMatchesSearch(row, query))
 )
 
-const scopeKey = row => (
-  normalizeHierarchyLevel(row?.level) + ':' + String(row?.parentId ?? 'root')
-)
+export const classifyHierarchyRevision = (knownRevision, candidateRevision) => {
+  const known = Number(knownRevision)
+  const candidate = Number(candidateRevision)
+  const hasKnown = Number.isInteger(known) && known > 0
+  const hasCandidate = Number.isInteger(candidate) && candidate > 0
+
+  if (!hasCandidate) return 'invalid'
+  if (!hasKnown) return 'newer'
+  if (candidate < known) return 'stale'
+  if (candidate > known) return 'newer'
+  return 'current'
+}
+
+export const hierarchyOrderScopeKey = (level, parentId = null) => {
+  const normalizedLevel = normalizeHierarchyLevel(level, '')
+  if (!LEVELS.has(normalizedLevel)) {
+    throw new TypeError('A valid hierarchy level is required.')
+  }
+
+  if (normalizedLevel === 'department') {
+    if (parentId !== null && parentId !== undefined && parentId !== '') {
+      throw new TypeError('Root categories cannot have a parent scope.')
+    }
+    return 'department:root'
+  }
+
+  const normalizedParentId = Number(parentId)
+  if (!Number.isInteger(normalizedParentId) || normalizedParentId < 1) {
+    throw new TypeError('A positive parent id is required for this hierarchy scope.')
+  }
+
+  return normalizedLevel + ':' + normalizedParentId
+}
+
+const scopeKey = row => hierarchyOrderScopeKey(row?.level, row?.parentId)
 
 export const moveBeforeSibling = (rows, movedId, beforeId = null) => {
   const source = Array.isArray(rows) ? rows : []
@@ -228,6 +260,25 @@ export const moveHierarchyRowToPosition = (rows, movedId, targetPosition) => {
   }
 }
 
+export const buildHierarchyUndoMove = (rows, movedId) => {
+  const source = Array.isArray(rows) ? rows : []
+  const movedIndex = source.findIndex(row => Number(row.id) === Number(movedId))
+  if (movedIndex < 0) throw new RangeError('The moved hierarchy item was not found.')
+
+  const moved = source[movedIndex]
+  if (source.some(row => scopeKey(row) !== scopeKey(moved))) {
+    throw new TypeError('Hierarchy items can only be reordered within the same parent.')
+  }
+
+  const normalizedId = Number(moved.id)
+  const successorId = source[movedIndex + 1]?.id
+
+  return {
+    id: normalizedId,
+    beforeId: successorId === undefined ? null : Number(successorId),
+  }
+}
+
 export const hierarchyDragAutoScrollDelta = (
   pointerY,
   top,
@@ -294,6 +345,30 @@ export const buildHierarchyMovePayload = (level, id, beforeId = null, revision) 
     level: normalizedLevel,
     id: normalizedId,
     before_id: normalizedBeforeId,
+    revision: normalizedRevision,
+  }
+}
+
+export const buildHierarchyResetPayload = (level, parentId, revision) => {
+  const normalizedLevel = normalizeHierarchyLevel(level, '')
+  const normalizedRevision = Number(revision)
+
+  if (!LEVELS.has(normalizedLevel)) throw new TypeError('A valid hierarchy level is required.')
+  if (!Number.isInteger(normalizedRevision) || normalizedRevision < 1) {
+    throw new TypeError('A valid hierarchy order revision is required.')
+  }
+
+  let normalizedParentId = null
+  if (normalizedLevel === 'department') {
+    hierarchyOrderScopeKey(normalizedLevel, parentId)
+  } else {
+    normalizedParentId = Number(parentId)
+    hierarchyOrderScopeKey(normalizedLevel, normalizedParentId)
+  }
+
+  return {
+    level: normalizedLevel,
+    parent_id: normalizedParentId,
     revision: normalizedRevision,
   }
 }
