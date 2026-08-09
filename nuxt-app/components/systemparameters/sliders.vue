@@ -49,7 +49,7 @@ const activeCount = computed(() => rows.value.filter((row) => row.Is_Active).len
 const inactiveCount = computed(() => rows.value.length - activeCount.value)
 const selectedFileName = computed(() => form.value.file?.name || '')
 
-const publicR2Base = () => String(config.public.r2Url || '').replace(/\/+$/, '')
+const publicUploadsBase = () => String(config.public.uploadsUrl || '').replace(/\/+$/, '')
 
 function normalizeSliderImagePath(value?: string | null) {
   const raw = String(value || '').trim().replace(/\\/g, '/')
@@ -58,7 +58,6 @@ function normalizeSliderImagePath(value?: string | null) {
   if (/^https?:\/\//i.test(raw)) {
     try {
       const url = new URL(raw)
-      if (url.hostname.includes('r2.dev')) return raw
 
       const path = decodeURIComponent(url.pathname).replace(/^\/+/, '')
       const sliderIndex = path.indexOf('Sliders/')
@@ -82,7 +81,7 @@ function normalizeSliderImagePath(value?: string | null) {
 }
 
 const imageSrc = (row: SliderRow) => {
-  const base = publicR2Base()
+  const base = publicUploadsBase()
   const path = normalizeSliderImagePath(row.Image_Path || row.image_url)
   if (!path) return ''
   if (/^https?:\/\//i.test(path)) return path

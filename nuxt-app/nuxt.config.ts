@@ -1,6 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { defineNuxtConfig } from "nuxt/config";
 
+const apiBase = process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:81'
+const uploadsUrl = process.env.NUXT_PUBLIC_UPLOADS_URL || apiBase.replace(/\/+$/, '') + '/storage'
+
 export default defineNuxtConfig({
   modules: [
     "@pinia/nuxt",
@@ -81,8 +84,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || "http://localhost:81",
-      r2Url: "https://pub-85c3b7ddc4814c45b25c1a5fb5bdad3f.r2.dev",
+      apiBase,
+      uploadsUrl,
+      r2Url: uploadsUrl,
       BEAMS_INSTANCE_ID: "e1944000-0a47-4005-9ac3-1f0480b9ae16",
       pusherKey: "5f0de805484e24aaa216",
       pusherCluster: "ap2",
