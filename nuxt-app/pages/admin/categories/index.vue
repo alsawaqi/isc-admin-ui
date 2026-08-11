@@ -577,14 +577,14 @@ const toggleSort = (column: string) => {
         <!-- Body (your form) -->
         <form @submit.prevent="UpdateSubmit">
           <div class="mb-3">
-            <label class="form-label fw-semibold text-sm">Name Arabic<span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
             <input type="text" class="form-control radius-8" placeholder="Enter category name"
               v-model="editedDepartment.name" required />
           </div>
 
            <div class="mb-3">
-            <label class="form-label fw-semibold text-sm">Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control radius-8" placeholder="Enter category name"
+            <label class="form-label fw-semibold text-sm">Name (Arabic)<span class="text-danger">*</span></label>
+            <input type="text" class="form-control radius-8" placeholder="Enter category name in Arabic"
               v-model="editedDepartment.namear" required />
           </div>
 
