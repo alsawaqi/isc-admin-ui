@@ -13,6 +13,8 @@ const { $axios } = (useNuxtApp() as any)
 const flash = useFlashStore()
 
 type ProductRow = {
+  Vendor_Offer_Id?: number | null
+  Offer_Is_Active?: boolean
   id: number
   Product_Code?: string | null
   Product_Sku?: string | null
@@ -209,6 +211,7 @@ const saveCommission = async () => {
   commissionBusy.value = true
   try {
     await $axios.post(`/api/admin/vendor-products/${commissionProduct.value.id}/commission`, {
+      vendor_offer_id: commissionProduct.value.Vendor_Offer_Id,
       commission_type: commissionType.value,
       commission_value: Number(commissionValue.value),
     })
@@ -244,7 +247,8 @@ const toggleActive = async (product: ProductRow) => {
   if (!ok) return
 
   try {
-    await $axios.post(`/api/productmaster/${product.id}/${activating ? 'activate' : 'deactivate'}`)
+    if (product.Vendor_Offer_Id) await $axios.patch(`/api/admin/vendor-offers/${product.Vendor_Offer_Id}`, { action: activating ? 'activate' : 'deactivate' })
+    else await $axios.post(`/api/productmaster/${product.id}/${activating ? 'activate' : 'deactivate'}`)
     flash.success(activating ? 'Product activated.' : 'Product deactivated.')
     await fetchProducts()
   } catch (e: any) {
@@ -254,15 +258,16 @@ const toggleActive = async (product: ProductRow) => {
 
 const deleteProduct = async (product: ProductRow) => {
   const ok = await flash.confirm({
-    title: 'Delete Product?',
-    message: `This moves "${product.Product_Name}" to Deleted; it can be restored later from the Deleted view.`,
+    title: 'Remove Seller Offer?',
+    message: `This moves this seller’s offer for "${product.Product_Name}" to Deleted; it can be restored later from the Deleted view.`,
     confirmText: 'Yes, delete',
     cancelText: 'No, cancel',
   })
   if (!ok) return
 
   try {
-    await $axios.delete(`/api/productmaster/${product.id}`)
+    if (product.Vendor_Offer_Id) await $axios.patch(`/api/admin/vendor-offers/${product.Vendor_Offer_Id}`, { action: 'remove' })
+    else await $axios.delete(`/api/productmaster/${product.id}`)
     flash.success('Product moved to Deleted. It can be restored from the Deleted view.')
     await fetchProducts()
   } catch (e: any) {
@@ -280,7 +285,8 @@ const restoreProduct = async (product: ProductRow) => {
   if (!ok) return
 
   try {
-    await $axios.post(`/api/productmaster/${product.id}/restore`)
+    if (product.Vendor_Offer_Id) await $axios.patch(`/api/admin/vendor-offers/${product.Vendor_Offer_Id}`, { action: 'restore' })
+    else await $axios.post(`/api/productmaster/${product.id}/restore`)
     flash.success('Product restored successfully.')
     await fetchProducts()
   } catch (e: any) {
@@ -497,7 +503,7 @@ onMounted(async () => {
               </tr>
 
               <template v-else>
-                <tr v-for="(product, index) in products" :key="product.id">
+                <tr v-for="(product, index) in products" :key="product.Vendor_Offer_Id || product.id">
                   <td class="p-3 text-muted small">{{ pagination.from + index }}</td>
                   <td class="p-3">
                     <div class="d-flex flex-column">
@@ -554,7 +560,7 @@ onMounted(async () => {
                       >
                         {{ isActive(product) ? 'Deactivate' : 'Activate' }}
                       </button>
-                      <NuxtLink :to="`/admin/product/${product.id}`" class="btn-icon-lg bg-green-100 text-green-700">
+                      <NuxtLink :to="{ path: `/admin/product/${product.id}`, query: product.Vendor_Offer_Id ? { vendor_offer_id: product.Vendor_Offer_Id } : {} }" class="btn-icon-lg bg-green-100 text-green-700">
                         <iconify-icon icon="lucide:edit" class="fs-5"></iconify-icon>
                       </NuxtLink>
                       <button type="button" @click.prevent="deleteProduct(product)"

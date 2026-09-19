@@ -3,6 +3,7 @@ import { definePageMeta, useNuxtApp } from "#imports"
 import { ref, onMounted, computed } from "vue"
 import { useRoute } from "vue-router"
 import { useFlashStore } from '~/stores/flashs'
+import VendorProductMatchPicker from '~/components/admin/product/VendorProductMatchPicker.vue'
 import BulkPriceTable from '~/components/admin/product/BulkPriceTable.vue'
 import { normalizeTiers } from '~/utils/bulkPricing'
 
@@ -135,7 +136,7 @@ const error = ref<string | null>(null)
 const product = ref<TempProduct | null>(null)
 
 
- 
+
 
 const showApprove = ref(false)
 const showReject = ref(false)
@@ -149,6 +150,7 @@ const busyAction = ref(false)
 // Commission fields (required at approval time)
 const commissionType = ref<'percent' | 'fixed'>('percent')
 const commissionValue = ref<number | null>(null)
+const productMatch = ref<{ mode: 'existing' | 'new'; id: number | null; confirmed: boolean }>({ mode: 'existing', id: null, confirmed: false })
 const commissionError = ref<string | null>(null)
 
 function validateCommission(): boolean {
@@ -203,14 +205,20 @@ const fetchDetails = async () => {
 async function approveTemp() {
   resetActionToasts()
   if (!validateCommission()) return
+  if (!productMatch.value.confirmed || (productMatch.value.mode === 'existing' && !productMatch.value.id)) {
+    commissionError.value = 'Review the product match and confirm its identity first.'; return
+  }
 
   busyAction.value = true
   try {
     await $axios.post(`/api/admin/products-temp/${tempId}/approve`, {
+      approval_mode: productMatch.value.mode,
+      match_product_id: productMatch.value.id,
+      confirm_product_identity: productMatch.value.confirmed,
       commission_type: commissionType.value,
       commission_value: Number(commissionValue.value),
     })
-    flash.success('Product approved and moved to master catalog.')
+    flash.success('Product approved and linked to the vendor’s offer.')
     showApprove.value = false
     commissionValue.value = null
     await fetchDetails() // your existing fetch
@@ -300,10 +308,11 @@ onMounted(fetchDetails)
   <div class="modal-cardx">
     <h6 class="mb-2">Approve Product</h6>
     <p class="text-muted small mb-3">
-      This will approve and (if enabled) move it to master tables.
+      Approve this vendor’s offer against the correct master product.
       Set the commission the platform takes on this product.
     </p>
 
+    <VendorProductMatchPicker :temp-id="tempId" @selection="productMatch = $event" />
     <div v-if="commissionError" class="alert alert-danger py-2">{{ commissionError }}</div>
 
     <div class="mb-3">
@@ -632,7 +641,9 @@ onMounted(fetchDetails)
 }
 
 .modal-cardx {
-  width: min(520px, 100%);
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);

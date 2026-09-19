@@ -68,6 +68,8 @@ interface ProductBrand {
 
 const route = useRoute();
 const id = computed(() => route.params.id);
+const expectedOfferStock = ref(0);
+const offerParams = computed(() => route.query.vendor_offer_id ? { vendor_offer_id: Number(route.query.vendor_offer_id) } : {});
 
 const { getProductType } = useProductType();
 const { getProductBrands } = useProductsBrands();
@@ -187,8 +189,9 @@ const getManufactures = async () => {
 
 const getproducts = async (): Promise<void> => {
   try {
-    const response = await $axios.get(`/api/productmaster/${id.value}`);
+    const response = await $axios.get(`/api/productmaster/${id.value}`, { params: offerParams.value });
     const product = response.data;
+    expectedOfferStock.value = Number(product.Product_Stock || 0);
     const unit = isDimensionUnit(product.volume_type) ? product.volume_type : 'm';
 
     hydratingProduct.value = true;
@@ -251,7 +254,7 @@ const saveBulkPrices = async (): Promise<void> => {
   savingBulk.value = true
   try {
     const payload = tiersToPayload(bulkTiers.value)
-    const { data } = await $axios.post(`/api/productmaster/${id.value}/bulk-prices`, { tiers: payload })
+    const { data } = await $axios.post(`/api/productmaster/${id.value}/bulk-prices`, { tiers: payload }, { params: offerParams.value })
 
     // Re-sync from the server response when it returns the saved tiers.
     const saved = normalizeTiers(data?.tiers ?? data?.data ?? data)
@@ -280,10 +283,11 @@ const updateproducts = async (): Promise<void> => {
   try {
    const payload = {
      ...form.value,
+     ...(route.query.vendor_offer_id ? { expected_stock: expectedOfferStock.value } : {}),
      Minimum_Selling_Price: normalizedMoney(form.value.Minimum_Selling_Price),
      Product_Cost: normalizedMoney(form.value.Product_Cost),
    }
-   let response = await $axios.put(`/api/productmaster/${id.value}`, payload);
+   let response = await $axios.put(`/api/productmaster/${id.value}`, payload, { params: offerParams.value });
      console.log('Product updated:', response.data);
    alert('Product updated successfully!');
     await getproducts();
@@ -317,6 +321,7 @@ onMounted(async () => {
 
 
   <div class="dashboard-main-body">
+    <p v-if="route.query.vendor_offer_id" class="alert alert-info">Price, cost, minimum price, stock and bulk prices apply to this seller only. Names, descriptions, images and specifications are shared by all sellers of this product.</p>
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
       <h6 class="fw-semibold mb-0" style="color: #8b5676">Editing Products</h6>
       <ul class="d-flex align-items-center gap-2">
