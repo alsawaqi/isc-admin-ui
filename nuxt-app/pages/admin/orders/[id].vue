@@ -88,7 +88,11 @@ const getorders = async (): Promise<void> => {
 
 // open/close cancel modal
 const openCancelModal = () => { showCancel.value = true }
-const closeCancelModal = () => { showCancel.value = false; cancelNote.value = '' }
+const closeCancelModal = () => {
+  showCancel.value = false
+  cancelNote.value = ''
+  sigCancelRef.value?.clear()
+}
 
 // submit cancellation
 const submitCancellation = async () => {
@@ -96,23 +100,36 @@ const submitCancellation = async () => {
     alert('Please add a brief cancellation reason.')
     return
   }
+  if (!sigCancelRef.value || sigCancelRef.value.isEmpty()) {
+    alert('Please add your signature first.')
+    return
+  }
   cancelling.value = true
   try {
-     await $axios.post(`/api/orders-placed/${Orders_Id.value}/cancel`, {
-      note: cancelNote.value.trim(),
-      signature: sigCancelRef.value?.isEmpty() ? null : sigCancelRef.value?.toDataURL('image/png'),
-      selected_lines: selected.value.length > 0 ? selected.value : null,
+    const signatureResponse = await fetch(sigCancelRef.value.toDataURL('image/png'))
+    const signatureBlob = await signatureResponse.blob()
+    const signatureFile = new File([signatureBlob], `cancel-signature-${Orders_Id.value}.png`, {
+      type: 'image/png',
     })
+    const form = new FormData()
+    form.append('note', cancelNote.value.trim())
+    form.append('signature', signatureFile)
+    if (selected.value.length > 0) {
+      form.append('selected_lines', JSON.stringify(selected.value))
+    }
 
-
- 
+    await $axios.post(
+      `/api/orders-placed/${Orders_Id.value}/cancel`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
 
     closeCancelModal()
     
    navigateTo('/admin/orders/ordersplaced')  
-  } catch (e) {
-    console.error('Cancellation failed:', e)
-    alert('Failed to cancel the order.')
+  } catch (e: any) {
+    console.error('Cancellation failed:', e?.response?.data ?? e)
+    alert(e?.response?.data?.message ?? 'Failed to cancel the order.')
   } finally {
     cancelling.value = false
   }
