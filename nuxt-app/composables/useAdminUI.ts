@@ -1,8 +1,10 @@
 // composables/useAdminUI.ts
-import { onMounted } from 'vue'
+import { nextTick, onMounted } from 'vue'
 
 export function useAdminUI() {
-  onMounted(() => {
+  onMounted(async () => {
+    // Permission-controlled menus are rendered immediately after mounting.
+    await nextTick()
     // Sidebar dropdown toggle (accordion)
     const sidebarMenu = document.getElementById('sidebar-menu')
     if (sidebarMenu) {

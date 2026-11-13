@@ -6,6 +6,8 @@ import { useAuth } from '~/stores/auth'
 import { onMounted,computed,ref } from 'vue';
 
  
+const mounted = ref(false)
+onMounted(() => { mounted.value = true })
 useAdminUI()
 
  
@@ -15,7 +17,9 @@ const nuxtApp = useNuxtApp()
 
 const { $axios } = (nuxtApp as any);
 
-const hasPermission = (perm: string) => auth.permissions.includes(perm)
+// The server cannot read the browser's auth token. Keep the first client
+// render identical to SSR, then show the authorized menu after mounting.
+const hasPermission = (perm: string) => mounted.value && auth.permissions.includes(perm)
 
 
 const route = useRoute();
