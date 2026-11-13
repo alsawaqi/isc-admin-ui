@@ -20,6 +20,13 @@ export default defineNuxtConfig({
     ],
   ],
   vite: {
+    vue: {
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => tag === 'iconify-icon',
+        },
+      },
+    },
     optimizeDeps: {
       include: ["@pusher/push-notifications-web"],
     },

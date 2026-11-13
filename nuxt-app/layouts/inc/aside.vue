@@ -3,7 +3,6 @@ import {useRoute,useNuxtApp} from '#imports';
 import { NuxtLink } from '#components';
 import { useAdminUI } from '~/composables/useAdminUI'
 import { useAuth } from '~/stores/auth'
-import { getAdminLandingPath } from '~/utils/adminAccess'
 import { onMounted,computed,ref } from 'vue';
 
  
@@ -17,7 +16,6 @@ const nuxtApp = useNuxtApp()
 const { $axios } = (nuxtApp as any);
 
 const hasPermission = (perm: string) => auth.permissions.includes(perm)
-const adminHomePath = computed(() => getAdminLandingPath(auth.permissions))
 
 
 const route = useRoute();
@@ -361,7 +359,7 @@ onMounted(async () => {
 
     <div>
       <NuxtLink
-    :to="adminHomePath" class="sidebar-logo">
+    to="/admin" class="sidebar-logo">
         <img :src="logoSrc" alt="site logo" class="light-logo">
         <img :src="logoSrc" alt="site logo" class="dark-logo">
         <img :src="logoSrc" alt="site logo" class="logo-icon">
