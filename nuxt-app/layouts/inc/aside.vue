@@ -513,6 +513,9 @@ onMounted(async () => {
       </NuxtLink>
     </li>
 
+    <li v-if="hasPermission('product master')">
+        <NuxtLink to="/admin/product/import">Import Products from Excel</NuxtLink>
+    </li>
     <li v-if="hasPermission('product stock')">
       <NuxtLink
         to="/admin/product/stock"
