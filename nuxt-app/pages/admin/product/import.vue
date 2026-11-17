@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, shallowRef } from 'vue'
 import { definePageMeta, useHead } from '#imports'
 import ProductImportMappings from '~/components/admin/product/ProductImportMappings.vue'
 import ProductImportPreview from '~/components/admin/product/ProductImportPreview.vue'
+import ProductImportHistory from '~/components/admin/product/ProductImportHistory.vue'
 import { useProductImport } from '~/composables/useProductImport'
 import type { ImportOptions } from '~/types/productImport'
 
@@ -12,7 +13,7 @@ const file = shallowRef<File | null>(null)
 const fileError = shallowRef('')
 const previewOptions = shallowRef('')
 const options = reactive<ImportOptions>({ product_type_id: null, price_column: 'max', blank_stock: 'reject', category_map: {}, brand_map: {} })
-const { preview, receipt, busy, error, lookups, history, invalidate, load, inspect, commit } = useProductImport()
+const { preview, receipt, busy, error, lookups, history, undoNotice, invalidate, load, inspect, commit, rollback } = useProductImport()
 const stale = computed(() => Boolean(preview.value) && JSON.stringify(options) !== previewOptions.value)
 const canImport = computed(() => preview.value?.can_commit && !stale.value && !busy.value && !receipt.value)
 function chooseFile(event: Event) {
@@ -37,6 +38,7 @@ onMounted(load)
     <header class="page-header"><div><p class="eyebrow">PRODUCT CATALOGUE</p><h1>Import products from Excel</h1><p>Upload your product workbook, resolve any issues, then save the reviewed products.</p></div><NuxtLink to="/admin/product/viewproducts" class="text-link">View products →</NuxtLink></header>
     <div class="notice">Imports create <strong>inactive products</strong> for review. Add Arabic names, images, specifications and shipping measurements before activation. Existing products are never overwritten.</div>
     <p v-if="error || fileError" role="alert" class="error-box">{{ fileError || error }}</p>
+    <p v-if="undoNotice" role="status" class="success-box">{{ undoNotice }}</p>
     <div v-if="receipt" class="success-box" role="status"><strong>{{ receipt.created }} products imported successfully.</strong> Saved inactive, with {{ receipt.brands_created }} new brands. Import reference #{{ receipt.job_id }}.</div>
     <section class="upload-card" aria-labelledby="upload-title">
       <h2 id="upload-title">1. Choose your workbook</h2>
@@ -59,7 +61,7 @@ onMounted(load)
       <ProductImportPreview :preview="preview" />
       <div class="import-action"><p>{{ preview.summary.errors ? 'Correct the errors in your workbook or mappings, then preview again.' : 'Review the products and any warnings before saving.' }}</p><button type="button" class="primary" :disabled="!canImport" @click="commit">{{ busy === 'commit' ? 'Importing…' : `Import ${preview.summary.total} inactive products` }}</button></div>
     </template>
-    <section v-if="history.length" class="upload-card history-card"><h2>Your recent imports</h2><ul><li v-for="job in history" :key="job.id"><strong>#{{ job.id }} · {{ job.File_Name }}</strong><span>{{ job.Result.created }} products · {{ job.Committed_At }}</span></li></ul></section>
+    <ProductImportHistory :jobs="history" :busy="Boolean(busy)" :error="error" @undo="rollback" />
   </div>
 </template>
 

@@ -9,4 +9,6 @@ export interface ImportPreview {
   categories: { key: string; source: string; selected_id: string | number | null; options: ImportLookup[] }[];
   brands: { key: string; source: string; selected_id: string | number | null }[];
 }
-export interface ImportReceipt { job_id: number; created: number; product_ids: number[]; brands_created: number; active: boolean; idempotent: boolean }
+export interface ImportRollback { job_id: number; products_removed: number; brands_removed: number; brands_retained: number; rolled_back_at: string; idempotent: boolean }
+export interface ImportReceipt { job_id: number; created: number; product_ids: number[]; brands_created: number; active: boolean; idempotent: boolean; undo_available?: boolean; rollback?: ImportRollback }
+export interface ImportHistory { id: number | string; File_Name: string; Status: 'committed' | 'rolled_back'; Committed_At: string; Result: ImportReceipt }

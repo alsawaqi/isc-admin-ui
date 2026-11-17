@@ -4,7 +4,6 @@ import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import { defineNuxtPlugin, useRuntimeConfig } from '#app'
 import { useAuth } from '~/stores/auth'
-import { useRouter } from 'vue-router'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
@@ -49,7 +48,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       NProgress.done()
 
       const status = error.response?.status
-      const router = useRouter()
+      const router = nuxtApp.$router
       const auth = useAuth()
       
 
