@@ -56,7 +56,7 @@ const headers = ref<Array<{
   values: string[]
   _newVal?: string // <-- add this optional property
 }>>([
-  { name: '', input_type: 'text', is_required: false, show_in_filters: false, show_in_table: false, sort_order: 0, values: [], _newVal: '' }
+  { name: '', input_type: 'text', is_required: false, show_in_filters: true, show_in_table: false, sort_order: 0, values: [], _newVal: '' }
 ])
 
 
@@ -98,7 +98,7 @@ const addHeaderField = () => {
     name: '',
     input_type: 'text',
     is_required: false,
-    show_in_filters: false, show_in_table: false,
+    show_in_filters: true, show_in_table: false,
     sort_order: 0,
     values: [],
     _newVal: ''          // ← keep the temp value for the tag editor
@@ -156,7 +156,7 @@ const submitSpecs = async () => {
     subDepartments.value = []
     subSubDepartments.value = []
     headers.value = [
-      { name: '', input_type: 'text', is_required: false, show_in_filters: false, show_in_table: false, sort_order: 0, values: [], _newVal: '' }
+      { name: '', input_type: 'text', is_required: false, show_in_filters: true, show_in_table: false, sort_order: 0, values: [], _newVal: '' }
     ] 
   } catch (e) {
     flash.error('Failed to submit product specifications: ' + (e as any).message)
