@@ -17,9 +17,15 @@ export function useProductImport() {
   const invalidate = () => { generation++; controller?.abort(); preview.value = null; receipt.value = null; busy.value = null; error.value = '' }
   const load = async () => {
     try {
-      const [catalog, jobs] = await Promise.all([$axios.get('/api/product-import/lookups'), $axios.get('/api/product-import/history')])
-      lookups.value = catalog.data.data; history.value = jobs.data.data
+      const catalog = await $axios.get('/api/product-import/lookups')
+      lookups.value = catalog.data.data
     } catch (e) { error.value = apiErrorMessage(e, { fallback: 'Could not load the import settings. Please reload this page.' }) }
+  }
+  const loadHistory = async () => {
+    try {
+      const jobs = await $axios.get('/api/product-import/history')
+      history.value = jobs.data.data
+    } catch (e) { error.value = apiErrorMessage(e, { fallback: 'Could not load imports. Please reload this page.' }) }
   }
   const inspect = async (file: File, options: ImportOptions) => {
     invalidate(); const current = generation; controller = new AbortController(); busy.value = 'preview'
@@ -51,12 +57,12 @@ export function useProductImport() {
       preview.value = null
       if (Number(receipt.value?.job_id) === jobId) receipt.value = null
       undoNotice.value = `Import #${jobId} undone. Removed ${result.products_removed} products and ${result.brands_removed} unused brands.${result.brands_retained ? ` Kept ${result.brands_retained} brands that are used, changed, or require brand permission.` : ''}`
-      await load()
+      await loadHistory()
     } catch (e) {
       const uncertain = 'Undo was not confirmed. Retry this same import safely to check its result.'
       error.value = apiErrorMessage(e, { fallback: uncertain, server: uncertain, network: uncertain })
     } finally { busy.value = null }
   }
   onBeforeUnmount(() => { controller?.abort() })
-  return { preview, receipt, busy, error, lookups, history, undoNotice, invalidate, load, inspect, commit, rollback }
+  return { preview, receipt, busy, error, lookups, history, undoNotice, invalidate, load, loadHistory, inspect, commit, rollback }
 }
