@@ -42,7 +42,7 @@ function downloadIssues() {
         <thead><tr><th>Excel row</th><th>Action</th><th>Product / SKU</th><th>Barcode</th><th>Brand</th><th>Stock</th><th>Price (OMR)</th><th>Minimum (OMR)</th><th>Cost (OMR)</th><th>Review</th></tr></thead>
         <tbody>
           <tr v-for="row in visible" :key="row.row">
-            <td>{{ row.row }}</td><td><strong v-if="!row.valid" class="error">Blocked</strong><span v-else>{{ labels[row.action] }}</span><small v-if="row.target_id">Product #{{ row.target_id }} · {{ !row.valid ? labels[row.action] : row.sku }}</small></td><td class="product-cell"><strong>{{ row.name }}</strong><small>SKU: {{ row.sku }}</small><small>{{ row.description }}</small></td>
+            <td>{{ row.row }}</td><td><strong v-if="!row.valid" class="error">Blocked</strong><span v-else>{{ labels[row.action] }}</span><small v-if="row.target_id">Product #{{ row.target_id }} · {{ !row.valid ? labels[row.action] : row.sku }}</small></td><td class="product-cell"><strong>{{ row.name }}</strong><small>SKU: {{ row.sku }}</small><small v-if="row.product_type">Type: {{ row.product_type }}</small><small>{{ row.description }}</small></td>
             <td>{{ row.barcode }}</td><td>{{ row.brand }}</td><td>{{ row.stock ?? 'Missing' }}</td><td>{{ row.price ?? 'Missing' }}</td><td>{{ row.minimum ?? 'Missing' }}</td><td>{{ row.cost ?? 'Not supplied' }}</td>
             <td class="review-cell"><span v-if="!row.issues.length" class="ready">Ready</span><p v-for="(issue,index) in row.issues" :key="index" :class="issue.severity">{{ issue.message }}</p></td>
           </tr>

@@ -2,8 +2,9 @@ export interface ImportIssue { row: number; severity: 'error' | 'warning'; field
 export interface ImportOptions { match_inhouse?: boolean; product_type_id: number | null; price_column: 'min' | 'max'; blank_stock: 'reject' | 'zero'; category_map: Record<string, string>; brand_map: Record<string, string> }
 export interface ImportLookup { id: number | string; name: string }
 export type ImportAction = 'add' | 'update' | 'restore'
-export interface ImportRow { action: ImportAction; target_id: number | string | null; row: number; sku: string; name: string; description: string; barcode: string; stock: number | null; price: string | null; minimum: string | null; cost: string | null; brand: string; valid: boolean; issues: ImportIssue[] }
+export interface ImportRow { product_type?: string; action: ImportAction; target_id: number | string | null; row: number; sku: string; name: string; description: string; barcode: string; stock: number | null; price: string | null; minimum: string | null; cost: string | null; brand: string; valid: boolean; issues: ImportIssue[] }
 export interface ImportPreview {
+  row_product_types?: boolean;
   preview_token: string; expires_at: string; sheet: string; can_commit: boolean;
   summary: { add: number; update: number; restore: number; blocked: number; total: number; valid: number; errors: number; warnings: number; new_brands: number };
   rows: ImportRow[]; issues: ImportIssue[];

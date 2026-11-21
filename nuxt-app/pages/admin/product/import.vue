@@ -8,6 +8,7 @@ import type { ImportOptions } from '~/types/productImport'
 
 definePageMeta({ layout: 'admin', middleware: ['permission'], permission: 'product master' })
 useHead({ title: 'Import products from Excel · ISC Admin' })
+const templateUrl = String(useRuntimeConfig().public.apiBase).replace(/\/+$/, '') + '/templates/product-upload.xlsx'
 const file = shallowRef<File | null>(null)
 const fileError = shallowRef('')
 const previewOptions = shallowRef('')
@@ -35,21 +36,23 @@ onMounted(load)
 <template>
   <div class="dashboard-main-body product-import-page">
     <header class="page-header"><div><p class="eyebrow">PRODUCT CATALOGUE</p><h1>Import products from Excel</h1><p>Upload your product workbook, resolve any issues, then save the reviewed products.</p></div><NuxtLink to="/admin/product/viewproducts" class="text-link">View products →</NuxtLink></header>
-    <div class="notice">The in-house barcode identifies each product. Matches update selling prices, cost and stock. New products and restored products are saved inactive. Review each action before confirming.</div>
+    <div class="notice">The in-house barcode identifies each product. Matches update selling prices, cost, stock and any product type supplied in the template. New products and restored products are saved inactive. Review each action before confirming.</div>
     <p v-if="error || fileError" role="alert" class="error-box">{{ fileError || error }}</p>
     <div v-if="receipt" class="success-box" role="status"><strong>Import #{{ receipt.job_id }} complete.</strong> {{ receipt.created }} added · {{ receipt.updated ?? 0 }} updated · {{ receipt.restored ?? 0 }} restored and updated.</div>
     <section class="upload-card" aria-labelledby="upload-title">
       <h2 id="upload-title">1. Choose your workbook</h2>
+      <a :href="templateUrl" class="text-link">Download Excel template</a>
       <fieldset :disabled="Boolean(busy)">
         <label class="file-label" for="product-workbook">Excel workbook (.xlsx, up to 5 MB)</label>
         <input id="product-workbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="chooseFile">
-        <div class="settings-grid">
+        <div v-if="preview && !preview.row_product_types" class="settings-grid">
           <div class="settings-field"><label for="import-product-type">Product type</label><select id="import-product-type" v-model="options.product_type_id"><option :value="null">Choose a type</option><option v-for="type in lookups.types" :key="type.id" :value="Number(type.id)">{{ type.name }}</option></select></div>
           <div class="settings-field"><label for="import-price">Website selling price</label><select id="import-price" v-model="options.price_column"><option value="max">Max Sales Rate</option><option value="min">Min Sales Rate</option></select></div>
           <div class="settings-field"><label for="import-stock">Blank “Main Store” stock</label><select id="import-stock" v-model="options.blank_stock"><option value="reject">Flag as an error</option><option value="zero">Explicitly use zero stock</option></select></div>
         </div>
       </fieldset>
-      <details class="column-guide"><summary>How your columns are used</summary><p>Sr No → SKU · Main Groups / Sub Group / Sub Sub Group → category path · Brand Name → brand · Product_Name → English name · Product_Description → description · Barcode → supplier barcode · Main Store → stock · Cost → cost · Min Sales Rate → minimum price. “Total” is not imported because it is a stock valuation, not a unit price.</p><p>Blank costs remain empty. All rows must pass validation. Formula cells in imported columns must be replaced with values.</p></details>
+      <p v-if="preview && !preview.row_product_types" class="column-guide">This workbook has no Product Type column. Review the settings above, then preview again if you change them.</p>
+      <p v-else class="column-guide">Enter each product’s type, website selling price and stock in the template. A blank stock quantity imports as zero.</p>
       <button type="button" class="primary" :disabled="!file || Boolean(busy)" @click="previewFile">{{ busy === 'preview' ? 'Checking workbook…' : preview ? 'Preview again' : 'Preview workbook' }}</button>
       <span v-if="file" class="file-caption">{{ file.name }}</span>
     </section>
