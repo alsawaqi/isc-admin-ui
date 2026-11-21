@@ -56,7 +56,7 @@ export function useProductImport() {
       const result: ImportRollback = response.data.data
       preview.value = null
       if (Number(receipt.value?.job_id) === jobId) receipt.value = null
-      undoNotice.value = `Import #${jobId} undone. Removed ${result.products_removed} products and ${result.brands_removed} unused brands.${result.brands_retained ? ` Kept ${result.brands_retained} brands that are used, changed, or require brand permission.` : ''}`
+      undoNotice.value = `Import #${jobId} undone. Reversed ${result.updates_reversed ?? 0} updates. Removed ${result.products_removed} products and ${result.brands_removed} unused brands.${result.brands_retained ? ` Kept ${result.brands_retained} brands that are used, changed, or require brand permission.` : ''}`
       await loadHistory()
     } catch (e) {
       const uncertain = 'Undo was not confirmed. Retry this same import safely to check its result.'

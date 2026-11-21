@@ -11,7 +11,7 @@ useHead({ title: 'Import products from Excel · ISC Admin' })
 const file = shallowRef<File | null>(null)
 const fileError = shallowRef('')
 const previewOptions = shallowRef('')
-const options = reactive<ImportOptions>({ product_type_id: null, price_column: 'max', blank_stock: 'reject', category_map: {}, brand_map: {} })
+const options = reactive<ImportOptions>({ match_inhouse: true, product_type_id: null, price_column: 'max', blank_stock: 'reject', category_map: {}, brand_map: {} })
 const { preview, receipt, busy, error, lookups, invalidate, load, inspect, commit } = useProductImport()
 const stale = computed(() => Boolean(preview.value) && JSON.stringify(options) !== previewOptions.value)
 const canImport = computed(() => preview.value?.can_commit && !stale.value && !busy.value && !receipt.value)
@@ -35,9 +35,9 @@ onMounted(load)
 <template>
   <div class="dashboard-main-body product-import-page">
     <header class="page-header"><div><p class="eyebrow">PRODUCT CATALOGUE</p><h1>Import products from Excel</h1><p>Upload your product workbook, resolve any issues, then save the reviewed products.</p></div><NuxtLink to="/admin/product/viewproducts" class="text-link">View products →</NuxtLink></header>
-    <div class="notice">Imports create <strong>inactive products</strong> for review. Add Arabic names, images, specifications and shipping measurements before activation. Existing products are never overwritten.</div>
+    <div class="notice">The in-house barcode identifies each product. Matches update selling prices, cost and stock. New products and restored products are saved inactive. Review each action before confirming.</div>
     <p v-if="error || fileError" role="alert" class="error-box">{{ fileError || error }}</p>
-    <div v-if="receipt" class="success-box" role="status"><strong>{{ receipt.created }} products imported successfully.</strong> Saved inactive, with {{ receipt.brands_created }} new brands. Import reference #{{ receipt.job_id }}.</div>
+    <div v-if="receipt" class="success-box" role="status"><strong>Import #{{ receipt.job_id }} complete.</strong> {{ receipt.created }} added · {{ receipt.updated ?? 0 }} updated · {{ receipt.restored ?? 0 }} restored and updated.</div>
     <section class="upload-card" aria-labelledby="upload-title">
       <h2 id="upload-title">1. Choose your workbook</h2>
       <fieldset :disabled="Boolean(busy)">
@@ -57,7 +57,7 @@ onMounted(load)
       <ProductImportMappings :preview="preview" :brand-options="lookups.brands" :can-create-brands="lookups.can_create_brands" :category-map="options.category_map" :brand-map="options.brand_map" :disabled="Boolean(busy)" @category="mapCategory" @brand="mapBrand" />
       <p v-if="stale" class="notice" role="status">Settings changed. Click “Preview again” to check the updated mapping before importing.</p>
       <ProductImportPreview :preview="preview" />
-      <div class="import-action"><p>{{ preview.summary.errors ? 'Correct the errors in your workbook or mappings, then preview again.' : 'Review the products and any warnings before saving.' }}</p><button type="button" class="primary" :disabled="!canImport" @click="commit">{{ busy === 'commit' ? 'Importing…' : `Import ${preview.summary.total} inactive products` }}</button></div>
+      <div class="import-action"><p>{{ preview.summary.errors ? 'Correct the errors in your workbook or mappings, then preview again.' : 'Review the products and any warnings before saving.' }}</p><button type="button" class="primary" :disabled="!canImport" @click="commit">{{ busy === 'commit' ? 'Importing…' : `Confirm import of ${preview.summary.total} products` }}</button></div>
     </template>
     <NuxtLink to="/admin/product/undo-import" class="text-link undo-link">Undo an import</NuxtLink>
   </div>

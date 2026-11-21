@@ -9,17 +9,17 @@ const confirming = shallowRef<number | null>(null)
 <template>
   <section v-if="jobs.length" class="history-card" aria-labelledby="history-title">
     <h2 id="history-title">Your recent imports</h2>
-    <p>Undo removes an entire import only while its products are inactive, unchanged and unused. A record of the import and reversal is kept.</p>
+    <p>Undo removes eligible new products, reverses imported updates and returns restored products to the archive.</p>
     <ul>
       <li v-for="job in jobs" :key="job.id" :data-import-id="job.id">
-        <div class="job-heading"><div><strong>#{{ job.id }} · {{ job.File_Name }}</strong><span>{{ job.Result.created }} products · {{ job.Committed_At }}</span></div>
+        <div class="job-heading"><div><strong>#{{ job.id }} · {{ job.File_Name }}</strong><span>{{ job.Result.created }} added · {{ job.Result.updated ?? 0 }} updated · {{ job.Result.restored ?? 0 }} restored · {{ job.Committed_At }}</span></div>
           <span v-if="job.Status === 'rolled_back'" class="undone">Undone</span>
           <button v-else-if="job.Result.undo_available" type="button" :disabled="busy" :aria-expanded="confirming === Number(job.id)" @click="confirming = Number(job.id)">Undo import #{{ job.id }}</button>
           <span v-else>Undo unavailable for this older import.</span>
         </div>
-        <p v-if="job.Status === 'rolled_back'">Removed {{ job.Result.rollback?.products_removed }} products · {{ job.Result.rollback?.rolled_back_at }}</p>
+        <p v-if="job.Status === 'rolled_back'">Removed {{ job.Result.rollback?.products_removed }} products and reversed {{ job.Result.rollback?.updates_reversed ?? 0 }} updates · {{ job.Result.rollback?.rolled_back_at }}</p>
         <div v-else-if="confirming === Number(job.id)" class="confirmation" role="group" :aria-label="`Confirm undo import ${job.id}`">
-          <p>Remove all {{ job.Result.created }} products imported from <strong>{{ job.File_Name }}</strong>? Their imported barcodes and initial stock records will also be removed. New brands are removed only if unchanged, unused and you have brand permission. You can upload the corrected workbook again afterward.</p>
+          <p>Undo <strong>{{ job.File_Name }}</strong>? This removes {{ job.Result.created }} new products, reverses {{ job.Result.updated ?? 0 }} updates and returns {{ job.Result.restored ?? 0 }} restored products to the archive. Later changes may prevent undo.</p>
           <p v-if="error" role="alert" class="error">{{ error }}</p>
           <div class="actions"><button type="button" class="danger" :disabled="busy" @click="emit('undo', Number(job.id))">{{ busy ? 'Please wait…' : 'Confirm undo' }}</button><button type="button" :disabled="busy" @click="confirming = null">Cancel</button></div>
         </div>
