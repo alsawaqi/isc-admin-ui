@@ -25,7 +25,7 @@ interface Product {
   Product_Name: string;
   Product_Name_ar: string;
   Product_Description: string;
-  Inhouse_Barcode: string;
+  Inhouse_Barcode_Source: string | null;
   Product_Sku: string;
   Minimum_Selling_Price: number | '' | null;
   Product_Cost: number | '' | null;
@@ -90,7 +90,7 @@ const form = ref<Product>({
   Product_Name: '',
   Product_Name_ar: '',
   Product_Description: '',
-  Inhouse_Barcode: '',
+  Inhouse_Barcode_Source: null,
   Product_Sku: '',
   Minimum_Selling_Price: null,
   Product_Cost: null,
@@ -461,10 +461,14 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- In House Barcode -->
-              
-
-
+                <div class="col-12 col-md-6">
+                  <label for="inhouse-barcode" class="form-label fw-semibold">In-house barcode</label>
+                  <div class="icon-field">
+                    <span class="icon"><iconify-icon icon="mdi:barcode"></iconify-icon></span>
+                    <input id="inhouse-barcode" type="text" class="form-control" readonly
+                      :value="form.Inhouse_Barcode_Source ?? ''" placeholder="No in-house barcode recorded" />
+                  </div>
+                </div>
 
                 <!-- Product Name -->
                 <div class="col-12 col-md-6">

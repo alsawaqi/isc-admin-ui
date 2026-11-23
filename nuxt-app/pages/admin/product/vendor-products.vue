@@ -19,6 +19,7 @@ type ProductRow = {
   Product_Code?: string | null
   Product_Sku?: string | null
   Product_Name: string
+  Product_Description?: string | null
   Product_Price: number
   Product_Stock?: number | null
   Status?: string | null
@@ -480,6 +481,7 @@ onMounted(async () => {
               <tr>
                 <th class="p-3 fw-semibold">S.L</th>
                 <th class="p-3 fw-semibold">Product</th>
+                <th scope="col" class="p-3 fw-semibold">Description</th>
                 <th class="p-3 fw-semibold">Vendor</th>
                 <th class="p-3 fw-semibold">Category</th>
                 <th class="p-3 fw-semibold">Subcategory</th>
@@ -495,11 +497,11 @@ onMounted(async () => {
 
             <tbody>
               <tr v-if="loading">
-                <td colspan="12" class="p-4 text-center text-muted">Loading vendor products...</td>
+                <td colspan="13" class="p-4 text-center text-muted">Loading vendor products...</td>
               </tr>
 
               <tr v-else-if="products.length === 0">
-                <td colspan="12" class="p-4 text-center text-muted">No vendor products match the selected filters.</td>
+                <td colspan="13" class="p-4 text-center text-muted">No vendor products match the selected filters.</td>
               </tr>
 
               <template v-else>
@@ -511,6 +513,7 @@ onMounted(async () => {
                       <span class="text-muted small">{{ product.Product_Code || product.Product_Sku || `#${product.id}` }}</span>
                     </div>
                   </td>
+                  <td class="p-3 product-description">{{ product.Product_Description?.trim() || '—' }}</td>
                   <td class="p-3">
                     <div class="d-flex flex-column">
                       <span class="fw-semibold">{{ vendorLabel(product) }}</span>
@@ -655,6 +658,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.product-description {
+  min-width: 14rem;
+  max-width: 24rem;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .modal-backdropx {
   position: fixed;
   inset: 0;

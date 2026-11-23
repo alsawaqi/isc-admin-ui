@@ -52,6 +52,7 @@ type SpecRow = {
 interface Products {
   id: number;
   Product_Name: string;
+  Product_Description?: string | null;
   Product_Code?: string;
   Product_Sku?: string | null;
   created_at: string;
@@ -738,6 +739,7 @@ onMounted(async () => {
               <th scope="col" class="p-3">
                 <div class="d-flex align-items-center gap-1 fw-semibold">Name</div>
               </th>
+              <th scope="col" class="p-3 fw-semibold">Description</th>
               <th scope="col" class="p-3">
                 <div class="d-flex align-items-center gap-1 fw-semibold">Category</div>
               </th>
@@ -777,6 +779,7 @@ onMounted(async () => {
                   </span>
                 </div>
               </td>
+              <td class="p-3 product-description">{{ product.Product_Description?.trim() || '—' }}</td>
 
               <td class="p-3">
                 <span class="category-pill">{{ categoryName(product, 'department') }}</span>
@@ -1131,6 +1134,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.product-description {
+  min-width: 14rem;
+  max-width: 24rem;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .btn-icon-lg {
   width: 40px;
   height: 40px;
